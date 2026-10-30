@@ -30,7 +30,7 @@ cargo build --locked --workspace
 Commit `Cargo.lock` whenever dependencies change. The package is a
 library with publishing disabled. The implemented library provides
 validated identities, pure policy evaluation, and version-1/revision-5 lock
-inspection; it does not provide
+inspection and verified archive/sidecar metadata; it does not provide
 a usable executable yet. See the [current baseline](knowledge/project-baseline.md).
 
 Install [prek](https://prek.j178.dev/) and enable the local hooks:
@@ -53,8 +53,8 @@ RUSTDOCFLAGS='-D warnings' cargo doc --locked --workspace --all-features --no-de
 ```
 
 Rust tests exercise policy, locked inventory/paths, generated properties, and
-the initial Lean corpus through public APIs. Artifact interpretation and
-acquisition behavior remain implementation tasks.
+the initial Lean corpus through public APIs. In-memory metadata interpretation is implemented; acquisition and the CLI
+remain implementation tasks.
 The Python tooling tests exercise documentation validation. Run those and the
 strict user-site build using the [documentation procedure](documentation.md).
 
@@ -90,6 +90,9 @@ With cargo-fuzz 0.13.2 and nightly-2026-10-08 installed, run the initial smoke t
 ```sh
 cargo +nightly-2026-10-08 fuzz run policy -- -runs=1000 -max_len=4096
 cargo +nightly-2026-10-08 fuzz run uv_lock -- -runs=1000 -max_len=4096
+cargo +nightly-2026-10-08 fuzz run metadata -- -runs=1000 -max_len=4096
+cargo +nightly-2026-10-08 fuzz run wheel -- -runs=1000 -max_len=4096
+cargo +nightly-2026-10-08 fuzz run sdist -- -runs=1000 -max_len=4096
 tools/check_fuzz_licenses.sh
 ```
 

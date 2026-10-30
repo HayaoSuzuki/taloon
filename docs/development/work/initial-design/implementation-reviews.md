@@ -107,3 +107,46 @@ locked-origin hints, using existing locked versions and constraints. They do
 not re-resolve dependencies. Ambiguous hints leave a missing-path explanation;
 all locked targets still undergo policy checking. The risk is an unavailable
 origin explanation, not permission based on missing evidence.
+
+
+## Stage 3 distribution and metadata evidence
+
+Reviewed on 2026-10-31 from base `0c2e49e`. These checks cover in-memory
+interpretation; acquisition and the executable are still pending.
+
+1. **Specification pass:** traced declaration precedence, exact identities,
+   archive SHA-256, sidecar association/digest, and proof requirements through
+   public constructors. Invalid declarations remain observations that a later
+   clarification may replace; invalid identities and archives remain errors.
+2. **Adversarial pass:** inspected folded/repeated fields, invalid UTF-8,
+   historical/future metadata versions, duplicate ZIP paths, and source changes.
+   Added regressions rejecting historical 1.3/2.0 and exact duplicate members,
+   including ZIP readers that deduplicate their member index. No classifier or
+   prose fallback grants permission.
+3. **Design pass:** evidence hides ZIP/tar/header details and private proof
+   state behind constructors. Records preserve full metadata digests and header
+   bytes but discard Description bodies; the body-size regression confirms
+   persisted record size remains constant. Eight design diagnostics were checked:
+   information hiding, interface depth, responsibility, change locality,
+   abstraction value, naming, invariants, and explanatory comments. No unresolved
+   interface row remains in this slice.
+4. **Failure/resource pass:** checked hash-before-parse, unique regular metadata
+   members, gzip trailer validation, and cache corruption/source checks. Metadata
+   is bounded to 4 MiB and expanded tar input to 1 GiB; exceeding a limit is an
+   explicit error, never a skipped target. ZIP supports Stored/Deflate and source
+   archives support gzip/tar. Archive input is currently buffered by callers.
+   Cached records are trusted local observations with corruption checks, not
+   signed claims from arbitrary third parties. A sidecar cannot gain strength
+   through a record roundtrip.
+5. **Verification pass:** all 34 Rust tests passed, including 12 evidence tests
+   and five 256-case properties across stages. Metadata, wheel, and sdist fuzz
+   campaigns each completed 1,000 runs without a crash. Archive targets combine
+   arbitrary bytes with structure-aware repacking so valid checksums do not
+   prevent header-parser coverage. Strict Clippy, rustdoc, and both shipping and
+   fuzz dependency license/source checks passed. Lean policy correspondence is
+   unchanged; complete-inspection correspondence belongs to stage 4.
+
+Ruling: cache only original headers plus full-observation digests and a separate
+header checksum. This avoids retaining per-artifact Description bodies while
+preserving declarations and provenance. It assumes the local cache is trusted;
+its checksums detect corruption and do not authenticate third-party records.

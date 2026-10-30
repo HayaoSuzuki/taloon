@@ -7,7 +7,7 @@ sources:
 - id: cargo
   resource: ../../../Cargo.toml
   working_tree: modified
-  sha256: c27127e1f85dd6f1ddf02ffbf6926cde044fe806b92fd30207efb941bc3b00a8
+  sha256: 0a27ce74f1456fde645415fa3ba754fb7e7fb779f28d09678c2dd630b02826d8
 - id: toolchain
   resource: ../../../rust-toolchain.toml
   working_tree: untracked
@@ -23,7 +23,7 @@ sources:
 - id: crate
   resource: ../../../src/lib.rs
   working_tree: modified
-  sha256: d6e9497e68f7f0e81e6c1cd7b54ee608d4b5c1751817cdd747be2b90bd45293a
+  sha256: 06a3f5360dc429e05f6293e333830a45a97186536965fa6865c9cdff7ffecfa4
 - id: design-inputs
   resource: ../work/initial-design/specification-inputs.md
   working_tree: untracked
@@ -46,10 +46,11 @@ license, and LICENSE contains the license text.[^cargo][^license]
 # Implementation boundary
 
 The library implements validated identities, pure policy evaluation, and
-complete target enumeration/annotated paths for uv.lock version 1 revision 5.
+complete target enumeration/annotated paths for uv.lock version 1 revision 5,
+and in-memory wheel/source-archive and sidecar metadata evidence.
 [Stage reviews](../work/initial-design/implementation-reviews.md) record the tests,
 initial Lean proofs/correspondence, properties, and fuzzing evidence. A usable CLI,
-artifact interpretation, acquisition, and caching remain unimplemented.
+acquisition and caching remain unimplemented.
 Rust is the implementation language. The
 [license inspection specification](license-inspection.md) and
 [pure-core design](sans-io-design.md) now record the owner's approved design.
