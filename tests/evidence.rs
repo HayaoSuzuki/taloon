@@ -297,3 +297,12 @@ fn cached_sidecars_require_the_original_artifact_association() {
     .unwrap();
     assert!(Evidence::from_record(&second, evidence.to_record()).is_err());
 }
+
+#[test]
+fn wheel_metadata_must_be_a_regular_member() {
+    let mut bytes = wheel(&metadata("License-Expression: MIT"));
+    let directory = bytes.windows(4).position(|s| s == b"PK\x01\x02").unwrap();
+    bytes[directory + 5] = 3;
+    bytes[directory + 38..directory + 42].copy_from_slice(&(0o010_644_u32 << 16).to_le_bytes());
+    assert!(Evidence::from_archive(&request(&bytes, ArtifactFormat::Wheel), &bytes).is_err());
+}

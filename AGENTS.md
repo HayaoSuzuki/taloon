@@ -30,9 +30,9 @@ between documentation and implementation before resolving them.
 
 ## Project scope
 
-Implementation is primarily Rust and licensed under Elastic-2.0. The repository
-currently contains a development scaffold. The goal is to check licenses of
-all dependencies in uv.lock, including development and transitive dependencies.
-Metadata acquisition, artifact coverage, policy format, and caching remain open;
-do not treat Issue #1 design candidates as implemented contracts.
+Implementation is primarily Rust and licensed under Elastic-2.0. The checker
+covers external locked dependencies, including development and transitive
+records, through a pure inspection library and a binary-owned acquisition layer.
+Consult the [current baseline](docs/development/knowledge/project-baseline.md)
+and [user guide](docs/user/index.md) for implemented formats and limitations.
 Deployment and publishing are deferred.

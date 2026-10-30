@@ -287,3 +287,47 @@ for six affected TLS/certificate packages, retaining the global allowlist.
 An older netrc parser had Unicode indexing limitations; another required nightly
 and logged raw input. Neither is retained. The final small credential schema
 uses the existing quoted-token lexer and emits only fixed safe errors.
+
+## Stage 7 usable CLI and user guidance
+
+Reviewed on 2026-10-31 from base `5a506d9`.
+
+1. **Specification pass:** traced nearest-lock discovery, exact --project,
+   required sibling configuration, full-scope inspection, text/JSON, UTC date,
+   --offline, and --deny-warnings through real child processes. Startup failures
+   use the same versioned report envelope. Report owns exit precedence; the CLI
+   adds the actual process exit_code without recomputing license decisions.
+2. **Adversarial pass:** tested invalid arguments/configuration, absent local
+   artifacts, credential-bearing URLs, signed query redaction, and terminal
+   control characters. Compared user guidance with archive interpretation and
+   found non-symlink special ZIP members were accepted as metadata. A failing
+   FIFO-mode regression confirmed the mismatch. Wheel metadata now rejects
+   non-regular Unix member types; the regression passes.
+3. **Design pass:** checked the eight diagnostics against the CLI/core boundary.
+   Argument handlers own setup and rendering; Inspection, Policy, Evidence, and
+   acquisition retain their existing responsibilities. Date/environment are
+   obtained at runtime; no filesystem/clock/network calls enter the library.
+   Typed clap subcommands/format values and the existing status/code enums avoid
+   string dispatch for semantics. No unresolved design row remains.
+4. **Process/operations pass:** sentinel uv/Python executables and executable
+   setup.py in an sdist stayed unexecuted. Lock/config bytes stayed identical.
+   Cache warmed through the CLI continued to re-evaluate a changed policy,
+   without network or archive extraction. NETRC explicitly precedes the home
+   fallback, a missing explicit path does not fall back online, and offline
+   checks need no credentials. The hook descriptor and documented local hook
+   preserve whole-lock coverage; runner integration belongs to stage 8.
+5. **Verification pass:** 69 Rust tests passed: 17 binary, eight CLI, and 44
+   other public tests. Eight prior properties each use 256 cases; a new 32-case
+   child-process property independently checks report/exit consistency.
+   Both documented policy snippets parse through the real Policy API. Strict
+   Clippy, root/fuzz dependency checks, documentation validation, and strict
+   MkDocs build passed. Local cargo install succeeded into an isolated prefix
+   on Darwin arm64, Rust 1.99.1 and Apple clang 17.0.0. Initial release installation
+   took 22.27 seconds; final source replacement took 6.04 seconds. No CMake,
+   Python, uv, Lean, or fuzz tool is needed to run the installed checker.
+
+Rulings: argument errors use a fixed safe message pointing to --help; input
+reading bounds are explicit in the user guide. CLI JSON adds process exit_code
+to the library's serialized Report. Publishing remains deferred. Tests of the
+installed executable, hooks, CI wiring, and performance continue in stage 8;
+these stage-7 results do not establish that final integration checkpoint.

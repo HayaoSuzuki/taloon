@@ -7,7 +7,7 @@ sources:
 - id: cargo
   resource: ../../../Cargo.toml
   working_tree: modified
-  sha256: 0a27ce74f1456fde645415fa3ba754fb7e7fb779f28d09678c2dd630b02826d8
+  sha256: 52d917784ec7fb6b45b41062aca887b08568a2bb28cef0f49cdcf2a4a293bbc2
 - id: toolchain
   resource: ../../../rust-toolchain.toml
   working_tree: untracked
@@ -18,12 +18,12 @@ sources:
   sha256: 48255018b41fc0e965b1115af7e6779bc218bb8a6747d561da800d5022622aa2
 - id: scope
   resource: ../../../AGENTS.md
-  working_tree: untracked
-  sha256: afcfe774b5f3fe1abe4fd5cddc8286b73a596ef8cd78e692c4a96234a2bcabf7
+  working_tree: modified
+  sha256: dfcbbe67f52b344e1c87ef6f14f3db2b2c7b6ca755b81a95c20d9bc2643d4bb5
 - id: crate
   resource: ../../../src/lib.rs
   working_tree: modified
-  sha256: 06a3f5360dc429e05f6293e333830a45a97186536965fa6865c9cdff7ffecfa4
+  sha256: 2148d4779ea1155e61bdd50b3f78c62d5c96be0ca8eeb35c9748ea9ae97cbf5c
 - id: design-inputs
   resource: ../work/initial-design/specification-inputs.md
   working_tree: untracked
@@ -32,6 +32,10 @@ sources:
   resource: ../work/initial-design/implementation-approval.md
   working_tree: untracked
   sha256: 1593dc51b5663e513152059e50b39795063a696bf3b6b417c9a5c8fae959834c
+- id: runtime
+  resource: ../../../src/cli.rs
+  working_tree: untracked
+  sha256: 893b9331280b6db0987a9ae32b5203ea1e08635f8c85b19f340b5d088532f64c
 ---
 # Current baseline
 
@@ -45,23 +49,24 @@ license, and LICENSE contains the license text.[^cargo][^license]
 
 # Implementation boundary
 
-The library implements validated identities, pure policy evaluation, and
-complete target enumeration/annotated paths for uv.lock version 1 revision 5,
-in-memory wheel/source-archive and sidecar metadata evidence, and complete
-inspection/report aggregation.
-[Stage reviews](../work/initial-design/implementation-reviews.md) record the tests,
-initial Lean proofs/correspondence, properties, and fuzzing evidence. Binary unit tests now cover local acquisition and recoverable evidence caching.
-Binary tests also cover HTTPS index/sidecar/archive acquisition and offline
-behavior. A usable CLI remains unimplemented.
-Rust is the implementation language. The
-[license inspection specification](license-inspection.md) and
-[pure-core design](sans-io-design.md) now record the owner's approved design.
-The owner requires at least five self-reviews per implementation stage.
-The approved design does not establish complete
-metadata acquisition, artifact coverage, or caching.
-Publishing and deployment remain deferred.[^crate][^scope][^design-inputs][^design-approval]
-The [design review record](../work/initial-design/design-review.md) distinguishes
-document review and validation from product verification.
+The pure library implements validated identities, Python SPDX policy, complete
+uv.lock version-1/revision-5 targets and annotated origins, in-memory artifact
+metadata evidence, and coverage-owning inspection/report aggregation.
+The binary implements local/HTTPS acquisition, evidence caching, offline checks,
+and `taloon check`. [User guidance](../../user/index.md) owns operational details
+and tested prerequisites.[^crate][^runtime]
+
+[Stage reviews](../work/initial-design/implementation-reviews.md) record the actual
+tests, Lean proof/corpus correspondence, properties, fuzzing, and at least five
+self-reviews per completed stage. CLI process checks and local installation have
+passed on macOS arm64. Final hook/CI integration, process performance measurement,
+and independent whole-change review belong to stage 8 and remain pending.
+These results establish their recorded scope, not legal completeness of upstream
+declarations or arbitrary Rust/I/O correspondence to Lean.[^runtime]
+
+The [inspection specification](license-inspection.md) and
+[pure-core design](sans-io-design.md) record the approved contract. Publishing,
+release automation, and deployment remain deferred.[^scope][^design-inputs][^design-approval]
 
 # Recheck conditions
 
@@ -77,3 +82,5 @@ runtime guarantees from this scaffold or from a successful empty test suite.[^ca
 [^crate]: [Initial library](../../../src/lib.rs).
 [^design-inputs]: [Owner decisions for the initial implementation](../work/initial-design/specification-inputs.md).
 [^design-approval]: [Written-design approval and review requirement](../work/initial-design/implementation-approval.md).
+
+[^runtime]: [Runtime setup and CLI](../../../src/cli.rs).

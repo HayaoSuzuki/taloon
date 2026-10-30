@@ -22,7 +22,8 @@ The [implementation plan](../work/initial-design/implementation-plan.md) assigns
 these checks to the stages that introduce each behavior. This is an approved
 verification design. The [initial model and correspondence record](../../../formal/TaloonOracle/README.md)
 and [stage reviews](../work/initial-design/implementation-reviews.md) record
-the implemented policy slice; later pipeline checks remain pending.[^owner]
+the implemented permission/evidence/completeness/exit slices and operational
+Rust checks; final integration/performance review remains pending.[^owner]
 
 Follow hoimin's separation of typed semantic models and a deterministic corpus
 generator. Keep kernel-checkable proofs in imported model/proof modules;

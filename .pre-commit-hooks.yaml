@@ -1,0 +1,6 @@
+- id: taloon
+  name: Check uv.lock dependency licenses
+  entry: taloon check
+  language: system
+  pass_filenames: false
+  always_run: true

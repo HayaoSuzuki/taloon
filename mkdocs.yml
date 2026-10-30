@@ -47,3 +47,6 @@ validation:
     anchors: warn
 nav:
   - User guide: index.md
+  - License policy: configuration.md
+  - Commands and automation: usage.md
+  - Evidence and troubleshooting: evidence.md

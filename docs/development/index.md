@@ -27,11 +27,10 @@ cargo build --locked --workspace
 ```
 
 `rust-toolchain.toml` selects the same compiler for local development and CI.
-Commit `Cargo.lock` whenever dependencies change. The package is a
-library with publishing disabled. The implemented library provides
-validated identities, pure policy evaluation, and version-1/revision-5 lock
-inspection, verified archive/sidecar metadata, and complete report aggregation; it does not provide
-a usable executable yet. See the [current baseline](knowledge/project-baseline.md).
+Commit `Cargo.lock` whenever dependencies change. The package provides a pure
+inspection library and `taloon check`; publishing is disabled. Follow the
+[user guide](../user/index.md) for installation, runtime options, and supported
+formats, or the [baseline](knowledge/project-baseline.md) for verification scope.
 
 Install [prek](https://prek.j178.dev/) and enable the local hooks:
 
@@ -53,8 +52,8 @@ RUSTDOCFLAGS='-D warnings' cargo doc --locked --workspace --all-features --no-de
 ```
 
 Rust tests exercise policy, locked inventory/paths, generated properties, and
-the initial Lean corpus through public APIs. In-memory metadata interpretation is implemented; acquisition and the CLI
-remain implementation tasks.
+the initial Lean corpus through public APIs. Binary and process tests additionally exercise acquisition, caching, and CLI
+behavior.
 The Python tooling tests exercise documentation validation. Run those and the
 strict user-site build using the [documentation procedure](documentation.md).
 
