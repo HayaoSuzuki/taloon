@@ -230,3 +230,29 @@ proptest::proptest! {
  let path=cache_files(temp.path()).pop().unwrap();let mut encoded=std::fs::read(&path).unwrap();let at=encoded.windows(license.len()).position(|s|s==license.as_bytes()).unwrap();encoded[at]^=1<<bit;std::fs::write(path,encoded).unwrap();proptest::prop_assert!(cache.get(&req,hash).unwrap().is_none());
  }
 }
+
+#[test]
+fn metadata_at_the_supported_limit_survives_json_cache_expansion() {
+    let temp = tempfile::tempdir().unwrap();
+    let cache = EvidenceCache::new(temp.path().to_owned());
+    let mut meta =
+        b"Metadata-Version: 2.4\nName: example\nVersion: 1.0\nLicense-Expression: MIT\nX-Long: "
+            .to_vec();
+    meta.resize(4 * 1024 * 1024 - 2, b'\\');
+    meta.extend_from_slice(b"\n\n");
+    let req = request(b"locked archive", ArtifactFormat::Wheel);
+    let hash = req.hash().unwrap();
+    let evidence = Evidence::from_sidecar(
+        &req,
+        SidecarAssociation::new(hash, hash, ContentHash::digest(&meta)).unwrap(),
+        &meta,
+    )
+    .unwrap();
+    cache.put(&req, &evidence).unwrap();
+    let cached = cache.get(&req, hash).unwrap();
+    assert!(
+        cached.is_some(),
+        "supported metadata must survive JSON escaping in the cache"
+    );
+    assert_eq!(cached.unwrap().license().unwrap().text(), "MIT");
+}

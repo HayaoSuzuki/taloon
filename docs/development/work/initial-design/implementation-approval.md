@@ -23,3 +23,16 @@ The implementation plan defines stage boundaries and their checks. These
 requirements extend verification and representation choices without reducing
 the approved inspection scope. This record does not claim that future
 implementation reviews or proofs have run.
+
+
+## Completion handoff authorization
+
+The owner subsequently requested:
+
+> 完了したらPR作成まで進めて
+>
+> GitHubへのアクセスはghを使って
+
+Complete the implementation gate, commit the current branch, push it, and create
+the pull request through gh. Package publishing and release automation remain
+deferred; this handoff does not merge the pull request.

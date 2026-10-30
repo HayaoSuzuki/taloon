@@ -2,14 +2,15 @@
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
-    io::{Read, Write},
+    io::{BufWriter, Read, Write},
     path::PathBuf,
 };
 use taloon::{
-    evidence::{Evidence, EvidenceRecord},
+    evidence::{Evidence, EvidenceRecord, MAX_METADATA_BYTES},
     model::{ArtifactFormat, ArtifactRequest, Code, ContentHash, Error, EvidenceRequirement},
 };
-const MAX_RECORD: u64 = 8 * 1024 * 1024;
+// A JSON string may use six bytes per input byte; preserve schema headroom.
+const MAX_RECORD: u64 = 6 * MAX_METADATA_BYTES + 64 * 1024;
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Envelope {
@@ -35,7 +36,7 @@ impl EvidenceCache {
         let association = if strong {
             "archive".into()
         } else {
-            format!("index-{}", r.package().source().fingerprint()).replace(':', "-")
+            format!("index-{}", r.id()).replace(':', "-")
         };
         self.root
             .join(format!("v1-{association}-{format}-{digest}.json"))
@@ -91,8 +92,11 @@ impl EvidenceCache {
             schema: 1,
             observation: e.to_record(),
         };
-        serde_json::to_writer(&mut temporary, &envelope).map_err(|_| failure())?;
-        temporary.flush().map_err(|_| failure())?;
+        {
+            let mut buffered = BufWriter::new(&mut temporary);
+            serde_json::to_writer(&mut buffered, &envelope).map_err(|_| failure())?;
+            buffered.flush().map_err(|_| failure())?;
+        }
         temporary.as_file().sync_all().map_err(|_| failure())?;
         temporary
             .persist(self.path(

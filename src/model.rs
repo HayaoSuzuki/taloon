@@ -152,6 +152,9 @@ impl SourceId {
     /// Returns a typed diagnostic if input validation fails.
     pub fn parse(kind: &str, location: &str) -> Result<Self, Error> {
         let kind = SourceKind::parse(kind)?;
+        if location.is_empty() {
+            return Err(Error::new(Code::Configuration, "empty source location"));
+        }
         let location = if matches!(kind, SourceKind::Registry | SourceKind::Url) {
             let mut url = parse_url(location)?;
             let _ = url.set_username("");

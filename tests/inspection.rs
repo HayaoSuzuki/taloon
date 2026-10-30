@@ -158,3 +158,83 @@ fn failures_without_a_proven_origin_explain_the_missing_path() {
         "No unambiguous dependency origin is recorded in the lock."
     );
 }
+
+#[test]
+fn an_unpermitted_custom_or_branch_does_not_require_archive_permission() {
+    for (declaration, expected) in [("MIT OR LicenseRef-Other", 0), ("LicenseRef-Other", 1)] {
+        let meta = metadata(&format!("License-Expression: {declaration}"));
+        let bytes = wheel(&meta);
+        let hash = ContentHash::digest(&bytes);
+        let inspection =
+            Inspection::from_documents(&lock(&bytes), &policy("'MIT'"), date()).unwrap();
+        let results = inspection
+            .requests()
+            .iter()
+            .map(|r| {
+                AcquisitionResult::observed(
+                    r.id(),
+                    Evidence::from_sidecar(
+                        r,
+                        taloon::evidence::SidecarAssociation::new(
+                            hash,
+                            hash,
+                            ContentHash::digest(&meta),
+                        )
+                        .unwrap(),
+                        &meta,
+                    )
+                    .unwrap(),
+                )
+            })
+            .collect();
+        assert_eq!(inspection.evaluate(results).exit_code(false), expected);
+    }
+}
+
+#[test]
+fn unsupported_unreachable_sources_remain_identifiable_without_secrets() {
+    let lock = "version=1\nrevision=5\n[[package]]\nname='example'\nversion='1.0'\nsource={git='https://user:password@git.test/example?signature=secret'}";
+    let inspection = Inspection::from_documents(lock, &policy("'MIT'"), date()).unwrap();
+    let report = serde_json::to_value(inspection.evaluate(vec![])).unwrap();
+    assert_eq!(report["packages"][0]["source"]["kind"], "git");
+    assert_eq!(
+        report["packages"][0]["source"]["location"],
+        "https://git.test/example?redacted"
+    );
+    let text = report.to_string();
+    assert!(!text.contains("password"));
+    assert!(!text.contains("secret"));
+}
+
+#[test]
+fn empty_editable_or_virtual_locations_do_not_disappear_as_workspace_roots() {
+    for source in ["editable", "virtual"] {
+        let doc = format!(
+            "version=1\nrevision=5\n[[package]]\nname='example'\nversion='1.0'\nsource={{{source}=''}}"
+        );
+        let report = match Inspection::from_documents(&doc, &policy(""), date()) {
+            Ok(inspection) => inspection.evaluate(vec![]),
+            Err(error) => taloon::report::Report::from_input_error(error),
+        };
+        assert_eq!(report.exit_code(false), 2);
+    }
+}
+
+#[test]
+fn applied_overrides_have_unambiguous_policy_entry_identifiers() {
+    let bytes = wheel(&metadata("License-Expression: Apache-2.0"));
+    let hash = ContentHash::digest(&bytes);
+    let config = format!(
+        "{}\n[[tool.taloon.exceptions]]\nname='example'\nversion='1.0'\nsource={{kind='registry',location='https://pypi.org/simple'}}\nallow=['Apache-2.0']\nreason='same reason'\n[[tool.taloon.exceptions]]\nname='example'\nversion='1.0'\nsource={{kind='registry',location='https://pypi.org/simple'}}\nartifact-hash='{hash}'\nallow=['ISC']\nreason='same reason'\n[[tool.taloon.clarifications]]\nartifact-hash='{hash}'\nexpression='Apache-2.0'\nreason='same reason'",
+        policy("'MIT'")
+    );
+    let inspection = Inspection::from_documents(&lock(&bytes), &config, date()).unwrap();
+    let report =
+        serde_json::to_value(inspection.evaluate(observations(&inspection, &bytes))).unwrap();
+    let entries = report["packages"][0]["artifacts"][0]["decision"]["overrides"]
+        .as_array()
+        .unwrap();
+    assert_eq!(entries[0]["id"], "exception[1]");
+    assert_eq!(entries[1]["id"], "exception[2]");
+    assert_eq!(entries[2]["id"], format!("clarification:{hash}"));
+}

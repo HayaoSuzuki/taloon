@@ -37,6 +37,7 @@ enum Case {
 
 #[derive(Deserialize)]
 struct InspectionCase {
+    expression: String,
     schema: u32,
     id: String,
     mode: String,
@@ -129,6 +130,7 @@ fn rust_policy_matches_lean_generated_cases() {
 fn check_inspection(case: InspectionCase) {
     use std::fmt::Write;
     let InspectionCase {
+        expression,
         schema,
         id,
         mode,
@@ -143,7 +145,7 @@ fn check_inspection(case: InspectionCase) {
     assert_eq!(schema, 1);
     assert_eq!(mode, "strict");
     assert_eq!(slots.len(), 2);
-    let meta = common::metadata("License-Expression: MIT");
+    let meta = common::metadata(&format!("License-Expression: {expression}"));
     let bytes = common::wheel(&meta);
     let hash = ContentHash::digest(&bytes);
     let lock = format!(
@@ -154,7 +156,7 @@ fn check_inspection(case: InspectionCase) {
         if permitted { "['MIT']" } else { "[]" }
     );
     if required {
-        write!(config,"\n[[tool.taloon.clarifications]]\nartifact-hash='{hash}'\nexpression='MIT'\nreason='oracle'").unwrap();
+        write!(config,"\n[[tool.taloon.clarifications]]\nartifact-hash='{hash}'\nexpression='{expression}'\nreason='oracle'").unwrap();
     }
     let inspection =
         Inspection::from_documents(&lock, &config, EvaluationDate::parse("2026-10-30").unwrap())

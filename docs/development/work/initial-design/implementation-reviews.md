@@ -331,3 +331,120 @@ reading bounds are explicit in the user guide. CLI JSON adds process exit_code
 to the library's serialized Report. Publishing remains deferred. Tests of the
 installed executable, hooks, CI wiring, and performance continue in stage 8;
 these stage-7 results do not establish that final integration checkpoint.
+
+## Stage 8 complete workflow and final verification
+
+Reviewed on 2026-10-31 from base `a4914e4`. The active Codex implementation agent
+performed the following five passes; the separate fresh-context review is
+recorded in [the independent review](final-review.md).
+
+1. **Specification trace:** checked every planned pipeline boundary against the
+   implemented public library and CLI, including whole-lock dev/transitive/group/
+   extra/platform inventory, every recorded artifact, exact policy/override
+   scope, typed proof requirements, UTC expiry, and 2-over-1 exit precedence.
+   Found text failures omitted individual unit permissions already available
+   in JSON. A failing CLI regression now confirms the full AND/OR expression
+   and each permitted/denied unit are explained. A separate failing regression
+   confirmed repeated reasons lacked unique override identities; reports now
+   identify each exception array entry and hash-bound clarification.
+2. **Adversarial interactions:** found the blanket LicenseRef archive requirement
+   overconstrained an ungranted custom OR branch. A public failing regression
+   now permits the ordinary MIT alternative and classifies an ungranted custom
+   expression as a violation. Expanded generated correspondence to cover this
+   interaction. Found empty editable/virtual locations could disappear through
+   workspace-root matching; a failing success-versus-exit-2 regression now fails
+   input validation before membership classification.
+3. **Design diagnostics:** checked all eight software-design-philosophy rows
+   against the final module/API boundaries. The cache collision and source
+   diagnostic fixes preserved caller simplicity. Metadata acquisition and cache
+   bounds now derive from the core's one public metadata-size contract rather
+   than independent constants. Current assessment is 8/8, 10/10 by that rubric,
+   with no unresolved diagnostic row; this is a design assessment, not a
+   correctness proof. Detailed evidence appears below.
+4. **Crash/offline/credential/resource pass:** the independent reviewer reproduced
+   same-content sidecars overwriting one weak key. A failing warm/offline test
+   now retains two request associations and yields two cache hits with zero
+   network. Regraded the missing-source diagnostic Important and verified safe
+   structured/text source context. A supported 4 MiB metadata record expanded
+   beyond the former 8 MiB JSON read limit; its failing roundtrip now succeeds
+   with a derived six-fold escape bound plus envelope headroom. Buffered writes
+   still flush and sync before atomic publication. Existing interruption,
+   concurrency, local rehashing, strict HTTPS, redirect-auth isolation, and
+   offline tests remain green. None of these operational tests are a Lean proof.
+5. **Actual verification:** all 77 normal Rust tests passed, plus the separately
+   invoked real-TLS/timeout fixture and opt-in release process benchmark. The
+   nine properties comprise eight 256-case library/binary properties and one
+   32-case CLI property. All 1,347 current Lean-generated cases matched public
+   Rust behavior; kernel proofs and corpus freshness passed. All six fuzz
+   targets completed 1,000 executions each without a crash (4,096-byte smoke
+   limit). Strict formatting, Clippy, rustdoc, root/fuzz licenses and sources,
+   28 Python documentation-tooling tests, OKF/link validation, strict MkDocs,
+   workflow lint, and hook-manifest validation passed. RustSec database revision
+   `2295466c4e9df26647fd67d8fa1c705ac2fc7f81` loaded 1,395 advisories; cargo-audit
+   0.22.2 reported no findings for the 257-package root lock and 243-package fuzz
+   lock. No advisory was suppressed. The local installed binary passed the
+   documented hook/CI-equivalent process test with prek 0.5.7.
+
+Final release measurements are in [the performance record](performance.md):
+1,000 packages/10,000 distinct lock-pinned local archives, five warm process
+runs of 0.608586, 0.553469, 0.562964, 0.575524, and 0.565200 seconds. Every warm
+report had 10,000 hits and zero HTTP requests, downloaded bytes, and extractions.
+The two-second goal was met locally; elapsed time is not a CI assertion.
+
+### Final design diagnostic evidence
+
+| Diagnostic | Assessment | Evidence |
+| --- | --- | --- |
+| Describe each module in one sentence | Pass | Module docs and the architecture ownership table identify each owner's knowledge |
+| Interface simpler than implementation | Pass | Inspection exposes construction/requests/evaluation; archive/index/cache formats stay behind their owners |
+| Change implementations without callers | Pass | Weak cache keys, buffered writes, ZIP handling, and transport layout changed without policy/CLI protocol redesign |
+| Interface comments describe abstraction | Pass | Evidence documents proof/trust; Inspection documents exact result accounting; source summaries document safe display context |
+| Discuss design in reviews | Pass | All eight stages reserve an actual design pass and record concrete changes |
+| Hide important design decisions | Pass | Policy hides selectors/AST; evidence hides member/header interpretation; acquisition hides authentication/persistence/concurrency |
+| Understand boundaries without implementation | Pass | Module docs, public typed interfaces, and the linked ownership decision state responsibilities and limits |
+| Invest in design improvement | Pass, qualitative | Every stage includes a separate design pass and traced improvements; the wall-clock percentage was not instrumented |
+
+The initial failed design interactions were corrected in their owning modules;
+no new compatibility framework, package installation, backend execution, or
+publishing work was introduced. Review exclusions were explicitly ruled on in
+[the independent review](final-review.md). No established Minor finding remains
+deferred. CI is configured with pinned tooling and the checked Lean asset digest;
+GitHub-hosted execution remains unobserved until the branch is pushed.
+
+### Recorded implementation rulings
+
+These historical executor decisions record reasons and costs within the owner's
+delegation. Current operational guidance remains in its existing user/developer
+owners; interim-stage restrictions below describe their recorded checkpoints.
+
+- Work in place on the existing feature branch impl-functions — preserve the owner's current-branch workflow and shared workspace — changes remain isolated from main but not from this checkout.
+- use public integration tests instead of file-local tests — the oracle/fuzzer exercise the same API — task filters become integration targets.
+- ArtifactRequest::new returns Result to validate remote URL/hash requirements — an infallible constructor admits invalid requests — existing clients must handle validation errors.
+- share Error/Code with owner aliases — avoids forwarding wrappers while preserving typed diagnostic codes — callers distinguish categories rather than wrapper types.
+- development fuzz license policy derives from shipping policy with exact libfuzzer-sys 0.4.13 NCSA permission and local fuzz package ELv2 — required by the explicitly requested fuzzing — review the exception before upgrades; shipping permission is unchanged.
+- support only fixture-backed uv.lock version 1 revision 5 initially — explicit compatibility is safer than assuming historical wire formats — older locks fail with a format diagnostic.
+- use unambiguous manifest requirements only as origin hints; unresolved hints never remove locked targets — avoid re-resolution or invented paths — some origin explanations may be unavailable.
+- metadata limit 4 MiB, expanded tar limit 1 GiB, Stored/Deflate ZIP and gzip/tar only — bounded parsing and explicit incomplete outcomes — oversized or other archives remain unsupported.
+- preserve metadata headers/full digest/header checksum without Description bodies — avoid repeated body retention — local cache remains trusted persistence rather than authenticated external proof.
+- reject all duplicate result associations, even identical observations — a request must have exactly one producer result — runtimes must deduplicate internally before returning a batch.
+- rebind every observation through Evidence.from_record and bind record format — IDs alone cannot authenticate proof — small repeated checksum/parsing cost.
+- cache.get receives observed content hash — local files without pinned hashes must be rehashed — extra local reads remain on warm runs.
+- buffer archives up to 256 MiB; atomic synced temporary cache publication without power-loss durability — bounded resource use and no partial published record — larger archives yield incomplete and cache may be lost after power failure.
+- compile acquisition under binary unit tests until CLI stage — keep placeholder explicit without unused production entry points — end-to-end validation remains pending until stage 7.
+- select netrc path environment precedence in CLI stage 7, pass the selected path into acquisition — environment belongs to runtime setup — precedence integration remains pending until stage 7.
+- host-specific netrc quoted tokens via shlex; ignore default/account, reject macros/unknown fields, strip URL userinfo — avoid credential forwarding and unsafe parser dependencies — unsupported netrc extensions need configuration changes.
+- opaque boxed transport and grouped content jobs across eight workers, three attempts (50/100 ms delays), five redirects, 30/10-second request/connect limits — bounded work and stable measured counters — worst-case failure latency can be long.
+- exact-version ISC/BSD-3-Clause/CDLA permissions for six TLS/certificate dependencies after declaration/notice review — HTTPS needs these dependencies — upgrades require a new license review.
+- bind cached sidecars to exact request plus source; verified archives stay content-reusable — index advertisements are artifact associations — fewer sidecar cache hits for same-content distinct URLs.
+- JSON CLI envelope flattens Report and includes the actual exit_code — record warning escalation without duplicating verdict logic — library serde output has no process-specific exit field.
+- fixed safe argument-error message with --help pointer, 64 MiB lock and 16 MiB pyproject input bounds — prevent locator disclosure and unbounded input buffering — less detailed argument errors and oversized documents yield exit 2.
+- require archive proof for applicable custom grants/clarifications, not merely the occurrence of an unpermitted LicenseRef term — preserve explicit OR semantics and valid-expression violation status — ungranted custom units are denied rather than treated as missing evidence.
+- re-grade the reviewer's missing-source Minor as Important — same-name/version unsupported records need an actionable redacted source — reports gain additive source fields and text context.
+- include RequestId in sidecar cache filenames while archive keys remain content-reusable — exact associations must coexist — old weak entries become misses rather than being migrated.
+- run pinned actionlint core and standalone ShellCheck over every Bash run block via one helper — combined subprocess integration stalled on macOS while both standalone checks passed — the helper rejects unsupported shells and requires the existing docs Python environment for YAML.
+- derive cache-record bounds from the shared 4 MiB metadata contract (six-fold JSON expansion plus 64 KiB envelope headroom), and buffer writes before sync/rename — every supported observation must survive persistence — an encoded record may reach about 24 MiB, with additional parsing/checksum allocations.
+- retain impl-functions with committed work, without merging/pushing/creating a PR — the owner requested current-branch commits and publishing is deferred — integration remains the owner's next decision. Superseded by the later explicit gh/PR handoff authorization below.
+- accept the reviewer's five set-aside items only within their recorded scope — publishing/compatibility, URL-userinfo auth, older lock formats, more archive encodings are approved exclusions; final evidence updates are completed — widening any of these needs new implementation and verification.
+
+- identify exceptions by their one-based policy array position and clarifications by content hash — distinguish repeated reasons and support audit lookup — reordering exception entries changes their reported IDs.
+- the owner's later request authorizes pushing and creating a PR using gh after completion, superseding retain-only handoff — carry the implementation through the requested review artifact — merge and package publishing remain outside this handoff.

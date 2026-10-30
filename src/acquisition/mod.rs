@@ -5,7 +5,7 @@ mod tests;
 use cache::EvidenceCache;
 use std::{io::Read, path::Path};
 use taloon::{
-    evidence::Evidence,
+    evidence::{Evidence, MAX_METADATA_BYTES},
     model::{ArtifactLocator, ArtifactRequest, Code, ContentHash, Error},
     report::{AcquisitionSummary, Diagnostic},
 };
@@ -269,7 +269,7 @@ impl Acquirer {
         };
         let response = self
             .http
-            .get(url, "application/octet-stream", 4 * 1024 * 1024, stats)?;
+            .get(url, "application/octet-stream", MAX_METADATA_BYTES, stats)?;
         Evidence::from_sidecar(request, binding, &response.body).map(Some)
     }
     fn persist(

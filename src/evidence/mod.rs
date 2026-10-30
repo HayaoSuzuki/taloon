@@ -12,7 +12,8 @@ use std::{
     io::{Cursor, Read},
 };
 
-const MAX_METADATA: u64 = 4 * 1024 * 1024;
+/// Maximum observed metadata bytes, shared with bounded acquisition and persistence.
+pub const MAX_METADATA_BYTES: u64 = 4 * 1024 * 1024;
 const MAX_TAR_EXPANSION: u64 = 1024 * 1024 * 1024;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -95,10 +96,10 @@ fn failure(message: &str) -> Error {
 fn read_metadata(reader: impl Read) -> Result<Vec<u8>, Error> {
     let mut bytes = Vec::new();
     reader
-        .take(MAX_METADATA + 1)
+        .take(MAX_METADATA_BYTES + 1)
         .read_to_end(&mut bytes)
         .map_err(|_| failure("cannot read distribution metadata"))?;
-    if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > MAX_METADATA {
+    if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > MAX_METADATA_BYTES {
         return Err(failure("metadata exceeds the 4 MiB reading limit"));
     }
     Ok(bytes)
@@ -315,7 +316,7 @@ impl Evidence {
         content: ContentHash,
         proof: Proof,
     ) -> Result<Self, Error> {
-        if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > MAX_METADATA {
+        if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > MAX_METADATA_BYTES {
             return Err(Error::new(
                 Code::InvalidMetadata,
                 "metadata exceeds the 4 MiB reading limit",
@@ -368,6 +369,12 @@ impl Evidence {
         binding: SidecarAssociation,
         bytes: &[u8],
     ) -> Result<Self, Error> {
+        if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > MAX_METADATA_BYTES {
+            return Err(Error::new(
+                Code::InvalidMetadata,
+                "metadata exceeds the 4 MiB reading limit",
+            ));
+        }
         if request.hash() != Some(binding.archive) || ContentHash::digest(bytes) != binding.metadata
         {
             return Err(Error::new(
@@ -445,7 +452,7 @@ impl Evidence {
     /// Rejects incompatible schemas, changed bytes/provenance, and wrong package/content/source bindings.
     pub fn from_record(request: &ArtifactRequest, record: EvidenceRecord) -> Result<Self, Error> {
         let data = &record.data;
-        if data.metadata.len() > usize::try_from(MAX_METADATA).unwrap_or(usize::MAX)
+        if data.metadata.len() > usize::try_from(MAX_METADATA_BYTES).unwrap_or(usize::MAX)
             || data.schema != 1
             || data.format != request.format()
             || checksum(data)? != record.checksum

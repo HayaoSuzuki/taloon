@@ -226,6 +226,12 @@ fn text_report(report: &Report) -> String {
             continue;
         }
         let _ = writeln!(out, "{:?}: {}", package.status, safe(&package.package));
+        let _ = writeln!(
+            out,
+            "  source: {:?}: {}",
+            package.source.kind,
+            safe(&package.source.location)
+        );
         for d in &package.diagnostics {
             diagnostic(&mut out, d);
         }
@@ -238,8 +244,22 @@ fn text_report(report: &Report) -> String {
                 let _ = writeln!(out, "    license: {}", safe(expression));
             }
             if let Some(decision) = &artifact.decision {
+                for unit in &decision.units {
+                    let permission = if unit.permitted {
+                        "permitted"
+                    } else {
+                        "denied"
+                    };
+                    let _ = writeln!(out, "    {permission} unit: {}", safe(&unit.unit));
+                }
                 for applied in &decision.overrides {
-                    let _ = writeln!(out, "    {:?}: {}", applied.kind, safe(&applied.reason));
+                    let _ = writeln!(
+                        out,
+                        "    {:?} {}: {}",
+                        applied.kind,
+                        safe(&applied.id),
+                        safe(&applied.reason)
+                    );
                 }
             }
             for d in &artifact.diagnostics {

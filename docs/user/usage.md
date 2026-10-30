@@ -31,7 +31,8 @@ invented. Conditions describe locked alternatives, not environment evaluation.
 JSON stdout contains exactly one schema-version-1 object, including startup
 errors. Help/version requests print normal CLI help/version text.
 `schema_version`, `status`, `exit_code`, `packages`, `diagnostics`, and
-`acquisition` describe the run. Artifact records include identity associations,
+`acquisition` describe the run. Package records include the source kind and redacted location.
+Artifact records include identity associations,
 original/interpreted licenses, proof strength, digests, and decisions. Status
 records completeness/compliance; `exit_code` additionally reflects warning
 escalation. Counter values measure requests, response-body bytes, archive
@@ -73,8 +74,8 @@ repos:
         always_run: true
 ```
 
-Run `prek install` and `prek run taloon --all-files` (or the corresponding
-pre-commit commands). The hook runner is an integration prerequisite; taloon
+Run `prek install` and `prek run taloon --all-files`. The integration was tested
+with prek 0.5.7. The hook runner is an integration prerequisite; taloon
 itself does not need it. `pass_filenames: false` and `always_run: true` ensure an
 unchanged transitive dependency is still checked. CI invokes the same
 `taloon check` command after installing from the checked-out source. Add `--offline`

@@ -1,7 +1,7 @@
 //! Stable schema and exit precedence; acquisition counters never decide compliance.
 use crate::{
     evidence::EvidenceSummary,
-    model::{ContentHash, Error, RequestId},
+    model::{ContentHash, Error, RequestId, SourceId, SourceKind, safe_locator},
     policy::PolicyDecision,
     resolution::DependencyPath,
 };
@@ -59,9 +59,24 @@ pub struct ArtifactReport {
     pub decision: Option<PolicyDecision>,
     pub diagnostics: Vec<Diagnostic>,
 }
+/// Safe display context for a source; fetch/authentication details remain private.
+#[derive(Debug, Serialize)]
+pub struct SourceSummary {
+    pub kind: SourceKind,
+    pub location: String,
+}
+impl From<&SourceId> for SourceSummary {
+    fn from(source: &SourceId) -> Self {
+        Self {
+            kind: source.kind(),
+            location: safe_locator(source.location()),
+        }
+    }
+}
 #[derive(Debug, Serialize)]
 pub struct PackageReport {
     pub package: String,
+    pub source: SourceSummary,
     pub status: Status,
     pub artifacts: Vec<ArtifactReport>,
     pub diagnostics: Vec<Diagnostic>,

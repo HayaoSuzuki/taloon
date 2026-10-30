@@ -8,8 +8,9 @@ hoimin's mutation-score semantics are not part of this checker.
 Lean v4.32.2 proves properties of the [semantic model](TaloonOracle/Model.lean).
 The [proofs](TaloonOracle/Proofs.lean) establish permission monotonicity for
 arbitrary expression trees and pointwise permission extensions, inclusive
-expiry, rejection of past expiry, archive/sidecar strength, missing-target
-rejection over arbitrary expected lists, and incomplete-over-violation precedence. WITH remains one atom. No theorem proves
+expiry, rejection of past expiry, archive/sidecar strength, missing/insufficient-target
+rejection over arbitrary expected/observation lists, and incomplete-over-violation
+precedence. WITH remains one atom. No theorem proves
 that a metadata declaration is legally complete or that Rust parsing/I/O matches
 Lean for arbitrary inputs.
 
@@ -19,7 +20,12 @@ sets (42 permission cases), and three expiry boundaries. It detects deliberately
 broken OR, AND, expiry, sidecar-promotion, missing-result, and exit-precedence
 implementations. Stage 4 adds 432 inspection cases over two expected targets,
 missing/sidecar/archive slots, proof requirements, permission, duplicate/unknown
-results, and warning escalation (477 strict cases in total). Imported proof modules contain no
+results, and warning escalation (477 strict cases at that checkpoint).
+Stage 8 adds custom-LicenseRef alternatives: the current domain has eight
+expressions × six allowed sets (48), three expiry cases, and 1,296 inspection
+cases crossing three declarations with the earlier inspection dimensions, for
+1,347 strict cases. The expansion follows an actual interaction regression, not
+a larger exhaustive proof search. Imported proof modules contain no
 large exhaustive search. Individual commands initially use a 20-second external
 deadline and bounded default heartbeats; one Lean process runs at a time.
 
@@ -41,10 +47,11 @@ executes each generated case in isolation:
 The [Rust adapter](../../tests/oracle.rs) derives no expected values. Invalid
 case schemas/adapter setup failures are infrastructure errors; a differing
 observed permission or expiry result is a semantic mismatch named by case ID.
-All 477 strict cases matched after stage 4. No unresolved counterexample remains
-in this finite slice. Cache/network concurrency remains outside these proofs.
+All 1,347 current strict cases matched after stage 8. No unresolved counterexample
+remains in this finite slice. Cache/network concurrency remains outside these proofs.
 Stage-4 proof/generator builds took 3.076/3.896 seconds under the unchanged
-20-second deadline; no peak-memory measurement was available.
+20-second deadline; no peak-memory measurement was available. Stage-8 generator
+and extended proof builds took 4.936 and 3.522 seconds under the same deadline.
 
 ## Reproduction from the repository root
 

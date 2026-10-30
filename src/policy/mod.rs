@@ -92,6 +92,7 @@ pub enum OverrideKind {
 }
 #[derive(Debug, Clone, Eq, PartialEq, Serialize)]
 pub struct AppliedOverride {
+    pub id: String,
     pub kind: OverrideKind,
     pub reason: String,
 }
@@ -322,10 +323,11 @@ impl Policy {
     ) -> PolicyDecision {
         let mut allowed = self.allow.clone();
         let mut overrides = Vec::new();
-        for e in &self.exceptions {
+        for (index, e) in self.exceptions.iter().enumerate() {
             if e.matches(request, hash) {
                 allowed.extend(e.allow.iter().cloned());
                 overrides.push(AppliedOverride {
+                    id: format!("exception[{}]", index + 1),
                     kind: OverrideKind::Exception,
                     reason: e.reason.clone(),
                 });

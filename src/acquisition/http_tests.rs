@@ -517,3 +517,51 @@ fn unhashed_unavailable_or_corrupt_sidecars_fall_back_without_permission_shortcu
         assert_eq!(i.evaluate(batch.results).exit_code(false), 0);
     }
 }
+
+#[test]
+fn two_distinct_sidecar_associations_survive_offline_warmup() {
+    let temp = tempfile::tempdir().unwrap();
+    let meta = crate::testfixtures::metadata("License-Expression: MIT");
+    let bytes = crate::testfixtures::wheel(&meta);
+    let i = fixture_inspection(&bytes, false);
+    let fixture = Fixture::default();
+    let hash = ContentHash::digest(&bytes)
+        .to_string()
+        .replace("sha256:", "");
+    let mh = ContentHash::digest(&meta)
+        .to_string()
+        .replace("sha256:", "");
+    let files:Vec<_>=["a","b"].iter().map(|name|serde_json::json!({"url":format!("https://files.test/{name}.whl"),"hashes":{"sha256":hash},"core-metadata":{"sha256":mh}})).collect();
+    let doc = serde_json::json!({"meta":{"api-version":"1.0"},"files":files});
+    fixture.add(
+        "https://example.test/simple/example/",
+        200,
+        &serde_json::to_vec(&doc).unwrap(),
+    );
+    for name in ["a", "b"] {
+        fixture.add(
+            &format!("https://files.test/{name}.whl.metadata"),
+            200,
+            &meta,
+        );
+    }
+    let online = Acquirer::with_transport(
+        AcquisitionOptions::testing(temp.path(), false),
+        fixture.clone(),
+    )
+    .unwrap();
+    let batch = online.acquire(i.requests());
+    assert_eq!(batch.summary.archive_extractions, 0);
+    assert_eq!(i.evaluate(batch.results).exit_code(false), 0);
+    let before = fixture.count();
+    let offline = Acquirer::with_transport(
+        AcquisitionOptions::testing(temp.path(), true),
+        fixture.clone(),
+    )
+    .unwrap();
+    let batch = offline.acquire(i.requests());
+    assert_eq!(batch.summary.network_requests, 0);
+    assert_eq!(fixture.count(), before);
+    assert_eq!(batch.summary.cache_hits, 2);
+    assert_eq!(i.evaluate(batch.results).exit_code(false), 0);
+}

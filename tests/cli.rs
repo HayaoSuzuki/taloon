@@ -247,3 +247,16 @@ fn documented_policies_use_the_implemented_schema() {
     }
     assert_eq!(count, 2);
 }
+
+#[test]
+fn text_failures_explain_every_relevant_license_unit() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path();
+    project(root, "License-Expression: MIT AND (Apache-2.0 OR ISC)");
+    let output = invoke(root, &root.join("cache"), &["check", "--offline"]);
+    assert_eq!(output.status.code(), Some(1));
+    let text = String::from_utf8(output.stdout).unwrap();
+    assert!(text.contains("permitted unit: MIT"));
+    assert!(text.contains("denied unit: Apache-2.0"));
+    assert!(text.contains("denied unit: ISC"));
+}

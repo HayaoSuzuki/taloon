@@ -44,6 +44,16 @@ theorem missing_target_rejected (expected : List Nat) (observations : List Obser
   have slot := h.1 id present
   simp [missing] at slot
 
+theorem insufficient_target_rejected (expected : List Nat) (observations : List Observation)
+    (required : Bool) (id : Nat) (present : id ∈ expected)
+    (insufficient : observations.any (fun o => o.request == id && sufficient o.archive required) = false) :
+    complete expected observations required = false := by
+  apply Bool.eq_false_iff.mpr
+  intro h
+  simp only [complete, Bool.and_eq_true, List.all_eq_true] at h
+  have slot := h.1 id present
+  simp [insufficient] at slot
+
 theorem incomplete_precedes_violation (violation warnings denyWarnings : Bool) :
     exitCode false violation warnings denyWarnings = 2 := by
   simp [exitCode]

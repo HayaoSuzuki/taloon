@@ -1,41 +1,49 @@
 ---
 type: Contract
 title: Project baseline
-description: Rust package, current policy implementation, and remaining pipeline boundaries.
-status: draft
+description: Implemented Rust checker, verified local evidence, and operational boundaries.
+status: verified
+verified_by: Codex implementation agent
+verified_at: "2026-10-31"
 sources:
 - id: cargo
   resource: ../../../Cargo.toml
-  working_tree: modified
-  sha256: 52d917784ec7fb6b45b41062aca887b08568a2bb28cef0f49cdcf2a4a293bbc2
+  revision: a4914e4e9967c7e5282e29f1b994a5b5962e1a2e
 - id: toolchain
   resource: ../../../rust-toolchain.toml
-  working_tree: untracked
-  sha256: f715f440167e20fd8ea9afa0498c3d1ab80174cfcb8cbc895f106a34d907a1e1
+  revision: a4914e4e9967c7e5282e29f1b994a5b5962e1a2e
 - id: license
   resource: ../../../LICENSE
-  working_tree: untracked
-  sha256: 48255018b41fc0e965b1115af7e6779bc218bb8a6747d561da800d5022622aa2
+  revision: a4914e4e9967c7e5282e29f1b994a5b5962e1a2e
 - id: scope
   resource: ../../../AGENTS.md
-  working_tree: modified
-  sha256: dfcbbe67f52b344e1c87ef6f14f3db2b2c7b6ca755b81a95c20d9bc2643d4bb5
+  revision: a4914e4e9967c7e5282e29f1b994a5b5962e1a2e
 - id: crate
   resource: ../../../src/lib.rs
-  working_tree: modified
-  sha256: 2148d4779ea1155e61bdd50b3f78c62d5c96be0ca8eeb35c9748ea9ae97cbf5c
+  revision: a4914e4e9967c7e5282e29f1b994a5b5962e1a2e
 - id: design-inputs
   resource: ../work/initial-design/specification-inputs.md
-  working_tree: untracked
-  sha256: 67d6a5e887ff58b121639ec7426339459ed84640cf7da8c3d02f5de3f13d2930
+  revision: a4914e4e9967c7e5282e29f1b994a5b5962e1a2e
 - id: design-approval
   resource: ../work/initial-design/implementation-approval.md
-  working_tree: untracked
-  sha256: 1593dc51b5663e513152059e50b39795063a696bf3b6b417c9a5c8fae959834c
+  working_tree: modified
+  sha256: 1db5df1cd88ff30c390fb2d2960c6406cec472a71b1f0e22bf8670badbc55ada
 - id: runtime
   resource: ../../../src/cli.rs
-  working_tree: untracked
-  sha256: 893b9331280b6db0987a9ae32b5203ea1e08635f8c85b19f340b5d088532f64c
+  working_tree: modified
+  sha256: fe07012d6c70e4c62189d30cdbb02d9bc7378be2bfae7d55ab3432cd1a7ee79b
+- id: inspection
+  resource: ../../../src/inspection/mod.rs
+  working_tree: modified
+  sha256: 974c6f80134a37a4a7c93c3ae4ba1c85d7aeaf2030cfd3ab3d45d9e1c7be04ec
+- id: cache
+  resource: ../../../src/acquisition/cache.rs
+  working_tree: modified
+  sha256: c749e57ae04b1ab23b4a21a87f896bae124eb33afa76f370525b0ba772bf6004
+- id: reviews
+  resource: ../work/initial-design/implementation-reviews.md
+  working_tree: modified
+  sha256: faafe4bcb0d755121e39fd148f766493d03d2acbc9091d8692feaadfee04420b
 ---
 # Current baseline
 
@@ -54,15 +62,20 @@ uv.lock version-1/revision-5 targets and annotated origins, in-memory artifact
 metadata evidence, and coverage-owning inspection/report aggregation.
 The binary implements local/HTTPS acquisition, evidence caching, offline checks,
 and `taloon check`. [User guidance](../../user/index.md) owns operational details
-and tested prerequisites.[^crate][^runtime]
+and tested prerequisites.[^crate][^runtime][^inspection][^cache]
 
-[Stage reviews](../work/initial-design/implementation-reviews.md) record the actual
-tests, Lean proof/corpus correspondence, properties, fuzzing, and at least five
-self-reviews per completed stage. CLI process checks and local installation have
-passed on macOS arm64. Final hook/CI integration, process performance measurement,
-and independent whole-change review belong to stage 8 and remain pending.
-These results establish their recorded scope, not legal completeness of upstream
-declarations or arbitrary Rust/I/O correspondence to Lean.[^runtime]
+[Stage reviews](../work/initial-design/implementation-reviews.md) record five
+self-review passes for each of the eight completed stages, actual tests, Lean
+proof/corpus correspondence, properties, fuzzing, and fixes. The fresh independent
+[whole-change review](../work/initial-design/final-review.md) found two issues,
+both corrected and regression-tested. The
+[process performance record](../work/initial-design/performance.md) records the
+locally met warm-cache goal and its fixture/environment limits.[^reviews]
+
+Local verification used macOS arm64. Ubuntu CI is configured; no GitHub-hosted
+execution is claimed before push. These results establish their recorded scope,
+not legal completeness of upstream declarations or arbitrary Rust/I/O
+correspondence to Lean.[^reviews]
 
 The [inspection specification](license-inspection.md) and
 [pure-core design](sans-io-design.md) record the approved contract. Publishing,
@@ -73,7 +86,7 @@ release automation, and deployment remain deferred.[^scope][^design-inputs][^des
 Update this baseline when the compiler, license, package layout, dependency inspection design,
 or publishing policy changes. Add independently retrievable decisions for
 metadata acquisition and policy contracts as they become concrete. Do not infer
-runtime guarantees from this scaffold or from a successful empty test suite.[^cargo][^crate]
+runtime guarantees beyond the recorded checks and supported input ranges.[^cargo][^crate]
 
 [^cargo]: [Cargo metadata and lint policy](../../../Cargo.toml).
 [^toolchain]: [Pinned Rust toolchain](../../../rust-toolchain.toml).
@@ -84,3 +97,7 @@ runtime guarantees from this scaffold or from a successful empty test suite.[^ca
 [^design-approval]: [Written-design approval and review requirement](../work/initial-design/implementation-approval.md).
 
 [^runtime]: [Runtime setup and CLI](../../../src/cli.rs).
+
+[^inspection]: [Coverage-owning inspection](../../../src/inspection/mod.rs).
+[^cache]: [Evidence persistence](../../../src/acquisition/cache.rs).
+[^reviews]: [Actual stage verification and decisions](../work/initial-design/implementation-reviews.md).

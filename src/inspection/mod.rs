@@ -59,6 +59,9 @@ impl Inspection {
     pub fn requests(&self) -> &[ArtifactRequest] {
         &self.requests
     }
+    /// Account for exactly one result per expected request and evaluate every target.
+    /// Observations are rebound to their original identity and minimum proof requirement;
+    /// missing, duplicate, foreign, or insufficient results make the report incomplete.
     #[must_use]
     pub fn evaluate(&self, results: Vec<AcquisitionResult>) -> Report {
         let mut received: BTreeMap<RequestId, Vec<Result<Evidence, Error>>> = BTreeMap::new();
@@ -109,6 +112,7 @@ impl Inspection {
                 .then(|| "No unambiguous dependency origin is recorded in the lock.".to_owned());
             packages.push(PackageReport {
                 package: target.package().key(),
+                source: target.package().source().into(),
                 status,
                 artifacts,
                 diagnostics,
@@ -189,18 +193,10 @@ impl Inspection {
             } else {
                 evidence.license()?
             };
-            // Local content hashes may only become known after acquisition.
-            if expression.units().iter().any(|u| u.contains("LicenseRef-"))
-                && !evidence.requirement_satisfied(EvidenceRequirement::ArchiveVerified)
-            {
-                return Err(Error::new(
-                    Code::InsufficientEvidence,
-                    "custom license permission requires archive verification",
-                ));
-            }
             let mut decision = self.policy.evaluate(request, hash, &expression);
             if let Some(c) = clarification {
                 decision.overrides.push(AppliedOverride {
+                    id: format!("clarification:{hash}"),
                     kind: OverrideKind::Clarification,
                     reason: c.reason().into(),
                 });

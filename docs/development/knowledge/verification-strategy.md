@@ -23,7 +23,7 @@ these checks to the stages that introduce each behavior. This is an approved
 verification design. The [initial model and correspondence record](../../../formal/TaloonOracle/README.md)
 and [stage reviews](../work/initial-design/implementation-reviews.md) record
 the implemented permission/evidence/completeness/exit slices and operational
-Rust checks; final integration/performance review remains pending.[^owner]
+Rust checks, final integration/performance measurements, and independent review.[^owner]
 
 Follow hoimin's separation of typed semantic models and a deterministic corpus
 generator. Keep kernel-checkable proofs in imported model/proof modules;

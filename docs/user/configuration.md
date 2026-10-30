@@ -14,6 +14,7 @@ allow = ["MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception"]
 Each permission is one SPDX license or `WITH` unit. `AND` requires both operands;
 `OR` requires one. GNU `-only` and `-or-later` identifiers remain distinct.
 No compatibility rules or cargo-deny configuration are imported.
+The pinned spdx 0.13.6 implementation uses SPDX License List 3.29.0.
 
 ## Scoped overrides
 
@@ -52,7 +53,9 @@ permission requires an exact hash-scoped exception, even after clarification.
 
 Expiry is inclusive through the specified UTC date. Every expired entry fails
 configuration validation, including entries matching no dependency. Reasons
-cannot be blank. Reports preserve original declarations and applied reasons.
+cannot be blank. Reports preserve original declarations and applied reasons. Applied entries use
+`exception[n]` identifiers (one-based array positions) or content-hash clarification
+identifiers; reordering exception entries changes their reported positions.
 
 Unused permissions and overrides warn only after complete inspection. All units
 in an interpreted OR expression count as observed, even if another branch allows

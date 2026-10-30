@@ -32,7 +32,8 @@ inspection library and `taloon check`; publishing is disabled. Follow the
 [user guide](../user/index.md) for installation, runtime options, and supported
 formats, or the [baseline](knowledge/project-baseline.md) for verification scope.
 
-Install [prek](https://prek.j178.dev/) and enable the local hooks:
+Install [prek](https://prek.j178.dev/) 0.5.7 (also required by the workflow
+integration test) and enable the repository hooks:
 
 ```sh
 prek install
@@ -57,10 +58,11 @@ behavior.
 The Python tooling tests exercise documentation validation. Run those and the
 strict user-site build using the [documentation procedure](documentation.md).
 
-For workflow checks, install uv and run:
+For workflow checks, install uv and the docs environment using the
+[documentation procedure](documentation.md), then run:
 
 ```sh
-uvx --from actionlint-py==1.7.12.25 --with shellcheck-py==0.11.0.1 actionlint
+tools/check_workflows.sh
 uvx zizmor==1.30.1 --no-online-audits --min-severity low .github/workflows
 ```
 
@@ -108,10 +110,14 @@ checks Rust formatting, Clippy, tests, documentation, and workflow definitions.
 The dependency workflow also runs daily. Jobs have explicit time limits and
 read-only repository permissions.
 
-Ubuntu is the initial CI environment. Passing these scaffold checks does not
-establish dependency coverage or correctness of future license decisions.
-Validate metadata acquisition, artifact coverage, policy semantics, and caching
-during the Issue #1 research before documenting those as supported behavior.
+CI is configured for Ubuntu. The local final verification used macOS arm64;
+configuration and local checks are not evidence of an unobserved GitHub run.
+The [stage reviews](work/initial-design/implementation-reviews.md) and
+[performance record](work/initial-design/performance.md) state the verified scope.
+Lean checks corpus freshness; Rust tests execute its public-API adapter. A pinned
+nightly runs all six bounded fuzz targets, and dependency checks cover the
+shipping and separate fuzz graphs. Neither Lean nor fuzz tools are runtime
+requirements.
 
 The separate Documentation workflow validates OKF, repository document links,
 and the user-site build, and retains the generated HTML for review.
