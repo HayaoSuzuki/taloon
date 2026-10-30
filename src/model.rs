@@ -214,6 +214,11 @@ impl PackageId {
     pub fn version(&self) -> String {
         self.version.to_string()
     }
+    pub(crate) fn satisfies(&self, constraint: &str) -> Result<bool, Error> {
+        let specifiers = pep440_rs::VersionSpecifiers::from_str(constraint)
+            .map_err(|_| Error::new(Code::LockFormat, "invalid locked origin constraint"))?;
+        Ok(specifiers.contains(&self.version))
+    }
     #[must_use]
     pub fn source(&self) -> &SourceId {
         &self.source

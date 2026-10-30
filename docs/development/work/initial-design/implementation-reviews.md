@@ -64,4 +64,46 @@ Rulings within delegated implementation scope:
   exercise the public embedding API and the same interfaces as the oracle/fuzzer.
 
 The authoritative completion command and commit range are also recorded in the
-executor ledger. Product pipeline stages 2–8 and their reviews remain pending.
+executor ledger. At that checkpoint, product pipeline stages 2–8 and their reviews remained pending.
+
+
+## Stage 2 locked inventory and conditional origins
+
+Reviewed on 2026-10-31 from base `cf7ffcf`. The supported wire schema is
+version 1 revision 5; other versions/revisions fail explicitly. Tests use
+synthetic examples and this repository's documentation lock.
+
+1. **Specification pass:** checked eight external identities/nine artifacts,
+   dev/transitive/extra/platform branches, same-name versions/sources, local
+   archives, unsupported Git/directories, and explicit/implicit workspace roots.
+   Same-name registry packages remain external. No current-platform selection
+   narrows the inventory.
+2. **Adversarial pass:** verified ambiguous/unresolved edges and duplicate
+   identities cannot invent associations. Found plain and extra-enabled visits
+   to the same package could collapse. Added a failing regression and made the
+   visited state include selected extras; the regression then passed.
+3. **Design pass:** kept wire structs private and separated record validation,
+   target construction, and annotated traversal within resolution. Added typed
+   GroupKind rather than group/extra string dispatch. PEP 440 constraint meaning
+   remains in the model owner. Three public operations expose no TOML nodes.
+   Assessment: 8/8 diagnostics, 10/10 for this slice; no open row.
+4. **Failure/context pass:** found cycles could activate a workspace member's
+   development group during ordinary dependency traversal. A failing regression
+   demonstrated the extra origin; development groups now remain entry points,
+   while optional dependencies require selected extras. Added separate red/green
+   regressions for workspace-only group origins and package resolution markers.
+   Ambiguous manifest requirement hints yield no invented origin and cannot
+   remove targets. The original marker fixture also needed its tied shortest
+   route to carry the condition it asserted; the traversal's tie-break was valid.
+5. **Verification pass:** all 22 Rust tests passed, including 11 resolution
+   tests and three 256-case property tests across the library. The uv_lock fuzz
+   target exercises inventory and paths from valid cyclic/extra seeds and
+   arbitrary bytes; its final bounded 1,000-run campaign completed without a
+   crash. Strict Clippy passed. Earlier stage-1 Lean policy expectations remain
+   unchanged; graph/coverage model correspondence belongs to stage 4.
+
+Ruling: manifest dependency-group requirements serve only as unambiguous
+locked-origin hints, using existing locked versions and constraints. They do
+not re-resolve dependencies. Ambiguous hints leave a missing-path explanation;
+all locked targets still undergo policy checking. The risk is an unavailable
+origin explanation, not permission based on missing evidence.

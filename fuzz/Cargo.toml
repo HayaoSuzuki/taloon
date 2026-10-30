@@ -22,3 +22,10 @@ path = "fuzz_targets/policy.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "uv_lock"
+path = "fuzz_targets/uv_lock.rs"
+test = false
+doc = false
+bench = false

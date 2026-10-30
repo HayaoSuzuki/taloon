@@ -23,7 +23,7 @@ sources:
 - id: crate
   resource: ../../../src/lib.rs
   working_tree: modified
-  sha256: 4d66e25ce7339502bbee9dad0b814191bc8b20e2003768fa465012da0a80fb16
+  sha256: d6e9497e68f7f0e81e6c1cd7b54ee608d4b5c1751817cdd747be2b90bd45293a
 - id: design-inputs
   resource: ../work/initial-design/specification-inputs.md
   working_tree: untracked
@@ -45,10 +45,11 @@ license, and LICENSE contains the license text.[^cargo][^license]
 
 # Implementation boundary
 
-The library implements validated identities and pure policy evaluation.
-[Stage 1 reviews](../work/initial-design/implementation-reviews.md) record the tests,
+The library implements validated identities, pure policy evaluation, and
+complete target enumeration/annotated paths for uv.lock version 1 revision 5.
+[Stage reviews](../work/initial-design/implementation-reviews.md) record the tests,
 initial Lean proofs/correspondence, properties, and fuzzing evidence. A usable CLI,
-complete lock parsing, artifact acquisition, and caching remain unimplemented.
+artifact interpretation, acquisition, and caching remain unimplemented.
 Rust is the implementation language. The
 [license inspection specification](license-inspection.md) and
 [pure-core design](sans-io-design.md) now record the owner's approved design.
