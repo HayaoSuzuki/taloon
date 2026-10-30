@@ -191,3 +191,40 @@ Ruling: duplicate result associations are rejected even when their observations
 are identical. Acquisition must deduplicate internal work while returning one
 association per request. Observation rebinding reparses a trusted record under
 its expected identity/digest/format; IDs alone never constitute proof.
+
+
+## Stage 5 local acquisition and recoverable cache
+
+Reviewed on 2026-10-31 from base `15332ec`.
+
+1. **Specification pass:** verified local paths are read without executing code,
+   current bytes are hashed before every cache lookup, pinned mismatches fail,
+   and a missing file cannot use an old observation. No policy/date/verdict is
+   persisted. Sidecar-only records cannot satisfy stronger policy requirements.
+2. **Adversarial pass:** traced truncated/incompatible JSON, interrupted temporary
+   files, wrong identities, wrong formats, and alternate sources. Corrupt entries
+   miss; global archive records still require digest/name/version/format matches;
+   sidecars retain source association. The fuzz lock needed regeneration after
+   tempfile became a shipping dependency; the locked license check detected it.
+3. **Design pass:** checked the eight design diagnostics against the cache/local
+   acquisition boundary. Cache lookup now receives the freshly observed digest,
+   making the no-lock-hash local invariant explicit. Evidence retains proof
+   validation ownership; cache owns paths/atomic publication; local acquisition
+   owns byte reads and counters. No open design row remains in this slice.
+4. **Failure/concurrency pass:** ran two concurrent writers and concurrent reads,
+   checked temporary-file cleanup and single final publication, and tested an
+   unavailable cache represented by a regular file. Successful in-memory
+   evidence survives cache failures with warnings. Publication flushes/syncs a
+   same-directory temporary file before atomic rename. This prevents publishing
+   partial records; it does not promise survival across filesystem/power loss.
+5. **Verification pass:** seven binary acquisition tests and 42 library/public
+   tests passed, including a new 256-case persisted-record/mutation property.
+   Strict Clippy and shipping/fuzz license/source checks passed after lock
+   regeneration. Concurrent filesystem tests are operational evidence, separate
+   from Lean's pure completeness/permission proofs. No network is used here.
+
+Rulings: cache.get takes the current content digest explicitly so unpinned local
+files cannot reuse a stale path-based record. Archive input is bounded to
+256 MiB and oversized files produce an explicit acquisition error. The binary
+entry point remains a deliberate exit-2 placeholder until stage 7; acquisition
+is compiled/exercised through binary unit tests during this intermediate stage.

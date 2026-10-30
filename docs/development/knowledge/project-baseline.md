@@ -50,8 +50,8 @@ complete target enumeration/annotated paths for uv.lock version 1 revision 5,
 in-memory wheel/source-archive and sidecar metadata evidence, and complete
 inspection/report aggregation.
 [Stage reviews](../work/initial-design/implementation-reviews.md) record the tests,
-initial Lean proofs/correspondence, properties, and fuzzing evidence. A usable CLI,
-acquisition and caching remain unimplemented.
+initial Lean proofs/correspondence, properties, and fuzzing evidence. Binary unit tests now cover local acquisition and recoverable evidence caching.
+A usable CLI and HTTPS acquisition remain unimplemented.
 Rust is the implementation language. The
 [license inspection specification](license-inspection.md) and
 [pure-core design](sans-io-design.md) now record the owner's approved design.
