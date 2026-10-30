@@ -24,6 +24,14 @@ sources:
   resource: ../../../src/lib.rs
   working_tree: untracked
   sha256: 96680b5aebf6e174130eb0725eb6cf9da6a7ff79f8b7ad37a477ba6390d6b7f9
+- id: design-inputs
+  resource: ../work/initial-design/specification-inputs.md
+  working_tree: untracked
+  sha256: 67d6a5e887ff58b121639ec7426339459ed84640cf7da8c3d02f5de3f13d2930
+- id: design-approval
+  resource: ../work/initial-design/implementation-approval.md
+  working_tree: untracked
+  sha256: 1593dc51b5663e513152059e50b39795063a696bf3b6b417c9a5c8fae959834c
 ---
 # Current baseline
 
@@ -37,8 +45,15 @@ license, and LICENSE contains the license text.[^cargo][^license]
 # Implementation boundary
 
 The crate contains development scaffolding, with no license-checking implementation.
-Rust is the implementation language. Metadata acquisition, artifact coverage,
-policy format, and caching remain open. Publishing and deployment are deferred.[^crate][^scope]
+Rust is the implementation language. The
+[license inspection specification](license-inspection.md) and
+[pure-core design](sans-io-design.md) now record the owner's approved design.
+The owner requires at least five self-reviews per implementation stage.
+These documents do not establish implemented
+metadata acquisition, artifact coverage, policy evaluation, or caching.
+Publishing and deployment remain deferred.[^crate][^scope][^design-inputs][^design-approval]
+The [design review record](../work/initial-design/design-review.md) distinguishes
+document review and validation from product verification.
 
 # Recheck conditions
 
@@ -52,3 +67,5 @@ runtime guarantees from this scaffold or from a successful empty test suite.[^ca
 [^license]: [Elastic License 2.0](../../../LICENSE).
 [^scope]: [Project scope](../../../AGENTS.md).
 [^crate]: [Initial library](../../../src/lib.rs).
+[^design-inputs]: [Owner decisions for the initial implementation](../work/initial-design/specification-inputs.md).
+[^design-approval]: [Written-design approval and review requirement](../work/initial-design/implementation-approval.md).
