@@ -25,7 +25,8 @@ lock and policy, then evaluates acquisition results. The runtime owns files,
 networking, credentials, wall-clock access, cache persistence, and output. The
 owner selected this request/result approach, called A in the design interview.
 The [product contract](license-inspection.md) specifies the proposed behavior.
-The owner approved this design; implementation remains the Rust scaffold.[^owner][^package][^approval]
+The owner approved this design. The [project baseline](project-baseline.md)
+records the current implemented slice.[^owner][^package][^approval]
 
 The core must determine both target coverage and evidence sufficiency. Keeping
 those decisions together prevents an acquisition error or missing result from

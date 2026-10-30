@@ -1,0 +1,45 @@
+{"allow":[],"expected":false,"expression":"MIT","id":"permission-0","kind":"permission","mode":"strict","schema":1}
+{"allow":["MIT"],"expected":true,"expression":"MIT","id":"permission-1","kind":"permission","mode":"strict","schema":1}
+{"allow":["Apache-2.0"],"expected":false,"expression":"MIT","id":"permission-2","kind":"permission","mode":"strict","schema":1}
+{"allow":["MIT","Apache-2.0"],"expected":true,"expression":"MIT","id":"permission-3","kind":"permission","mode":"strict","schema":1}
+{"allow":["Apache-2.0 WITH LLVM-exception"],"expected":false,"expression":"MIT","id":"permission-4","kind":"permission","mode":"strict","schema":1}
+{"allow":["GPL-2.0-only"],"expected":false,"expression":"MIT","id":"permission-5","kind":"permission","mode":"strict","schema":1}
+{"allow":[],"expected":false,"expression":"(MIT AND Apache-2.0)","id":"permission-6","kind":"permission","mode":"strict","schema":1}
+{"allow":["MIT"],"expected":false,"expression":"(MIT AND Apache-2.0)","id":"permission-7","kind":"permission","mode":"strict","schema":1}
+{"allow":["Apache-2.0"],"expected":false,"expression":"(MIT AND Apache-2.0)","id":"permission-8","kind":"permission","mode":"strict","schema":1}
+{"allow":["MIT","Apache-2.0"],"expected":true,"expression":"(MIT AND Apache-2.0)","id":"permission-9","kind":"permission","mode":"strict","schema":1}
+{"allow":["Apache-2.0 WITH LLVM-exception"],"expected":false,"expression":"(MIT AND Apache-2.0)","id":"permission-10","kind":"permission","mode":"strict","schema":1}
+{"allow":["GPL-2.0-only"],"expected":false,"expression":"(MIT AND Apache-2.0)","id":"permission-11","kind":"permission","mode":"strict","schema":1}
+{"allow":[],"expected":false,"expression":"(MIT OR Apache-2.0)","id":"permission-12","kind":"permission","mode":"strict","schema":1}
+{"allow":["MIT"],"expected":true,"expression":"(MIT OR Apache-2.0)","id":"permission-13","kind":"permission","mode":"strict","schema":1}
+{"allow":["Apache-2.0"],"expected":true,"expression":"(MIT OR Apache-2.0)","id":"permission-14","kind":"permission","mode":"strict","schema":1}
+{"allow":["MIT","Apache-2.0"],"expected":true,"expression":"(MIT OR Apache-2.0)","id":"permission-15","kind":"permission","mode":"strict","schema":1}
+{"allow":["Apache-2.0 WITH LLVM-exception"],"expected":false,"expression":"(MIT OR Apache-2.0)","id":"permission-16","kind":"permission","mode":"strict","schema":1}
+{"allow":["GPL-2.0-only"],"expected":false,"expression":"(MIT OR Apache-2.0)","id":"permission-17","kind":"permission","mode":"strict","schema":1}
+{"allow":[],"expected":false,"expression":"Apache-2.0 WITH LLVM-exception","id":"permission-18","kind":"permission","mode":"strict","schema":1}
+{"allow":["MIT"],"expected":false,"expression":"Apache-2.0 WITH LLVM-exception","id":"permission-19","kind":"permission","mode":"strict","schema":1}
+{"allow":["Apache-2.0"],"expected":false,"expression":"Apache-2.0 WITH LLVM-exception","id":"permission-20","kind":"permission","mode":"strict","schema":1}
+{"allow":["MIT","Apache-2.0"],"expected":false,"expression":"Apache-2.0 WITH LLVM-exception","id":"permission-21","kind":"permission","mode":"strict","schema":1}
+{"allow":["Apache-2.0 WITH LLVM-exception"],"expected":true,"expression":"Apache-2.0 WITH LLVM-exception","id":"permission-22","kind":"permission","mode":"strict","schema":1}
+{"allow":["GPL-2.0-only"],"expected":false,"expression":"Apache-2.0 WITH LLVM-exception","id":"permission-23","kind":"permission","mode":"strict","schema":1}
+{"allow":[],"expected":false,"expression":"GPL-2.0-only","id":"permission-24","kind":"permission","mode":"strict","schema":1}
+{"allow":["MIT"],"expected":false,"expression":"GPL-2.0-only","id":"permission-25","kind":"permission","mode":"strict","schema":1}
+{"allow":["Apache-2.0"],"expected":false,"expression":"GPL-2.0-only","id":"permission-26","kind":"permission","mode":"strict","schema":1}
+{"allow":["MIT","Apache-2.0"],"expected":false,"expression":"GPL-2.0-only","id":"permission-27","kind":"permission","mode":"strict","schema":1}
+{"allow":["Apache-2.0 WITH LLVM-exception"],"expected":false,"expression":"GPL-2.0-only","id":"permission-28","kind":"permission","mode":"strict","schema":1}
+{"allow":["GPL-2.0-only"],"expected":true,"expression":"GPL-2.0-only","id":"permission-29","kind":"permission","mode":"strict","schema":1}
+{"allow":[],"expected":false,"expression":"GPL-2.0-or-later","id":"permission-30","kind":"permission","mode":"strict","schema":1}
+{"allow":["MIT"],"expected":false,"expression":"GPL-2.0-or-later","id":"permission-31","kind":"permission","mode":"strict","schema":1}
+{"allow":["Apache-2.0"],"expected":false,"expression":"GPL-2.0-or-later","id":"permission-32","kind":"permission","mode":"strict","schema":1}
+{"allow":["MIT","Apache-2.0"],"expected":false,"expression":"GPL-2.0-or-later","id":"permission-33","kind":"permission","mode":"strict","schema":1}
+{"allow":["Apache-2.0 WITH LLVM-exception"],"expected":false,"expression":"GPL-2.0-or-later","id":"permission-34","kind":"permission","mode":"strict","schema":1}
+{"allow":["GPL-2.0-only"],"expected":false,"expression":"GPL-2.0-or-later","id":"permission-35","kind":"permission","mode":"strict","schema":1}
+{"allow":[],"expected":false,"expression":"(MIT AND (Apache-2.0 OR BSD-3-Clause))","id":"permission-36","kind":"permission","mode":"strict","schema":1}
+{"allow":["MIT"],"expected":false,"expression":"(MIT AND (Apache-2.0 OR BSD-3-Clause))","id":"permission-37","kind":"permission","mode":"strict","schema":1}
+{"allow":["Apache-2.0"],"expected":false,"expression":"(MIT AND (Apache-2.0 OR BSD-3-Clause))","id":"permission-38","kind":"permission","mode":"strict","schema":1}
+{"allow":["MIT","Apache-2.0"],"expected":true,"expression":"(MIT AND (Apache-2.0 OR BSD-3-Clause))","id":"permission-39","kind":"permission","mode":"strict","schema":1}
+{"allow":["Apache-2.0 WITH LLVM-exception"],"expected":false,"expression":"(MIT AND (Apache-2.0 OR BSD-3-Clause))","id":"permission-40","kind":"permission","mode":"strict","schema":1}
+{"allow":["GPL-2.0-only"],"expected":false,"expression":"(MIT AND (Apache-2.0 OR BSD-3-Clause))","id":"permission-41","kind":"permission","mode":"strict","schema":1}
+{"date":"2026-10-30","expected":false,"expires":"2026-10-29","id":"expiry-29","kind":"expiry","mode":"strict","schema":1}
+{"date":"2026-10-30","expected":true,"expires":"2026-10-30","id":"expiry-30","kind":"expiry","mode":"strict","schema":1}
+{"date":"2026-10-30","expected":true,"expires":"2026-10-31","id":"expiry-31","kind":"expiry","mode":"strict","schema":1}

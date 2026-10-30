@@ -1,0 +1,10 @@
+name = "taloon-oracle"
+version = "0.1.0"
+defaultTargets = ["TaloonOracle"]
+
+[[lean_lib]]
+name = "TaloonOracle"
+
+[[lean_exe]]
+name = "generate_corpus"
+root = "Main"

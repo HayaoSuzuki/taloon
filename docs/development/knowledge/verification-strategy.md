@@ -20,8 +20,9 @@ property-based testing, and deliberate use of Rust types/enums. The owner also
 selected inline implementation with at least five self-reviews per stage.
 The [implementation plan](../work/initial-design/implementation-plan.md) assigns
 these checks to the stages that introduce each behavior. This is an approved
-verification design; no taloon formal model or generated-test result exists
-yet.[^owner]
+verification design. The [initial model and correspondence record](../../../formal/TaloonOracle/README.md)
+and [stage reviews](../work/initial-design/implementation-reviews.md) record
+the implemented policy slice; later pipeline checks remain pending.[^owner]
 
 Follow hoimin's separation of typed semantic models and a deterministic corpus
 generator. Keep kernel-checkable proofs in imported model/proof modules;

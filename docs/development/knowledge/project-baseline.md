@@ -1,13 +1,13 @@
 ---
 type: Contract
 title: Project baseline
-description: Current Rust scaffold, license, and boundaries before dependency-license research.
+description: Rust package, current policy implementation, and remaining pipeline boundaries.
 status: draft
 sources:
 - id: cargo
   resource: ../../../Cargo.toml
-  working_tree: untracked
-  sha256: 86f49180a9283cdd14a22d9c0e32e7e8766d2ef5f22d6db41c9ceb5d4f5b971f
+  working_tree: modified
+  sha256: c27127e1f85dd6f1ddf02ffbf6926cde044fe806b92fd30207efb941bc3b00a8
 - id: toolchain
   resource: ../../../rust-toolchain.toml
   working_tree: untracked
@@ -22,8 +22,8 @@ sources:
   sha256: afcfe774b5f3fe1abe4fd5cddc8286b73a596ef8cd78e692c4a96234a2bcabf7
 - id: crate
   resource: ../../../src/lib.rs
-  working_tree: untracked
-  sha256: 96680b5aebf6e174130eb0725eb6cf9da6a7ff79f8b7ad37a477ba6390d6b7f9
+  working_tree: modified
+  sha256: 4d66e25ce7339502bbee9dad0b814191bc8b20e2003768fa465012da0a80fb16
 - id: design-inputs
   resource: ../work/initial-design/specification-inputs.md
   working_tree: untracked
@@ -37,20 +37,24 @@ sources:
 
 taloon uses Rust edition 2024 with Rust 1.99.1 pinned for development. Workspace
 Clippy settings deny `all` and `pedantic` lints. The sole package has publishing
-disabled and no third-party Rust dependencies.[^cargo][^toolchain]
+disabled. It now depends on Rust crates for validated Python identities, SPDX
+expressions, TOML, and supporting data types.[^cargo][^toolchain]
 
 The repository owner selected Elastic-2.0, matching hoimin. Cargo records that
 license, and LICENSE contains the license text.[^cargo][^license]
 
 # Implementation boundary
 
-The crate contains development scaffolding, with no license-checking implementation.
+The library implements validated identities and pure policy evaluation.
+[Stage 1 reviews](../work/initial-design/implementation-reviews.md) record the tests,
+initial Lean proofs/correspondence, properties, and fuzzing evidence. A usable CLI,
+complete lock parsing, artifact acquisition, and caching remain unimplemented.
 Rust is the implementation language. The
 [license inspection specification](license-inspection.md) and
 [pure-core design](sans-io-design.md) now record the owner's approved design.
 The owner requires at least five self-reviews per implementation stage.
-These documents do not establish implemented
-metadata acquisition, artifact coverage, policy evaluation, or caching.
+The approved design does not establish complete
+metadata acquisition, artifact coverage, or caching.
 Publishing and deployment remain deferred.[^crate][^scope][^design-inputs][^design-approval]
 The [design review record](../work/initial-design/design-review.md) distinguishes
 document review and validation from product verification.

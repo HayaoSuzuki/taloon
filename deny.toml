@@ -10,7 +10,7 @@ allow = [
     "Unicode-3.0",
     "Unicode-DFS-2016",
 ]
-# The scaffold has no third-party dependencies yet.
+# Review additions with the matching locked dependency graph.
 unused-allowed-license = "allow"
 unused-license-exception = "deny"
 

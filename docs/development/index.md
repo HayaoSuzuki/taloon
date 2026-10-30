@@ -27,9 +27,10 @@ cargo build --locked --workspace
 ```
 
 `rust-toolchain.toml` selects the same compiler for local development and CI.
-Commit `Cargo.lock` whenever dependencies change. The initial package is an
-empty library scaffold with publishing disabled; it has no third-party Rust
-dependencies and does not provide an executable yet.
+Commit `Cargo.lock` whenever dependencies change. The package is a
+library with publishing disabled. The first implementation stage provides
+validated identities and pure license policy evaluation; it does not provide
+a usable executable yet. See the [current baseline](knowledge/project-baseline.md).
 
 Install [prek](https://prek.j178.dev/) and enable the local hooks:
 
@@ -50,8 +51,9 @@ cargo test --locked --workspace --all-features
 RUSTDOCFLAGS='-D warnings' cargo doc --locked --workspace --all-features --no-deps
 ```
 
-The Rust scaffold currently contains no behavioral tests. Add tests for actual
-behavior as implementation begins; a successful empty Rust suite only checks setup.
+Rust tests exercise policy behavior, generated properties, and the initial Lean
+corpus through public APIs. They do not yet establish complete lock/artifact
+coverage or acquisition behavior.
 The Python tooling tests exercise documentation validation. Run those and the
 strict user-site build using the [documentation procedure](documentation.md).
 
@@ -73,6 +75,26 @@ cargo deny --workspace --all-features --locked --config deny.toml check --deny w
 
 `deny.toml` permits Elastic-2.0 for taloon itself and checks third-party licenses
 separately. Review the policy when adding dependencies or changing versions.
+
+## Formal and generated checks
+
+The [verification decision](knowledge/verification-strategy.md) explains model
+boundaries and correspondence. Install the pinned Lean toolchain in
+`formal/TaloonOracle/lean-toolchain`; follow the
+[formal reproduction procedure](../../formal/TaloonOracle/README.md).
+The Rust test command above includes the generated-corpus adapter and proptest.
+
+With cargo-fuzz 0.13.2 and nightly-2026-10-08 installed, run the initial smoke target:
+
+```sh
+cargo +nightly-2026-10-08 fuzz run policy -- -runs=1000 -max_len=4096
+tools/check_fuzz_licenses.sh
+```
+
+The fuzz workspace stays separate from shipping dependencies. Its license check
+derives the root policy plus exact development-only NCSA permission for
+libfuzzer-sys 0.4.13; upgrading that package requires review. Lean/fuzz tools are
+development prerequisites, not requirements for running taloon.
 
 ## CI and scope
 

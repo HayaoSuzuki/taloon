@@ -1,0 +1,24 @@
+[package]
+name = "taloon-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+license = "Elastic-2.0"
+
+[package.metadata]
+cargo-fuzz = true
+
+[workspace]
+members = ["."]
+resolver = "3"
+
+[dependencies]
+libfuzzer-sys = "0.4.13"
+taloon = { path = ".." }
+
+[[bin]]
+name = "policy"
+path = "fuzz_targets/policy.rs"
+test = false
+doc = false
+bench = false

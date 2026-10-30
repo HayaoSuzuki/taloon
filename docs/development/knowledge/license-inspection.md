@@ -32,8 +32,10 @@ dependencies. Developers use it before commits and in CI to detect dependencies
 outside their project's explicit permission policy. The owner selected these
 requirements through a design interview.[^owner]
 
-The owner approved this written design. The current Rust library
-contains scaffolding only; none of the product behavior below exists yet.
+The owner approved this written design. The
+[project baseline](project-baseline.md) and
+[stage reviews](../work/initial-design/implementation-reviews.md) distinguish
+implemented slices from the complete contract below.
 Publishing and release automation remain deferred. The
 [architecture decision](sans-io-design.md) defines responsibilities, alternatives,
 API contracts, review criteria, and implementation acceptance checks.
@@ -280,8 +282,9 @@ not advertise an available executable.[^owner]
 # Acceptance and reconsideration
 
 The [architecture acceptance checks](sans-io-design.md#acceptance-checks) cover
-behavior and the two-second warm-cache performance target. No product or
-performance test has run yet. Keep user guidance and current implementation
+behavior and the two-second warm-cache performance target. Stage reviews record
+product checks as implementation progresses; no performance-target measurement
+has run yet. Keep user guidance and current implementation
 status distinct from this proposed contract.[^scaffold][^owner]
 
 Revisit this contract when adding another lock format, Git/directory sources,
