@@ -262,3 +262,12 @@ proptest! {
         prop_assert_eq!(e.requirement_satisfied(EvidenceRequirement::ArchiveVerified),restored.requirement_satisfied(EvidenceRequirement::ArchiveVerified));
     }
 }
+
+#[test]
+fn archive_records_cannot_change_distribution_format() {
+    let bytes = wheel(&metadata("License-Expression: MIT"));
+    let req = request(&bytes, ArtifactFormat::Wheel);
+    let evidence = Evidence::from_archive(&req, &bytes).unwrap();
+    let wrong = request(&bytes, ArtifactFormat::Sdist);
+    assert!(Evidence::from_record(&wrong, evidence.to_record()).is_err());
+}

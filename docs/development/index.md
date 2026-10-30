@@ -30,7 +30,7 @@ cargo build --locked --workspace
 Commit `Cargo.lock` whenever dependencies change. The package is a
 library with publishing disabled. The implemented library provides
 validated identities, pure policy evaluation, and version-1/revision-5 lock
-inspection and verified archive/sidecar metadata; it does not provide
+inspection, verified archive/sidecar metadata, and complete report aggregation; it does not provide
 a usable executable yet. See the [current baseline](knowledge/project-baseline.md).
 
 Install [prek](https://prek.j178.dev/) and enable the local hooks:
@@ -93,6 +93,7 @@ cargo +nightly-2026-10-08 fuzz run uv_lock -- -runs=1000 -max_len=4096
 cargo +nightly-2026-10-08 fuzz run metadata -- -runs=1000 -max_len=4096
 cargo +nightly-2026-10-08 fuzz run wheel -- -runs=1000 -max_len=4096
 cargo +nightly-2026-10-08 fuzz run sdist -- -runs=1000 -max_len=4096
+cargo +nightly-2026-10-08 fuzz run inspection -- -runs=1000 -max_len=4096
 tools/check_fuzz_licenses.sh
 ```
 

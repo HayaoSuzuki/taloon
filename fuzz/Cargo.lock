@@ -594,6 +594,7 @@ version = "0.0.0"
 dependencies = [
  "flate2",
  "libfuzzer-sys",
+ "serde_json",
  "taloon",
  "tar",
  "zip",

@@ -22,9 +22,15 @@ def allowedSets : List (List String) := [[], ["MIT"], ["Apache-2.0"],
 def brokenOr (left right : Bool) := left && right
 def brokenAnd (left right : Bool) := left || right
 def brokenExpiry (today expiry : Nat) : Bool := decide (today < expiry)
+def brokenPromotion := true
+def brokenMissing := true
+def brokenExit := 1
 def sensitivity : Bool :=
   brokenOr true false != (true || false) && brokenAnd true false != (true && false) &&
-    brokenExpiry 30 30 != validThrough 30 30
+    brokenExpiry 30 30 != validThrough 30 30 &&
+    brokenPromotion != sufficient false true &&
+    brokenMissing != complete [0] [] false &&
+    brokenExit != exitCode false true false false
 
 example : sensitivity = true := by decide
 
@@ -46,6 +52,26 @@ def corpus : String := Id.run do
       ("mode", .str "strict"), ("kind", .str "expiry"),
       ("date", .str "2026-10-30"), ("expires", .str s!"2026-10-{expiry}"),
       ("expected", Lean.toJson (validThrough 30 expiry)) ]).compress]
+  for first in [0, 1, 2] do
+    for second in [0, 1, 2] do
+      for required in [false, true] do
+        for permitted in [false, true] do
+          for anomaly in [0, 1, 2] do
+            for warnings in [false, true] do
+              for deny in [false, true] do
+                let observations := ([first, second].zipIdx).filterMap fun (slot, id) =>
+                  if slot == 0 then none else some (Observation.mk id (slot == 2) permitted)
+                let observations := if anomaly == 1 then observations ++ observations else observations
+                let observations := if anomaly == 2 then observations ++ [Observation.mk 9 true true] else observations
+                let isComplete := complete [0, 1] observations required
+                rows := rows ++ [(Lean.Json.mkObj [
+                  ("schema", Lean.toJson (1 : Nat)), ("id", .str s!"inspection-{n}"),
+                  ("mode", .str "strict"), ("kind", .str "inspection"),
+                  ("slots", Lean.toJson [first, second]), ("required", Lean.toJson required),
+                  ("permitted", Lean.toJson permitted), ("anomaly", Lean.toJson anomaly),
+                  ("warnings", Lean.toJson warnings), ("deny", Lean.toJson deny),
+                  ("expected", Lean.toJson (exitCode isComplete (!permitted) warnings deny)) ]).compress]
+                n := n + 1
   return String.intercalate "\n" rows ++ "\n"
 
 def main (args : List String) : IO UInt32 := do
@@ -60,7 +86,7 @@ def main (args : List String) : IO UInt32 := do
       IO.eprintln "stale Lean corpus"
       return 1
   | ["--stats"] =>
-      IO.println s!"permission_cases={expressions.length * allowedSets.length} expiry_cases=3 sensitivity={sensitivity}"
+      IO.println s!"permission_cases={expressions.length * allowedSets.length} expiry_cases=3 inspection_cases=432 sensitivity={sensitivity}"
       return 0
   | [] => IO.print corpus; return 0
   | _ => IO.eprintln "usage: generate_corpus [--output PATH | --check PATH | --stats]"; return 2

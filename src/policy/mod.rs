@@ -351,4 +351,42 @@ impl Policy {
             overrides,
         }
     }
+    /// Called only after a complete run; all OR terms count as observed units.
+    pub(crate) fn unused(
+        &self,
+        observations: &[(&ArtifactRequest, ContentHash, LicenseExpression)],
+    ) -> Vec<Error> {
+        let mut warnings = Vec::new();
+        for unit in &self.allow {
+            if !observations
+                .iter()
+                .any(|(_, _, expression)| expression.units().contains(unit))
+            {
+                warnings.push(Error::new(
+                    Code::UnusedPermission,
+                    format!("unused global permission: {unit}"),
+                ));
+            }
+        }
+        for (index, exception) in self.exceptions.iter().enumerate() {
+            if !observations
+                .iter()
+                .any(|(request, hash, _)| exception.matches(request, *hash))
+            {
+                warnings.push(Error::new(
+                    Code::UnusedPermission,
+                    format!("unused exception entry: {}", index + 1),
+                ));
+            }
+        }
+        for hash in self.clarifications.keys() {
+            if !observations.iter().any(|(_, observed, _)| observed == hash) {
+                warnings.push(Error::new(
+                    Code::UnusedPermission,
+                    format!("unused clarification: {hash}"),
+                ));
+            }
+        }
+        warnings
+    }
 }

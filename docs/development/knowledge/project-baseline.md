@@ -47,7 +47,8 @@ license, and LICENSE contains the license text.[^cargo][^license]
 
 The library implements validated identities, pure policy evaluation, and
 complete target enumeration/annotated paths for uv.lock version 1 revision 5,
-and in-memory wheel/source-archive and sidecar metadata evidence.
+in-memory wheel/source-archive and sidecar metadata evidence, and complete
+inspection/report aggregation.
 [Stage reviews](../work/initial-design/implementation-reviews.md) record the tests,
 initial Lean proofs/correspondence, properties, and fuzzing evidence. A usable CLI,
 acquisition and caching remain unimplemented.

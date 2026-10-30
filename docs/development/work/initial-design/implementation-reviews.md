@@ -150,3 +150,44 @@ Ruling: cache only original headers plus full-observation digests and a separate
 header checksum. This avoids retaining per-artifact Description bodies while
 preserving declarations and provenance. It assumes the local cache is trusted;
 its checksums detect corruption and do not authenticate third-party records.
+
+## Stage 4 complete inspections and reports
+
+Reviewed on 2026-10-31 from base `44c32dc`.
+
+1. **Specification pass:** traced each expected request through missing, failed,
+   weak, permitted, and denied results. Configuration errors and target issues
+   remain incomplete; clarification replaces a declaration without granting
+   permission. Empty validated scope succeeds. Both original and interpreted
+   declarations and override reasons remain reportable.
+2. **Adversarial pass:** inspected duplicate/unknown results, shared bytes under
+   separate requests/sources, and observation rebinding. Found cached evidence
+   could change Wheel to Sdist without rechecking the format. A failing public
+   evidence regression confirmed this; records now bind the format and the
+   regression passes. Missing either shared-content association still fails.
+3. **Design pass:** checked all eight diagnostics: information hiding, interface
+   depth, responsibility, change locality, abstraction value, names, invariant
+   representation, and comments. Inspection owns accounting; Evidence owns
+   rebinding; Policy owns unused-entry analysis; Report owns exit precedence.
+   Wire policy internals and acquisition implementation remain hidden. No open
+   design row remains. Reports expose typed statuses/diagnostics and private
+   run status, with counters independent of policy.
+4. **Failure/proof pass:** checked UTC configuration validation, conservative
+   unused warnings (all OR terms count), weak proof, and incomplete-over-warning
+   precedence. Added a failing regression for failures with no proven origin;
+   reports now explain absent paths without fabricating an edge. Lean proves
+   missing-target rejection over arbitrary lists and exit precedence, and checks
+   proof sufficiency. The finite generator detects deliberately broken sidecar,
+   missing-result, and exit variants. These proofs do not cover Rust I/O.
+5. **Verification pass:** 42 Rust tests passed, including seven inspection tests,
+   six 256-case properties across stages, and all 477 strict Lean-generated
+   cases (432 inspection plus the previous 45). The structured inspection fuzzer
+   completed 1,000 executions without a crash. Strict Clippy/rustdoc, corpus
+   freshness, documentation validation, and fuzz dependency checks passed.
+   Lean builds stayed under the original 20-second deadline; no bounds were
+   increased and no peak Lean memory measurement was available.
+
+Ruling: duplicate result associations are rejected even when their observations
+are identical. Acquisition must deduplicate internal work while returning one
+association per request. Observation rebinding reparses a trusted record under
+its expected identity/digest/format; IDs alone never constitute proof.

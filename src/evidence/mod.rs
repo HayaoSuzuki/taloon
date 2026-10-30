@@ -26,6 +26,7 @@ enum Proof {
 struct RecordData {
     schema: u32,
     content: ContentHash,
+    format: ArtifactFormat,
     metadata_hash: ContentHash,
     headers_hash: ContentHash,
     proof: Proof,
@@ -325,6 +326,7 @@ impl Evidence {
         let headers = metadata_headers(&text);
         let data = RecordData {
             schema: 1,
+            format: request.format(),
             content,
             metadata_hash,
             headers_hash: ContentHash::digest(headers.as_bytes()),
@@ -441,6 +443,7 @@ impl Evidence {
         let data = &record.data;
         if data.metadata.len() > usize::try_from(MAX_METADATA).unwrap_or(usize::MAX)
             || data.schema != 1
+            || data.format != request.format()
             || checksum(data)? != record.checksum
             || ContentHash::digest(data.metadata.as_bytes()) != data.headers_hash
         {
