@@ -228,3 +228,62 @@ files cannot reuse a stale path-based record. Archive input is bounded to
 256 MiB and oversized files produce an explicit acquisition error. The binary
 entry point remains a deliberate exit-2 placeholder until stage 7; acquisition
 is compiled/exercised through binary unit tests during this intermediate stage.
+
+
+## Stage 6 HTTPS acquisition
+
+Reviewed on 2026-10-31 from base `e86f30f`.
+
+1. **Specification pass:** traced exact locked URL/digest matching through JSON
+   and HTML Simple API current/legacy metadata advertisements. Unhashed,
+   unavailable, corrupt, or ambiguous sidecars fall back to full verified
+   archives. A stronger clarification fetches archive evidence online and fails
+   incomplete offline when only sidecar evidence exists. No substitution,
+   dependency resolution, installation, or inspected code execution occurs.
+2. **Adversarial pass:** tested signed queries, percent encoding, fragments,
+   relative/base URLs, script-contained pseudo-links, conflicting hashes,
+   malformed/oversized responses, and one failure alongside a success. Found
+   sidecar records could be rebound to a different URL with identical digest and
+   source. A failing public regression confirmed this; sidecar provenance now
+   binds the original request as well as its source. Archive observations remain
+   reusable after identity/digest/format checks.
+3. **Design pass:** checked the eight design diagnostics. Acquisition hides
+   authentication, index formats, retries, concurrency, and persistence from the
+   core. An opaque Acquirer hides its boxed private transport seam rather than
+   exporting transport generics to the CLI. Shared-content jobs stay in one
+   worker, but every request receives its own association. No open interface row
+   remains. Evaluations and cache entries contain no policy verdict.
+4. **Failure/security pass:** checked offline branches before any transport call,
+   same-origin credentials, permanent credential removal after an origin change,
+   HTTPS-only redirects, and bounded retries. An actual loopback test exercised
+   invalid TLS and stalled handshakes using the real strict client. It passed
+   separately because loopback sockets require execution outside the sandbox.
+   Fixture transports separately cover redirects and authentication without
+   claiming to prove the TLS stack. No credentials/query values appear in errors
+   or cache provenance; request fingerprints preserve association without secrets.
+5. **Verification pass:** 43 public/library tests and 16 binary tests passed;
+   one ignored-by-default loopback test also passed explicitly. Eight properties
+   across stages each run 256 cases. Strict Clippy/rustdoc, shipping/fuzz
+   license/source checks and regenerated fuzz lock passed. Existing 477 strict
+   Lean cases still match; network/cache concurrency is outside the pure proof.
+
+Selected defaults: eight workers, 30-second request and 10-second connect
+limits, up to three attempts for transport errors/429/5xx with 50/100 ms delay,
+up to five redirects (six responses), 16 MiB index, 4 MiB metadata, and 256 MiB
+archive responses. The client library's own retries are disabled so counters
+reflect application attempts and redirect hops. Byte counters measure received
+response bodies; cache hits and extraction attempts are observed at their owners.
+
+Authentication uses host-specific machine/login/password entries from the
+selected UTF-8 netrc file (1 MiB limit). Quoted values, comments, Unicode, and
+account fields parse through shlex; account is ignored. Default credentials are
+not sent, macros/unknown fields are rejected, and URL userinfo is stripped rather
+than becoming Authorization. Environment path precedence belongs to CLI stage 7.
+
+Dependency review selected reqwest 0.13.5 with rustls, html5ever 0.35.0 tokenizing,
+and shlex 2.0.1. Inspected locked declarations and packaged license notices for
+TLS dependencies. deny.toml grants exact-version ISC/BSD-3-Clause/CDLA permissions
+for six affected TLS/certificate packages, retaining the global allowlist.
+An older netrc parser had Unicode indexing limitations; another required nightly
+and logged raw input. Neither is retained. The final small credential schema
+uses the existing quoted-token lexer and emits only fixed safe errors.

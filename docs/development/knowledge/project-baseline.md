@@ -51,7 +51,8 @@ in-memory wheel/source-archive and sidecar metadata evidence, and complete
 inspection/report aggregation.
 [Stage reviews](../work/initial-design/implementation-reviews.md) record the tests,
 initial Lean proofs/correspondence, properties, and fuzzing evidence. Binary unit tests now cover local acquisition and recoverable evidence caching.
-A usable CLI and HTTPS acquisition remain unimplemented.
+Binary tests also cover HTTPS index/sidecar/archive acquisition and offline
+behavior. A usable CLI remains unimplemented.
 Rust is the implementation language. The
 [license inspection specification](license-inspection.md) and
 [pure-core design](sans-io-design.md) now record the owner's approved design.

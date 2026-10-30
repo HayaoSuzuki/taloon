@@ -271,3 +271,29 @@ fn archive_records_cannot_change_distribution_format() {
     let wrong = request(&bytes, ArtifactFormat::Sdist);
     assert!(Evidence::from_record(&wrong, evidence.to_record()).is_err());
 }
+
+#[test]
+fn cached_sidecars_require_the_original_artifact_association() {
+    let meta = metadata("License-Expression: MIT");
+    let bytes = wheel(&meta);
+    let first = request(&bytes, ArtifactFormat::Wheel);
+    let hash = ContentHash::digest(&bytes);
+    let evidence = Evidence::from_sidecar(
+        &first,
+        SidecarAssociation::new(hash, hash, ContentHash::digest(&meta)).unwrap(),
+        &meta,
+    )
+    .unwrap();
+    let second = taloon::model::ArtifactRequest::new(
+        first.package().clone(),
+        taloon::model::ArtifactLocator::registry(
+            "https://pypi.org/simple",
+            "https://files.example.test/another.whl",
+        )
+        .unwrap(),
+        first.format(),
+        Some(hash),
+    )
+    .unwrap();
+    assert!(Evidence::from_record(&second, evidence.to_record()).is_err());
+}

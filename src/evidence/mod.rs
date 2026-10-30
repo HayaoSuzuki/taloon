@@ -2,7 +2,7 @@
 use crate::{
     model::{
         ArtifactFormat, ArtifactLocator, ArtifactRequest, Code, ContentHash, Error,
-        EvidenceRequirement, PackageId, SourceId, safe_locator,
+        EvidenceRequirement, PackageId, RequestId, SourceId, safe_locator,
     },
     policy::LicenseExpression,
 };
@@ -19,7 +19,10 @@ const MAX_TAR_EXPANSION: u64 = 1024 * 1024 * 1024;
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 enum Proof {
     ArchiveVerified,
-    IndexAssociated { source: ContentHash },
+    IndexAssociated {
+        source: ContentHash,
+        request: RequestId,
+    },
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -378,6 +381,7 @@ impl Evidence {
             binding.archive,
             Proof::IndexAssociated {
                 source: source_binding(request)?,
+                request: request.id(),
             },
         )
     }
@@ -458,8 +462,11 @@ impl Evidence {
                 "cached content differs from locked artifact",
             ));
         }
-        if let Proof::IndexAssociated { source } = data.proof
-            && source_binding(request)? != source
+        if let Proof::IndexAssociated {
+            source,
+            request: association,
+        } = data.proof
+            && (source_binding(request)? != source || association != request.id())
         {
             return Err(Error::new(
                 Code::IdentityMismatch,
