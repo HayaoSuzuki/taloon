@@ -63,15 +63,15 @@ WHEEL --python VERSION` verifies actual uv installation and exit/report/cache be
 `validate_wheel(path: Path, version: str) -> None` and
 `prepare_wheels(tag, release_json, assets, output)` consume Task 1's wheel format.
 
-- [ ] Write failing local-remote reservation tests for first/repeated/new/stale
+- [x] Write failing local-remote reservation tests for first/repeated/new/stale
   commits, competing reservations and lost responses; malformed versions fail.
-- [ ] Implement atomic reservation, consistent manifest/lock rewriting, and
+- [x] Implement atomic reservation, consistent manifest/lock rewriting, and
   exact three-wheel inventory/checksum validation adapted from attributed hoimin.
-- [ ] Write and pass failure tests for changed licenses/metadata/tags, duplicates,
+- [x] Write and pass failure tests for changed licenses/metadata/tags, duplicates,
   missing/extra files, substituted bytes, and existing output directories.
-- [ ] Add independent generated version/order cases and a small Lean reservation
+- [x] Add independent generated version/order cases and a small Lean reservation
   model for no overwrite/stale rejection; document its correspondence limits.
-- [ ] Run stage tests, review five times, record evidence, and commit.
+- [x] Run stage tests, review five times, record evidence, and commit.
 
 ### Task 3: Provenance, release workflow and operations
 

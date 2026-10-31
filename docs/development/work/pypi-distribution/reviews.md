@@ -24,3 +24,29 @@ Five self-review passes:
 
 The documentation checker and 29 Python tooling tests passed. Rust source was
 unchanged; the baseline Rust suite passed before packaging changes.
+
+## Stage 2: reservations and inventories
+
+The new release modules first failed test collection because they did not exist.
+After implementation the reservation and inventory suite passed. Three further
+tests reproduced acceptance of a missing executable, inconsistent internal wheel
+tags, and unexpected Python dependencies; all now reject those inputs. The actual
+local macOS wheel also passes the validator.
+
+Five self-review passes:
+
+1. Exercised real bare-remotes with repeated commits, stale/unrelated commits,
+   raised manifest floors, collisions, and a successful push with a lost response.
+2. Exercised simultaneous independent checkouts: immutable tag identities and the
+   compare-and-swap ordering marker agree; older work can be explicitly skipped.
+3. Checked version ownership and strict syntax, plus 1,024 generated floor/order
+   assertions. Only the root package version in Cargo.lock is changed.
+4. Checked exact three-platform inventory and no staged output on failure;
+   missing/extra wheels, substitutions, duplicate checksums/ZIP paths, wrong
+   declarations/text, scripts and tags are rejected before staging.
+5. Reviewed formal claims: the new Lean release decision theorems build within
+   the initial 20-second bound. They assume ancestry/CAS and do not prove Git,
+   Python execution, empty-history handling, signatures, or network behavior.
+
+The release policy/inventory code credits hoimin at the inspected revision.
+No upstream vendored-license requirements were carried into taloon's inventory.
