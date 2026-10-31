@@ -1,0 +1,63 @@
+[package]
+name = "taloon-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+license = "Elastic-2.0"
+
+[package.metadata]
+cargo-fuzz = true
+
+[workspace]
+members = ["."]
+resolver = "3"
+
+[dependencies]
+libfuzzer-sys = "0.4.13"
+serde_json = "1.0"
+taloon = { path = ".." }
+zip = { version = "9.1.3", default-features = false, features = ["deflate-flate2"] }
+flate2 = { version = "1.1.10", default-features = false, features = ["rust_backend"] }
+tar = { version = "0.4.46", default-features = false }
+
+[[bin]]
+name = "policy"
+path = "fuzz_targets/policy.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "uv_lock"
+path = "fuzz_targets/uv_lock.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "metadata"
+path = "fuzz_targets/metadata.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "wheel"
+path = "fuzz_targets/wheel.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "sdist"
+path = "fuzz_targets/sdist.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "inspection"
+path = "fuzz_targets/inspection.rs"
+test = false
+doc = false
+bench = false

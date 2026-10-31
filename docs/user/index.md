@@ -1,11 +1,27 @@
-# taloon user guide
+# taloon
 
-taloon is a license-checking tool for uv-resolved Python dependencies under development. There is no released
-package or usable license-checking command yet. Installation and usage instructions will
-appear here as those features become available.
+taloon checks declared dependency licenses in `uv.lock`, using a policy in the
+sibling `pyproject.toml`. It is implemented in Rust and uses the
+[Elastic License 2.0](https://github.com/HayaoSuzuki/taloon/blob/main/LICENSE).
 
-Follow [Issue #1](https://github.com/HayaoSuzuki/taloon/issues/1) for the initial
-research scope. For development, use the
-[repository](https://github.com/HayaoSuzuki/taloon) and its developer entry point.
+Install from a checkout with Rust 1.99.1 and a native C build toolchain:
 
-taloon uses the [Elastic License 2.0](https://github.com/HayaoSuzuki/taloon/blob/main/LICENSE).
+```sh
+cargo install --locked --path .
+```
+
+The installation was tested on macOS arm64 with the pinned compiler and Apple
+command-line build tools. Cargo downloads and compiles dependencies; an installed
+`taloon` needs neither Python nor uv. Binary releases, PyPI packages, publishing,
+and deployment are deferred.
+
+Add a [policy](configuration.md), then run from your project or a subdirectory:
+
+```sh
+taloon check
+```
+
+See [commands and automation](usage.md) for JSON, offline checks, and hooks, and
+[evidence and troubleshooting](evidence.md) for supported inputs and trust limits.
+For contributor procedures, follow the repository's
+[development entry point](https://github.com/HayaoSuzuki/taloon/blob/main/docs/development/index.md).

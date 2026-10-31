@@ -27,11 +27,13 @@ cargo build --locked --workspace
 ```
 
 `rust-toolchain.toml` selects the same compiler for local development and CI.
-Commit `Cargo.lock` whenever dependencies change. The initial package is an
-empty library scaffold with publishing disabled; it has no third-party Rust
-dependencies and does not provide an executable yet.
+Commit `Cargo.lock` whenever dependencies change. The package provides a pure
+inspection library and `taloon check`; publishing is disabled. Follow the
+[user guide](../user/index.md) for installation, runtime options, and supported
+formats, or the [baseline](knowledge/project-baseline.md) for verification scope.
 
-Install [prek](https://prek.j178.dev/) and enable the local hooks:
+Install [prek](https://prek.j178.dev/) 0.5.7 (also required by the workflow
+integration test) and enable the repository hooks:
 
 ```sh
 prek install
@@ -50,15 +52,17 @@ cargo test --locked --workspace --all-features
 RUSTDOCFLAGS='-D warnings' cargo doc --locked --workspace --all-features --no-deps
 ```
 
-The Rust scaffold currently contains no behavioral tests. Add tests for actual
-behavior as implementation begins; a successful empty Rust suite only checks setup.
+Rust tests exercise policy, locked inventory/paths, generated properties, and
+the initial Lean corpus through public APIs. Binary and process tests additionally exercise acquisition, caching, and CLI
+behavior.
 The Python tooling tests exercise documentation validation. Run those and the
 strict user-site build using the [documentation procedure](documentation.md).
 
-For workflow checks, install uv and run:
+For workflow checks, install uv and the docs environment using the
+[documentation procedure](documentation.md), then run:
 
 ```sh
-uvx --from actionlint-py==1.7.12.25 --with shellcheck-py==0.11.0.1 actionlint
+tools/check_workflows.sh
 uvx zizmor==1.30.1 --no-online-audits --min-severity low .github/workflows
 ```
 
@@ -69,10 +73,39 @@ cargo install cargo-audit --version 0.22.2 --locked
 cargo install cargo-deny --version 0.20.2 --locked
 cargo audit --file Cargo.lock
 cargo deny --workspace --all-features --locked --config deny.toml check --deny warnings licenses sources
+cargo fetch --locked --manifest-path fuzz/Cargo.toml
+tools/check_fuzz_licenses.sh
 ```
 
 `deny.toml` permits Elastic-2.0 for taloon itself and checks third-party licenses
 separately. Review the policy when adding dependencies or changing versions.
+The fuzz policy helper runs offline. Fetch its separate locked dependency graph
+first; the dependency-audit CI job performs this preparation on a fresh runner.
+
+## Formal and generated checks
+
+The [verification decision](knowledge/verification-strategy.md) explains model
+boundaries and correspondence. Install the pinned Lean toolchain in
+`formal/TaloonOracle/lean-toolchain`; follow the
+[formal reproduction procedure](../../formal/TaloonOracle/README.md).
+The Rust test command above includes the generated-corpus adapter and proptest.
+
+With cargo-fuzz 0.13.2 and nightly-2026-10-08 installed, run the initial smoke target:
+
+```sh
+cargo +nightly-2026-10-08 fuzz run policy -- -runs=1000 -max_len=4096
+cargo +nightly-2026-10-08 fuzz run uv_lock -- -runs=1000 -max_len=4096
+cargo +nightly-2026-10-08 fuzz run metadata -- -runs=1000 -max_len=4096
+cargo +nightly-2026-10-08 fuzz run wheel -- -runs=1000 -max_len=4096
+cargo +nightly-2026-10-08 fuzz run sdist -- -runs=1000 -max_len=4096
+cargo +nightly-2026-10-08 fuzz run inspection -- -runs=1000 -max_len=4096
+tools/check_fuzz_licenses.sh
+```
+
+The fuzz workspace stays separate from shipping dependencies. Its license check
+derives the root policy plus exact development-only NCSA permission for
+libfuzzer-sys 0.4.13; upgrading that package requires review. Lean/fuzz tools are
+development prerequisites, not requirements for running taloon.
 
 ## CI and scope
 
@@ -81,10 +114,14 @@ checks Rust formatting, Clippy, tests, documentation, and workflow definitions.
 The dependency workflow also runs daily. Jobs have explicit time limits and
 read-only repository permissions.
 
-Ubuntu is the initial CI environment. Passing these scaffold checks does not
-establish dependency coverage or correctness of future license decisions.
-Validate metadata acquisition, artifact coverage, policy semantics, and caching
-during the Issue #1 research before documenting those as supported behavior.
+CI is configured for Ubuntu. The local final verification used macOS arm64;
+configuration and local checks are not evidence of an unobserved GitHub run.
+The [stage reviews](work/initial-design/implementation-reviews.md) and
+[performance record](work/initial-design/performance.md) state the verified scope.
+Lean checks corpus freshness; Rust tests execute its public-API adapter. A pinned
+nightly runs all six bounded fuzz targets, and dependency checks cover the
+shipping and separate fuzz graphs. Neither Lean nor fuzz tools are runtime
+requirements.
 
 The separate Documentation workflow validates OKF, repository document links,
 and the user-site build, and retains the generated HTML for review.

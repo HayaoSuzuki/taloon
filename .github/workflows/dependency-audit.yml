@@ -33,4 +33,8 @@ jobs:
           cargo install cargo-audit --version 0.22.2 --locked
           cargo install cargo-deny --version 0.20.2 --locked
       - run: cargo audit --file Cargo.lock
+      - run: cargo audit --file fuzz/Cargo.lock
       - run: cargo deny --workspace --all-features --locked --config deny.toml check --deny warnings licenses sources
+      - name: Fetch locked fuzz dependencies for offline policy checks
+        run: cargo fetch --locked --manifest-path fuzz/Cargo.toml
+      - run: tools/check_fuzz_licenses.sh

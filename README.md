@@ -2,10 +2,10 @@
 
 License checking for uv-resolved Python dependencies, implemented in Rust.
 
-This repository currently contains development and CI configuration in
-preparation for [Issue #1](https://github.com/HayaoSuzuki/taloon/issues/1).
-Dependency inspection and license policy evaluation have not been implemented.
-The initial research covers uv.lock dependencies, metadata, policy, and caching.
+Run `taloon check` with a license policy in `pyproject.toml` to inspect all
+external locked records and recorded artifacts. The core separates metadata and
+policy processing from file/network acquisition. Install from this checkout
+with `cargo install --locked --path .`; publishing remains deferred.
 
 Read [the user guide](docs/user/index.md) for availability and usage.
 Developers and AI agents should start with [the development guide](docs/development/index.md)

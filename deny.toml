@@ -10,7 +10,7 @@ allow = [
     "Unicode-3.0",
     "Unicode-DFS-2016",
 ]
-# The scaffold has no third-party dependencies yet.
+# Review additions with the matching locked dependency graph.
 unused-allowed-license = "allow"
 unused-license-exception = "deny"
 
@@ -19,6 +19,37 @@ unused-license-exception = "deny"
 name = "taloon"
 version = "=0.1.0"
 allow = ["Elastic-2.0"]
+
+# Reviewed TLS implementation and certificate-data declarations; exact versions only.
+[[licenses.exceptions]]
+name = "aws-lc-rs"
+version = "=1.19.0"
+allow = ["ISC"]
+
+[[licenses.exceptions]]
+name = "aws-lc-sys"
+version = "=0.47.0"
+allow = ["ISC", "BSD-3-Clause"]
+
+[[licenses.exceptions]]
+name = "rustls-webpki"
+version = "=0.103.16"
+allow = ["ISC"]
+
+[[licenses.exceptions]]
+name = "subtle"
+version = "=2.6.1"
+allow = ["BSD-3-Clause"]
+
+[[licenses.exceptions]]
+name = "untrusted"
+version = "=0.9.0"
+allow = ["ISC"]
+
+[[licenses.exceptions]]
+name = "webpki-root-certs"
+version = "=1.0.11"
+allow = ["CDLA-Permissive-2.0"]
 
 [sources]
 unknown-registry = "deny"
