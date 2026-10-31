@@ -29,6 +29,10 @@ bindings = "bin"
 manifest-path = "Cargo.toml"
 
 [dependency-groups]
+release = [
+    "pypi-attestations==0.0.30",
+    "hypothesis==6.170.1",
+]
 docs = [
     "mkdocs==1.6.1",
     "mkdocs-material==9.7.7",

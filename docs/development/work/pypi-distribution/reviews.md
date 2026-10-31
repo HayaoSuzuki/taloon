@@ -50,3 +50,37 @@ Five self-review passes:
 
 The release policy/inventory code credits hoimin at the inspected revision.
 No upstream vendored-license requirements were carried into taloon's inventory.
+
+## Stage 3: publication, provenance and operations
+
+Missing release-check/provenance modules first failed their new tests at import.
+The implemented tooling suite now includes a 256-example Hypothesis property,
+exact-source quality gate cases, original-build/current-publish identity cases,
+bounded index propagation, inventory disagreement and real signature rejection.
+An authentic public reference single-wheel signature verifies offline; changed
+signature/digest, wrong repository and wrong source are rejected by the actual
+Sigstore/pypi-attestations verification libraries. That witness is not a taloon
+release. Positive taloon signatures require the main signing job.
+
+Five self-review passes:
+
+1. Traced PR/main/recovery job dependencies, including skipped jobs; only main
+   publication or an explicit main recovery can reach an upload. Quality gates
+   select exact source/push workflows and supersede old attempts correctly.
+2. Audited token boundaries: only main reservation/signing writes contents,
+   signing requests attestation/OIDC, and upload requests only OIDC. Upload jobs
+   execute no project code and use named index environments.
+3. Traced original bytes through assembly, GitHub assets, signature conversion,
+   both indexes and recovery. Exact inventories/hash/identity validation precede
+   staging. No skip-existing, rebuild-on-recovery, or asset overwrite is used.
+4. Checked failure behavior: missing publisher configuration remains an explicit
+   external prerequisite; delayed post-upload 404s have a ten-minute bound;
+   invalid publications/signatures fail without retrying away the disagreement.
+5. Checked scope and user guidance: three platform wheels, two supported Python
+   versions per wheel, Linux exhaustive suites, crates.io disabled, current
+   publisher fields and recovery commands. No production-upload claim is made.
+
+Actionlint and standalone ShellCheck passed all 45 run blocks; offline zizmor
+1.30.1 reported no findings. The added action commit SHAs were resolved through
+gh. Local docs checks and strict MkDocs passed. Hosted three-platform wheel
+preview and a fresh independent whole-change review remain to be recorded.

@@ -11,6 +11,8 @@ link checks do not establish implementation correctness or human review.
   canonical topics, and evidence without duplicated current explanations.
 - [Project baseline](project-baseline.md): Rust and licensing choices, current
   implementation, and dependency-inspection limits.
+- [Python distribution](python-distribution.md): Binary wheels, automatic
+  version reservations, verified publication and recovery.
 - [License inspection specification](license-inspection.md): Approved uv.lock
   coverage, policy, acquisition evidence, and CLI behavior; design approved,
   implementation evidence in the baseline.

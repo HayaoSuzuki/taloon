@@ -83,14 +83,14 @@ decision/baseline, AGENTS, user guidance, stage review record.
 Task 2's release assets; check gate consumes gh Actions JSON for exact commit and
 push event; workflow consumes validated artifact/version outputs only.
 
-- [ ] Write failing gate selection and provenance rejection/propagation tests.
-- [ ] Adapt original signature conversion, exact downloaded byte/publisher/
+- [x] Write failing gate selection and provenance rejection/propagation tests.
+- [x] Adapt original signature conversion, exact downloaded byte/publisher/
   predicate verification and bounded propagation handling; keep index policy
   separate from version/inventory ownership.
-- [ ] Build preview wheels in three native/manylinux jobs, smoke both supported
+- [x] Build preview wheels in three native/manylinux jobs, smoke both supported
   Python versions, validate inventory; main-only gate/sign/release/store followed
   by TestPyPI inspect/upload/verify and PyPI inspect/upload/verify.
-- [ ] Add manual main recovery of original signed release assets; no rebuild or
+- [x] Add manual main recovery of original signed release assets; no rebuild or
   replacing existing assets. Upload jobs check out no code.
 - [ ] Document exact PyPI pending publisher fields and GitHub environments;
   validate syntax, workflow security, docs, all relevant tests, and hosted PR
