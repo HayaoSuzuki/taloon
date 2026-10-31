@@ -13,7 +13,12 @@ cargo install --locked --path .
 The installation was tested on macOS arm64 with the pinned compiler and Apple
 command-line build tools. Cargo downloads and compiles dependencies; an installed
 `taloon` needs neither Python nor uv. Binary releases, PyPI packages, publishing,
-and deployment are deferred.
+and automatic publishing are being prepared. Until the first verified PyPI
+release, install from a checkout as above. Contributors can also build a local
+binary wheel with `uvx --from maturin==1.15.0 maturin build --release --locked`
+and run `uv tool run --from /absolute/path/to/taloon-VERSION-PLATFORM.whl taloon check`.
+Python installation support is restricted to 3.14 and 3.15; the wheel contains
+the Rust executable and has no Python runtime package dependencies.
 
 Add a [policy](configuration.md), then run from your project or a subdirectory:
 

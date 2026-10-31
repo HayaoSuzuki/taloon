@@ -44,14 +44,14 @@ OIDC Trusted Publishing, pypi-attestations, pinned Lean.
 **Interfaces:** Maturin bin wheel containing `taloon`; `python -m tools.wheel_smoke
 WHEEL --python VERSION` verifies actual uv installation and exit/report/cache behavior.
 
-- [ ] Write metadata/support-range assertions and smoke scenarios for version,
+- [x] Write metadata/support-range assertions and smoke scenarios for version,
   help, local MIT allow/deny and missing archive, cold/warm cache.
-- [ ] Observe missing packaging/smoke behavior fail.
-- [ ] Configure maturin binary bindings with dynamic Cargo version; implement
+- [x] Observe missing packaging/smoke behavior fail.
+- [x] Configure maturin binary bindings with dynamic Cargo version; implement
   standalone stdlib smoke runner without invoking Python packages being inspected.
-- [ ] Build a local release wheel; run smoke on Python 3.14 and 3.15; run Python
+- [x] Build a local release wheel; run smoke on Python 3.14 and 3.15; run Python
   tooling tests and docs checks. Expected: both invoke the same wheel successfully.
-- [ ] Review five times, record evidence, and commit this independently usable stage.
+- [x] Review five times, record evidence, and commit this independently usable stage.
 
 ### Task 2: Version reservations and artifact ownership
 
