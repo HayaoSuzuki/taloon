@@ -73,10 +73,14 @@ cargo install cargo-audit --version 0.22.2 --locked
 cargo install cargo-deny --version 0.20.2 --locked
 cargo audit --file Cargo.lock
 cargo deny --workspace --all-features --locked --config deny.toml check --deny warnings licenses sources
+cargo fetch --locked --manifest-path fuzz/Cargo.toml
+tools/check_fuzz_licenses.sh
 ```
 
 `deny.toml` permits Elastic-2.0 for taloon itself and checks third-party licenses
 separately. Review the policy when adding dependencies or changing versions.
+The fuzz policy helper runs offline. Fetch its separate locked dependency graph
+first; the dependency-audit CI job performs this preparation on a fresh runner.
 
 ## Formal and generated checks
 

@@ -88,3 +88,33 @@ Applied overrides now also carry an explicit identity: a one-based exception
 array position or clarification content hash. The public regression distinguishes
 three applied entries sharing the same reason. This closes the final report
 traceability gap without changing permission evaluation.
+
+## CI follow-up: prepare the separate fuzz dependency graph
+
+The first hosted dependency-audit job at `9a7169a` passed both vulnerability
+audits and the shipping license/source policy, then failed in the offline fuzz
+policy helper. Its fresh runner lacked `libfuzzer-sys 0.4.13` and `arbitrary
+1.5.0`. The earlier macOS result depended on an already-populated Cargo cache;
+it did not establish the fresh-runner prerequisite. See the
+[failed hosted job](https://github.com/HayaoSuzuki/taloon/actions/runs/41143446575/job/124362904723).
+
+The dependency workflow now fetches `fuzz/Cargo.toml` with `--locked` immediately
+before the offline helper. The developer procedure records the same prerequisite.
+No lockfile, permission, license allowance, shipping behavior, or formal-model
+contract changes; no OKF decision update is required for this preparation fix.
+
+Five self-review passes checked the following independent concerns:
+
+1. Failure attribution: the hosted log identifies missing crate downloads with
+   offline enabled, after successful shipping checks; it is not a license denial.
+2. Dependency selection: the fetch selects the separate fuzz manifest and its
+   existing lockfile, rather than relying on the shipping graph.
+3. Execution order: fetch precedes the helper in the same job and Cargo home;
+   an unsuccessful fetch stops the job before inspection.
+4. Policy preservation: the helper retains offline/locked operation, exact
+   development-only exceptions, and warnings as errors. No cache is required
+   for correctness.
+5. Verification and documentation: local locked fetching with the existing cache,
+   actionlint, ShellCheck for all 26 workflow run blocks, documentation checks,
+   and all 28 Python tooling tests passed. Hosted verification of the fix is
+   recorded separately when available; local cache success alone is insufficient.
