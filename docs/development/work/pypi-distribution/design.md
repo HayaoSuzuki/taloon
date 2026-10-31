@@ -1,6 +1,7 @@
 # PyPI distribution design
 
-Status: proposed for owner approval; independent builder check completed.
+Status: approved with Python 3.14/3.15 and focused platform testing corrections
+on 2026-11-01; independent builder check completed.
 Prepared against taloon `587ee309` and
 hoimin `39d35f3980c428ab15258b519a233b86f1551ffa` on 2026-10-31.
 
@@ -35,6 +36,11 @@ versions on each release target. Older interpreters and Python 3.16 or later
 remain outside the declared range. Repository documentation tooling continues
 to use Python 3.14. Keep its dependency group separate from package runtime
 dependencies.
+
+Run the exhaustive Rust, property, formal, fuzz, and policy suites on Linux.
+On each wheel platform, focus integration tests on uv installation, command
+startup, JSON/exit behavior, local paths and cold/warm cache operation. Build
+one wheel per platform and exercise that same wheel on both Python versions.
 
 ## Versions and event identity
 
