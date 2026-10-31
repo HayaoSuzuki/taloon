@@ -28,12 +28,13 @@ tool versions and action SHAs from the inspected reference, verifying them befor
 use. Initially publish these three wheels only, matching hoimin's PyPI inventory.
 No sdist fallback or additional CPU/libc target is promised by this change.
 
-The binary wheel is independent of Python's ABI. Builder's proposal: require
-Python >=3.10 for installation and smoke-test uv invocation with Python 3.10 and
-3.14 on each release target. Repository documentation tooling can continue to
-require Python 3.14; separate its development requirement from the runtime
-package metadata. If a selected build tool needs a newer interpreter, use it only
-for building, not for executing the installed CLI.
+The binary wheel is independent of Python's ABI. The owner explicitly restricted
+supported installation interpreters to Python 3.14 and 3.15. Set package metadata
+to `requires-python = ">=3.14,<3.16"` and smoke-test uv invocation with both
+versions on each release target. Older interpreters and Python 3.16 or later
+remain outside the declared range. Repository documentation tooling continues
+to use Python 3.14. Keep its dependency group separate from package runtime
+dependencies.
 
 ## Versions and event identity
 
