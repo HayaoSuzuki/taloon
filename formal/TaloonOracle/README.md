@@ -1,5 +1,13 @@
 # Taloon semantic oracle
 
+The separate [release decision model](TaloonOracle/Release.lean) proves existing
+reservations are reused, stale unreserved sources are rejected, and fresh
+reservations increase the version ordinal and respect its floor. Its premises
+assume correct ancestry observations and atomic compare-and-swap. It does not
+prove Git/network behavior or the Python implementation; local bare-remote and
+generated version tests cover that correspondence separately. The ordinal model
+omits the first empty-history reservation; that case is an explicit Python test.
+
 This dependency-free Lean project follows the model/proofs/cases/corpus
 organization inspected in hoimin at revision
 `542ec59c002d72fdff0137aa90113ffa59d70844`. The taloon model is new code;

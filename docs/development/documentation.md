@@ -67,7 +67,7 @@ decision and explain a superseded choice there; use Git history for old text.
 Use Python 3.14 and uv. From the repository root:
 
 ```sh
-uv sync --frozen --only-group docs --no-install-project
+uv sync --frozen --only-group docs --only-group release --no-install-project
 uv run --frozen --no-sync pytest
 uv run --frozen --no-sync python -m tools.check_docs
 uv run --frozen --no-sync mkdocs build --strict

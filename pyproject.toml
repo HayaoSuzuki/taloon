@@ -1,13 +1,38 @@
-[project]
-name = "taloon-development"
-version = "0.1.0"
-requires-python = ">=3.14"
-dependencies = []
+[build-system]
+requires = ["maturin==1.15.0"]
+build-backend = "maturin"
 
-[tool.uv]
-package = false
+[project]
+name = "taloon"
+dynamic = ["version"]
+description = "License checking for uv-resolved Python dependencies"
+readme = "README.md"
+license = "Elastic-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.14,<3.16"
+dependencies = []
+classifiers = [
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Programming Language :: Rust",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+]
+
+[project.urls]
+Repository = "https://github.com/HayaoSuzuki/taloon"
+Issues = "https://github.com/HayaoSuzuki/taloon/issues"
+
+[tool.maturin]
+bindings = "bin"
+manifest-path = "Cargo.toml"
 
 [dependency-groups]
+release = [
+    "pypi-attestations==0.0.30",
+    "hypothesis==6.170.1",
+]
 docs = [
     "mkdocs==1.6.1",
     "mkdocs-material==9.7.7",

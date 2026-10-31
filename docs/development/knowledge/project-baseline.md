@@ -4,7 +4,7 @@ title: Project baseline
 description: Implemented Rust checker, verified local evidence, and operational boundaries.
 status: verified
 verified_by: Codex implementation agent
-verified_at: "2026-10-31"
+verified_at: "2026-11-01"
 sources:
 - id: cargo
   resource: ../../../Cargo.toml
@@ -44,12 +44,16 @@ sources:
   resource: ../work/initial-design/implementation-reviews.md
   working_tree: modified
   sha256: faafe4bcb0d755121e39fd148f766493d03d2acbc9091d8692feaadfee04420b
+- id: distribution
+  resource: python-distribution.md
+  working_tree: modified
+  sha256: bcca310a7377e0ca0bc1e7f9dd4234ee77638fa2be73037bb9de8125f81a1ea6
 ---
 # Current baseline
 
 taloon uses Rust edition 2024 with Rust 1.99.1 pinned for development. Workspace
 Clippy settings deny `all` and `pedantic` lints. The sole package has publishing
-disabled. It now depends on Rust crates for validated Python identities, SPDX
+disabled for crates.io. It now depends on Rust crates for validated Python identities, SPDX
 expressions, TOML, and supporting data types.[^cargo][^toolchain]
 
 The repository owner selected Elastic-2.0, matching hoimin. Cargo records that
@@ -72,14 +76,19 @@ both corrected and regression-tested. The
 [process performance record](../work/initial-design/performance.md) records the
 locally met warm-cache goal and its fixture/environment limits.[^reviews]
 
-Local verification used macOS arm64. Ubuntu CI is configured; no GitHub-hosted
-execution is claimed before push. These results establish their recorded scope,
+Initial local verification used macOS arm64. The implemented checker subsequently
+passed its Ubuntu CI, documentation and dependency-policy workflows at
+`1509b7c` in PR #3. These results establish their recorded scope,
 not legal completeness of upstream declarations or arbitrary Rust/I/O
 correspondence to Lean.[^reviews]
 
 The [inspection specification](license-inspection.md) and
-[pure-core design](sans-io-design.md) record the approved contract. Publishing,
-release automation, and deployment remain deferred.[^scope][^design-inputs][^design-approval]
+[pure-core design](sans-io-design.md) record the approved inspection contract.
+The [Python distribution decision](python-distribution.md) supersedes deferred
+publication: maturin binary wheels, Python 3.14/3.15, main-source quality gates,
+original build signatures, and TestPyPI→PyPI publication are configured. External
+publisher registration and actual uploads are separate observed states; see the
+distribution evidence and release procedure.[^scope][^design-inputs][^design-approval][^distribution]
 
 # Recheck conditions
 
@@ -101,3 +110,4 @@ runtime guarantees beyond the recorded checks and supported input ranges.[^cargo
 [^inspection]: [Coverage-owning inspection](../../../src/inspection/mod.rs).
 [^cache]: [Evidence persistence](../../../src/acquisition/cache.rs).
 [^reviews]: [Actual stage verification and decisions](../work/initial-design/implementation-reviews.md).
+[^distribution]: [Distribution decision](python-distribution.md).
