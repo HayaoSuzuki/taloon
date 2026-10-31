@@ -4,7 +4,7 @@ title: Project baseline
 description: Implemented Rust checker, verified local evidence, and operational boundaries.
 status: verified
 verified_by: Codex implementation agent
-verified_at: "2026-10-31"
+verified_at: "2026-11-01"
 sources:
 - id: cargo
   resource: ../../../Cargo.toml
@@ -46,8 +46,8 @@ sources:
   sha256: faafe4bcb0d755121e39fd148f766493d03d2acbc9091d8692feaadfee04420b
 - id: distribution
   resource: python-distribution.md
-  working_tree: untracked
-  sha256: 54a50f1fe4aa31ff63764fd01bc25819169109d79a8721fd83f321691e373e2f
+  working_tree: modified
+  sha256: bcca310a7377e0ca0bc1e7f9dd4234ee77638fa2be73037bb9de8125f81a1ea6
 ---
 # Current baseline
 

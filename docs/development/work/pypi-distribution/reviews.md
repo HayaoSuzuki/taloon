@@ -82,5 +82,8 @@ Five self-review passes:
 
 Actionlint and standalone ShellCheck passed all 45 run blocks; offline zizmor
 1.30.1 reported no findings. The added action commit SHAs were resolved through
-gh. Local docs checks and strict MkDocs passed. Hosted three-platform wheel
-preview and a fresh independent whole-change review remain to be recorded.
+gh. Local docs checks and strict MkDocs passed. All 95 Python tooling tests and
+77 normal Rust tests passed. Hosted three-platform wheel previews, Linux CI,
+audits and documentation passed at `8be75b9`. The fresh independent reviewer
+reported no code findings. See the [final acceptance review](final-review.md)
+for exact runs, scope, external prerequisites and recorded rulings.

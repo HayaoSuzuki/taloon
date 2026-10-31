@@ -6,18 +6,16 @@ status: accepted
 sources:
 - id: design
   resource: ../work/pypi-distribution/design.md
-  working_tree: modified
-  sha256: a60859db875774bc3fc7b558161be540628ff0a644f9d755a5b02aa44360fe90
+  revision: 8be75b9
 - id: reference
   resource: https://github.com/HayaoSuzuki/hoimin/blob/39d35f3980c428ab15258b519a233b86f1551ffa/.github/workflows/release.yml
 - id: workflow
   resource: ../../../.github/workflows/release.yml
-  working_tree: untracked
-  sha256: b6a8ff3295f64388a1c99f7d8540572b1d00424db86cb1c31e16fd85692b4a0c
+  revision: 8be75b9
 - id: evidence
   resource: ../work/pypi-distribution/reviews.md
   working_tree: modified
-  sha256: af61786e4fcfcf58950311a23e8a18f77812f4eb61676a8879b87867fcc32ab6
+  sha256: 97fc3ef0237450a85bd1d582039ab8a24a1cbf801a21ca737019e08fbc9309e3
 ---
 # Decision
 

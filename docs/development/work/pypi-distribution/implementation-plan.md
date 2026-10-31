@@ -92,8 +92,8 @@ push event; workflow consumes validated artifact/version outputs only.
   by TestPyPI inspect/upload/verify and PyPI inspect/upload/verify.
 - [x] Add manual main recovery of original signed release assets; no rebuild or
   replacing existing assets. Upload jobs check out no code.
-- [ ] Document exact PyPI pending publisher fields and GitHub environments;
+- [x] Document exact PyPI pending publisher fields and GitHub environments;
   validate syntax, workflow security, docs, all relevant tests, and hosted PR
   previews. Expected: PR cannot publish; all three wheel smoke jobs pass.
-- [ ] Review five times, request a fresh final review, fix reproduced important
+- [x] Review five times, request a fresh final review, fix reproduced important
   findings, commit/push/create PR. Report external PyPI setup still required.
