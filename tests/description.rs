@@ -400,3 +400,50 @@ fn lean_selection_corpus_matches_public_description_requests() {
     }
     assert_eq!(count, 50);
 }
+
+#[test]
+fn hashless_local_observations_cannot_be_substituted_between_artifacts() {
+    let lock = "version=1\nrevision=5\n[[package]]\nname='example'\nversion='1.0'\nsource={path='a.whl'}\nwheels=[{path='a.whl'},{path='b.whl'}]";
+    let description = Description::from_uv_lock(lock, "example").unwrap();
+    let requests = description.requests();
+    let bytes = common::wheel(&common::metadata("License-Expression: MIT"));
+    let evidence = Evidence::from_archive(&requests[0], &bytes).unwrap();
+    let report = description.evaluate(vec![
+        AcquisitionResult::observed(requests[0].id(), evidence.clone()),
+        AcquisitionResult::observed(requests[1].id(), evidence),
+    ]);
+    assert_eq!(report.exit_code(), 2);
+    assert_eq!(report.packages()[0].unknown_artifacts, 1);
+    let date = taloon::model::EvaluationDate::parse("2026-11-01").unwrap();
+    let inspection = taloon::inspection::Inspection::from_documents(
+        lock,
+        "[tool.taloon]\nschema-version=1\nallow=['MIT']",
+        date,
+    )
+    .unwrap();
+    let evidence = Evidence::from_archive(&inspection.requests()[0], &bytes).unwrap();
+    let report = inspection.evaluate(vec![
+        AcquisitionResult::observed(inspection.requests()[0].id(), evidence.clone()),
+        AcquisitionResult::observed(inspection.requests()[1].id(), evidence),
+    ]);
+    assert_eq!(report.exit_code(false), 2);
+}
+#[test]
+fn digest_pinned_archive_observations_can_still_be_reused_by_content_identity() {
+    let bytes = common::wheel(&common::metadata("License-Expression: MIT"));
+    let hash = ContentHash::digest(&bytes);
+    let lock = format!(
+        "version=1\nrevision=5\n[[package]]\nname='example'\nversion='1.0'\nsource={{registry='https://index.test/simple'}}\nwheels=[{{url='https://files.test/a.whl',hash='{hash}'}},{{url='https://files.test/b.whl',hash='{hash}'}}]"
+    );
+    let description = Description::from_uv_lock(&lock, "example").unwrap();
+    let evidence = Evidence::from_archive(&description.requests()[0], &bytes).unwrap();
+    let report = description.evaluate(
+        description
+            .requests()
+            .iter()
+            .map(|r| AcquisitionResult::observed(r.id(), evidence.clone()))
+            .collect(),
+    );
+    assert_eq!(report.exit_code(), 0);
+    assert_eq!(report.packages()[0].licenses[0].artifacts.len(), 2);
+}

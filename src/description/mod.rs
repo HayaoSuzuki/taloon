@@ -273,7 +273,7 @@ fn describe_artifact(
     };
     let interpreted = (|| {
         let evidence = result?;
-        let evidence = Evidence::from_record(request, evidence.to_record())?;
+        let evidence = evidence.rebind(request)?;
         let summary = evidence.summary();
         artifact
             .diagnostics

@@ -170,7 +170,7 @@ impl Inspection {
         let evaluation = (|| {
             // Rebind observations through the evidence owner: caller-supplied result IDs are not proof.
             let evidence = result?;
-            let evidence = Evidence::from_record(request, evidence.to_record())?;
+            let evidence = evidence.rebind(request)?;
             report.evidence = Some(evidence.summary());
             report.diagnostics.extend(
                 evidence

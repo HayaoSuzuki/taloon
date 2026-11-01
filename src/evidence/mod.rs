@@ -54,6 +54,9 @@ struct Metadata {
 /// Observed declarations remain available even when their license is unknown.
 #[derive(Debug, Clone)]
 pub struct Evidence {
+    // Acquisition context is transient: persisted observations are content-keyed
+    // and restored only after the runtime freshly observes local content.
+    observed_request: RequestId,
     record: EvidenceRecord,
     metadata: Metadata,
 }
@@ -341,7 +344,11 @@ impl Evidence {
             checksum: checksum(&data)?,
             data,
         };
-        Ok(Self { record, metadata })
+        Ok(Self {
+            observed_request: request.id(),
+            record,
+            metadata,
+        })
     }
     /// Verify the full archive before interpreting its unique metadata member.
     /// # Errors
@@ -447,7 +454,23 @@ impl Evidence {
     pub fn to_record(&self) -> EvidenceRecord {
         self.record.clone()
     }
+    /// Revalidate an acquired observation for an expected request. Hashless
+    /// archives stay bound to their acquisition request; digest-pinned archives
+    /// can be reused by verified content identity. Sidecars retain exact bindings.
+    /// # Errors
+    /// Rejects cross-request hashless observations and invalid record bindings.
+    pub fn rebind(&self, request: &ArtifactRequest) -> Result<Self, Error> {
+        if request.hash().is_none() && self.observed_request != request.id() {
+            return Err(Error::new(
+                Code::InvalidResult,
+                "hashless observation belongs to another artifact request",
+            ));
+        }
+        Self::from_record(request, self.to_record())
+    }
     /// Restore trusted local-cache provenance and reparse declarations under the current parser.
+    /// For a hashless local request, the runtime must first freshly hash its
+    /// bytes and match that observed digest to the content-keyed cache record.
     /// # Errors
     /// Rejects incompatible schemas, changed bytes/provenance, and wrong package/content/source bindings.
     pub fn from_record(request: &ArtifactRequest, record: EvidenceRecord) -> Result<Self, Error> {
@@ -481,6 +504,10 @@ impl Evidence {
             ));
         }
         let metadata = parse_metadata(request, &data.metadata)?;
-        Ok(Self { record, metadata })
+        Ok(Self {
+            observed_request: request.id(),
+            record,
+            metadata,
+        })
     }
 }
