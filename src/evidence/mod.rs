@@ -370,7 +370,10 @@ impl Evidence {
     /// metadata above 4 MiB, and tar expansion above 1 GiB.
     pub fn from_archive(request: &ArtifactRequest, bytes: &[u8]) -> Result<Self, Error> {
         let content = ContentHash::digest(bytes);
-        if request.hash().is_some_and(|h| h != content) {
+        if !content_matches(
+            request.hash().as_ref().map(ContentHash::binding_bytes),
+            content.binding_bytes(),
+        ) {
             return Err(Error::new(
                 Code::HashMismatch,
                 "archive digest differs from locked content",
