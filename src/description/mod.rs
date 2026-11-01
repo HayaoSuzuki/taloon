@@ -1,8 +1,8 @@
 //! Policy-free locked license observations and complete selected-scope accounting.
 use crate::{
     evidence::{Evidence, EvidenceSummary},
-    inspection::AcquisitionResult,
     model::{ArtifactRequest, Code, Error, RequestId, normalize_name, safe_locator},
+    observations::{AcquisitionResult, ResultLedger},
     report::{AcquisitionSummary, Diagnostic, Severity},
     resolution::{DependencyGraph, PackageIdentity, Resolution, SelectionMode, Target},
 };
@@ -169,27 +169,13 @@ impl Description {
     /// rebound observations. Different valid declarations never imply permission.
     #[must_use]
     pub fn evaluate(&self, results: Vec<AcquisitionResult>) -> DescriptionReport {
-        let mut received: BTreeMap<RequestId, Vec<Result<Evidence, Error>>> = BTreeMap::new();
-        for result in results {
-            let (id, result) = result.into_parts();
-            received.entry(id).or_default().push(result);
-        }
+        let mut received = ResultLedger::new(results);
         let mut packages = Vec::new();
         for target in &self.targets {
             let mut artifacts = Vec::new();
             let mut licenses: BTreeMap<String, Vec<RequestId>> = BTreeMap::new();
             for request in target.requests() {
-                let result = match received.remove(&request.id()) {
-                    None => Err(Error::new(
-                        Code::MissingResult,
-                        "no acquisition result for expected artifact",
-                    )),
-                    Some(mut results) if results.len() == 1 => results.remove(0),
-                    Some(_) => Err(Error::new(
-                        Code::InvalidResult,
-                        "duplicate results for expected artifact",
-                    )),
-                };
+                let result = received.take(request);
                 let artifact = describe_artifact(request, result);
                 if let Some(expression) = &artifact.expression {
                     licenses
@@ -235,7 +221,7 @@ impl Description {
         let roots = self.roots.clone();
         let graph = self.graph.clone();
         let diagnostics = received
-            .keys()
+            .unclaimed()
             .map(|_| {
                 Diagnostic::error(Error::new(
                     Code::InvalidResult,
@@ -273,7 +259,6 @@ fn describe_artifact(
     };
     let interpreted = (|| {
         let evidence = result?;
-        let evidence = evidence.rebind(request)?;
         let summary = evidence.summary();
         artifact
             .diagnostics

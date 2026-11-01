@@ -1,37 +1,16 @@
 //! Expected requests, complete coverage accounting, and policy evaluation without I/O.
+pub use crate::observations::AcquisitionResult;
 use crate::{
     evidence::Evidence,
-    model::{ArtifactRequest, Code, Error, EvaluationDate, EvidenceRequirement, RequestId},
+    model::{ArtifactRequest, Code, Error, EvaluationDate, EvidenceRequirement},
+    observations::ResultLedger,
     policy::{AppliedOverride, LicenseExpression, OverrideKind, Policy},
     report::{ArtifactReport, Diagnostic, PackageReport, Report, Status},
     resolution::Resolution,
 };
-use std::collections::BTreeMap;
-/// An association is required for each requested artifact, even when bytes are shared.
-pub struct AcquisitionResult {
-    id: RequestId,
-    result: Result<Evidence, Error>,
-}
-impl AcquisitionResult {
-    pub(crate) fn into_parts(self) -> (RequestId, Result<Evidence, Error>) {
-        (self.id, self.result)
-    }
 
-    #[must_use]
-    pub fn observed(id: RequestId, evidence: Evidence) -> Self {
-        Self {
-            id,
-            result: Ok(evidence),
-        }
-    }
-    #[must_use]
-    pub fn failed(id: RequestId, error: Error) -> Self {
-        Self {
-            id,
-            result: Err(error),
-        }
-    }
-}
+/// Immutable complete locked scope and validated policy. Re-evaluation accepts
+/// fresh observations without altering target coverage or reading external state.
 pub struct Inspection {
     resolution: Resolution,
     policy: Policy,
@@ -60,6 +39,7 @@ impl Inspection {
         })
     }
     #[must_use]
+    /// Every expected artifact association with its policy-derived minimum proof.
     pub fn requests(&self) -> &[ArtifactRequest] {
         &self.requests
     }
@@ -68,26 +48,13 @@ impl Inspection {
     /// missing, duplicate, foreign, or insufficient results make the report incomplete.
     #[must_use]
     pub fn evaluate(&self, results: Vec<AcquisitionResult>) -> Report {
-        let mut received: BTreeMap<RequestId, Vec<Result<Evidence, Error>>> = BTreeMap::new();
-        for r in results {
-            received.entry(r.id).or_default().push(r.result);
-        }
+        let mut received = ResultLedger::new(results);
         let mut packages = Vec::new();
         let mut interpreted = Vec::new();
         for target in self.resolution.targets() {
             let mut artifacts = Vec::new();
             for request in target.requests() {
-                let result = match received.remove(&request.id()) {
-                    None => Err(Error::new(
-                        Code::MissingResult,
-                        "no acquisition result for expected artifact",
-                    )),
-                    Some(mut values) if values.len() == 1 => values.remove(0),
-                    Some(_) => Err(Error::new(
-                        Code::InvalidResult,
-                        "duplicate results for expected artifact",
-                    )),
-                };
+                let result = received.take(request);
                 let artifact = self.evaluate_artifact(request, result, &mut interpreted);
                 artifacts.push(artifact);
             }
@@ -126,7 +93,7 @@ impl Inspection {
         }
         packages.sort_by(|a, b| a.package.cmp(&b.package));
         let diagnostics = received
-            .keys()
+            .unclaimed()
             .map(|_| {
                 Diagnostic::error(Error::new(
                     Code::InvalidResult,
@@ -168,17 +135,12 @@ impl Inspection {
             diagnostics: vec![],
         };
         let evaluation = (|| {
-            // Rebind observations through the evidence owner: caller-supplied result IDs are not proof.
             let evidence = result?;
-            let evidence = evidence.rebind(request)?;
-            report.evidence = Some(evidence.summary());
-            report.diagnostics.extend(
-                evidence
-                    .summary()
-                    .warnings
-                    .into_iter()
-                    .map(Diagnostic::warning),
-            );
+            let summary = evidence.summary();
+            report
+                .diagnostics
+                .extend(summary.warnings.iter().cloned().map(Diagnostic::warning));
+            report.evidence = Some(summary);
             let hash = evidence.content_hash();
             let clarification = self.policy.clarification(request, hash);
             let need = if clarification.is_some() {

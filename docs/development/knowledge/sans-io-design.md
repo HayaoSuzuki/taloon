@@ -4,6 +4,10 @@ title: Pure core and acquisition boundary
 description: Approved deep modules and request/result API for license inspection without core I/O.
 status: accepted
 sources:
+- id: core-design-review
+  resource: ../work/core-accounting-and-resolution/review.md
+  working_tree: untracked
+  sha256: 9dbaff1fe9d2990398de44ec0ee376a531b48e8ae67bf9826a424d62cb870434
 - id: describe-review
   resource: ../work/describe-licenses/implementation-review.md
   working_tree: modified
@@ -195,13 +199,13 @@ warm evidence cache. The target is two seconds from process start through report
 completion. Record the build profile, revision, hardware, OS/filesystem, cache
 state, fixture characteristics, and timing method. Check zero network requests,
 archive downloads, and archive re-extractions. This is a performance goal, not a
-wall-clock gate in normal CI; no result exists yet. Record cold-run duration and
+wall-clock gate in normal CI; the [baseline](project-baseline.md) links measured results. Record cold-run duration and
 bytes separately because artifact sizes and network conditions differ.[^owner]
 
 Run the repository's existing [development checks](../index.md#local-checks)
 and [documentation checks](../documentation.md#validate-and-preview) for the
 implemented change. Update the user guide only with behavior and prerequisites
-that implementation tests establish. Publishing remains deferred.[^owner]
+that implementation tests establish. Distribution follows the [current distribution decision](python-distribution.md).
 
 # Design review criteria
 
@@ -282,3 +286,30 @@ Implementation evidence and staged review limits are recorded separately from
 the approved design.[^describe-review]
 
 [^describe-review]: [Staged implementation and validation](../work/describe-licenses/implementation-review.md).
+
+
+# Shared observations and graph internals
+
+Inspection and description share a private ResultLedger. Its Single/Duplicate
+Enum owns cardinality, missing observations, request rebinding and remaining
+foreign IDs; Evidence still validates proof and each command still owns its
+semantics and required strength. A duplicate slot retains no observation payload,
+and cannot later become Single. The public inspection::AcquisitionResult path is
+preserved through a re-export. This removes shared protocol knowledge from the
+two evaluators without combining permission and display semantics.[^core-design-review]
+
+Resolution owns a borrowed per-document name index and a predecessor arena for
+shortest paths. Candidate ordering/validation and `(package, activated extras)`
+visited states remain unchanged. Parent links borrow immutable edges and point
+only backward in one search arena; annotations are materialized for the chosen
+path. The public interface and deterministic tie order stay unchanged.
+Performance observations belong in the [measurement record](../work/core-accounting-and-resolution/performance.md).[^core-design-review]
+
+Domain Debug rendering uses the same remote-location redaction owner as display.
+Registry/Url identity normalization and opaque locations for other source kinds
+are unchanged. In particular, Debug formatting does not construct source or
+request identities. Reconsider the private layout only if new consumers need a
+different observation protocol or measured workloads justify more indexing.
+Do not remove binding validation merely to save copying.[^core-design-review]
+
+[^core-design-review]: [Core assessment and staged reviews](../work/core-accounting-and-resolution/review.md).

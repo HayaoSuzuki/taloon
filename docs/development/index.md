@@ -185,6 +185,10 @@ cargo +nightly-2026-10-08 fuzz run inspection -- -runs=1000 -max_len=4096
 tools/check_fuzz_licenses.sh
 ```
 
+The [core design measurement record](work/core-accounting-and-resolution/performance.md)
+documents opt-in release benchmarks for lock construction and shortest paths,
+including complete samples and the full CLI warm-cache goal check.
+
 The fuzz workspace stays separate from shipping dependencies. Its license check
 derives the root policy plus exact development-only NCSA permission for
 libfuzzer-sys 0.4.13; upgrading that package requires review. Lean/fuzz tools are

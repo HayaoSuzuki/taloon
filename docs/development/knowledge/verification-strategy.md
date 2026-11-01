@@ -4,6 +4,10 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: core-design-review
+  resource: ../work/core-accounting-and-resolution/review.md
+  working_tree: untracked
+  sha256: 9dbaff1fe9d2990398de44ec0ee376a531b48e8ae67bf9826a424d62cb870434
 - id: describe-model
   resource: ../../../formal/TaloonOracle/README.md
   working_tree: modified
@@ -185,3 +189,19 @@ for sensitivity witnesses, finite bounds and observed results.[^describe-model]
 
 [^random-order-reference]: [Inspected hoimin nightly shuffle job](https://github.com/HayaoSuzuki/hoimin/blob/39d35f3980c428ab15258b519a233b86f1551ffa/.github/workflows/ci.yml).
 [^random-order-review]: [Randomized test-order verification and review](../work/randomized-tests-and-python-checks/review.md).
+
+
+# Core observation and graph refactoring evidence
+
+The shared observation ledger is checked through both public command surfaces,
+using independent cardinalities, arrival permutations and failed duplicates.
+Existing Lean completeness expectations remain unchanged and the strict Rust
+adapter still exercises Inspection::evaluate. Enum storage and performance are
+outside the Lean claim. Generated DFS enumeration supplies an independent
+shortest-path oracle; fixed regressions cover cyclic extras, tie order and marker
+provenance. Debug redaction has fixed and generated cases plus a persisted
+minimal witness. The [stage record](../work/core-accounting-and-resolution/review.md)
+separates model proofs, exercised correspondence, red/green regression evidence,
+fuzz bounds and measured timings.[^core-design-review]
+
+[^core-design-review]: [Core assessment and staged reviews](../work/core-accounting-and-resolution/review.md).
