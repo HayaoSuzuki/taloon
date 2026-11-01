@@ -1,0 +1,453 @@
+name: Build and publish Python wheels
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      pypi_tag:
+        description: Existing stable release tag to recover without rebuilding
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: release-${{ github.event_name }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  reserve:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.reserve.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          # Only trusted main code reserves immutable tags and the ordering ref.
+          persist-credentials: true # zizmor: ignore[artipacked]
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.14'
+      - id: reserve
+        env:
+          COMMIT: ${{ github.sha }}
+        run: |
+          tag=$(python -m tools.release tag --commit "$COMMIT")
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+  prepare:
+    needs: reserve
+    if: "!cancelled() && (needs.reserve.result == 'success' || needs.reserve.result == 'skipped')"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      commit: ${{ steps.prepare.outputs.commit }}
+      tag: ${{ steps.prepare.outputs.tag }}
+      version: ${{ steps.prepare.outputs.version }}
+      publish: ${{ steps.prepare.outputs.publish }}
+      recovery: ${{ steps.prepare.outputs.recovery }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.14'
+      - id: prepare
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESERVED_TAG: ${{ needs.reserve.outputs.tag }}
+          RECOVERY_TAG: ${{ inputs.pypi_tag }}
+        run: python -m tools.release_prepare
+
+  wheels:
+    name: Wheel and uv smoke (${{ matrix.platform }})
+    needs: prepare
+    if: "!cancelled() && needs.prepare.result == 'success' && needs.prepare.outputs.recovery == 'false'"
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-x86_64
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+          - platform: linux-x86_64
+            runner: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          - platform: macos-aarch64
+            runner: macos-26
+            target: aarch64-apple-darwin
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.14'
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: '0.13.5'
+          enable-cache: false
+      - name: Set build version
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: python -m tools.release set-version "$VERSION"
+      - name: Install repository Rust toolchain
+        run: rustup toolchain install
+      - name: Build binary wheel
+        env:
+          TARGET: ${{ matrix.target }}
+          MATURIN_IMAGE: ghcr.io/pyo3/maturin:v1.15.0@sha256:1c897d72a79c083cdea8829662f7b28e7657cf5b0d7f44fb4231e55998cf52ed
+        run: |
+          if [[ "$RUNNER_OS" == Linux ]]; then
+            docker run --rm --volume "$PWD:/io" --workdir /io \
+              --env CARGO_TARGET_DIR=/tmp/taloon-wheel-target \
+              "$MATURIN_IMAGE" build --release --locked --compatibility manylinux2014 \
+              --target "$TARGET" --out wheelhouse
+            sudo chown -R "$(id -u):$(id -g)" wheelhouse
+          else
+            uvx --from maturin==1.15.0 maturin build --release --locked \
+              --compatibility pypi --target "$TARGET" --out wheelhouse
+          fi
+      - name: Test same installed wheel on Python 3.14 and 3.15
+        run: |
+          wheels=(wheelhouse/*.whl)
+          test "${#wheels[@]}" -eq 1
+          python -m tools.wheel_smoke "${wheels[0]}" --python 3.14
+          python -m tools.wheel_smoke "${wheels[0]}" --python 3.15
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: wheel-${{ matrix.platform }}
+          path: wheelhouse/*.whl
+          if-no-files-found: error
+
+  validate:
+    needs: [prepare, wheels]
+    if: "!cancelled() && needs.wheels.result == 'success'"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.14'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: wheel-*
+          merge-multiple: true
+          path: wheelhouse
+      - env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: python -m tools.release assemble --version "$VERSION" --source wheelhouse --output dist
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: validated-wheels
+          path: dist/*
+          if-no-files-found: error
+
+  gate:
+    needs: prepare
+    if: "!cancelled() && needs.prepare.result == 'success' && needs.prepare.outputs.publish == 'true'"
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.14'
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          COMMIT: ${{ needs.prepare.outputs.commit }}
+        run: python -m tools.release_checks --commit "$COMMIT"
+
+  sign:
+    needs: [prepare, validate, gate]
+    if: "!cancelled() && needs.validate.result == 'success' && needs.gate.result == 'success' && needs.prepare.outputs.publish == 'true' && needs.prepare.outputs.recovery == 'false'"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: validated-wheels
+          path: dist
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: dist/*-win_amd64.whl
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: dist/*-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: dist/*-macosx_11_0_arm64.whl
+      - name: Verify build identity and publish recovery assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMIT: ${{ needs.prepare.outputs.commit }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          SIGNER: ${{ github.workflow_sha }}
+        run: |
+          test "$GITHUB_SHA" = "$COMMIT"
+          test "$SIGNER" = "$COMMIT"
+          for wheel in dist/*.whl; do
+            gh attestation verify "$wheel" --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml" \
+              --source-digest "$COMMIT" --signer-digest "$SIGNER" \
+              --deny-self-hosted-runners
+          done
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
+            --title "taloon $TAG" --notes "Verified binary wheels for source $COMMIT" dist/*
+
+  stage:
+    needs: [prepare, sign, gate]
+    if: "!cancelled() && needs.gate.result == 'success' && needs.prepare.outputs.publish == 'true' && (needs.sign.result == 'success' || needs.prepare.outputs.recovery == 'true')"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      attestations: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.14'
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: '0.13.5'
+          enable-cache: false
+      - run: uv sync --frozen --only-group release --no-install-project
+      - name: Fetch original assets and original signed build observations
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          COMMIT: ${{ needs.prepare.outputs.commit }}
+        run: |
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json tagName,isDraft,isPrerelease > release.json
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir assets --pattern '*.whl' --pattern SHA256SUMS
+          uv run --frozen --no-sync python -m tools.pypi_provenance stage \
+            --tag "$TAG" --commit "$COMMIT" --release-json release.json --directory assets --output dist
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pypi-wheels
+          path: dist/*
+          if-no-files-found: error
+
+  testpypi-inspect:
+    if: "!cancelled() && needs.stage.result == 'success' && needs.prepare.outputs.publish == 'true'"
+    needs: [prepare, stage]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      published: ${{ steps.inspect.outputs.published }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.14'
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: '0.13.5'
+          enable-cache: false
+      - run: uv sync --frozen --only-group release --no-install-project
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: pypi-wheels
+          path: dist
+      - name: Inspect index bytes and both provenance predicates
+        id: inspect
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          COMMIT: ${{ needs.prepare.outputs.commit }}
+          INDEX: testpypi
+        run: uv run --frozen --no-sync python -m tools.pypi_provenance inspect --tag "$TAG" --commit "$COMMIT" --index "$INDEX" --directory dist
+
+  testpypi-publish:
+    if: "!cancelled() && needs.testpypi-inspect.result == 'success' && needs.prepare.outputs.publish == 'true'"
+    needs: [prepare, testpypi-inspect]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: upload-testpypi-${{ needs.prepare.outputs.tag }}
+      cancel-in-progress: false
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/taloon
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        if: needs.testpypi-inspect.outputs.published == 'false'
+        with:
+          name: pypi-wheels
+          path: dist
+      - name: Publish original wheels with build and publish attestations
+        if: needs.testpypi-inspect.outputs.published == 'false'
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # release/v1
+        with:
+          packages-dir: dist/
+          repository-url: https://test.pypi.org/legacy/
+          attestations: true
+          print-hash: true
+
+  testpypi-verify:
+    if: "!cancelled() && needs.testpypi-publish.result == 'success' && needs.prepare.outputs.publish == 'true'"
+    needs: [prepare, testpypi-inspect, testpypi-publish]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.14'
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: '0.13.5'
+          enable-cache: false
+      - run: uv sync --frozen --only-group release --no-install-project
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: pypi-wheels
+          path: dist
+      - name: Verify index bytes and both provenance predicates
+        id: verify
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          COMMIT: ${{ needs.prepare.outputs.commit }}
+          INDEX: testpypi
+        run: uv run --frozen --no-sync python -m tools.pypi_provenance verify --tag "$TAG" --commit "$COMMIT" --index "$INDEX" --directory dist
+
+  pypi-inspect:
+    if: "!cancelled() && needs.testpypi-verify.result == 'success' && needs.prepare.outputs.publish == 'true'"
+    needs: [prepare, testpypi-verify]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      published: ${{ steps.inspect.outputs.published }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.14'
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: '0.13.5'
+          enable-cache: false
+      - run: uv sync --frozen --only-group release --no-install-project
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: pypi-wheels
+          path: dist
+      - name: Inspect index bytes and both provenance predicates
+        id: inspect
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          COMMIT: ${{ needs.prepare.outputs.commit }}
+          INDEX: pypi
+        run: uv run --frozen --no-sync python -m tools.pypi_provenance inspect --tag "$TAG" --commit "$COMMIT" --index "$INDEX" --directory dist
+
+  pypi-publish:
+    if: "!cancelled() && needs.pypi-inspect.result == 'success' && needs.prepare.outputs.publish == 'true'"
+    needs: [prepare, pypi-inspect]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: upload-pypi-${{ needs.prepare.outputs.tag }}
+      cancel-in-progress: false
+    environment:
+      name: pypi
+      url: https://pypi.org/p/taloon
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        if: needs.pypi-inspect.outputs.published == 'false'
+        with:
+          name: pypi-wheels
+          path: dist
+      - name: Publish original wheels with build and publish attestations
+        if: needs.pypi-inspect.outputs.published == 'false'
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # release/v1
+        with:
+          packages-dir: dist/
+          repository-url: https://upload.pypi.org/legacy/
+          attestations: true
+          print-hash: true
+
+  pypi-verify:
+    if: "!cancelled() && needs.pypi-publish.result == 'success' && needs.prepare.outputs.publish == 'true'"
+    needs: [prepare, pypi-inspect, pypi-publish]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.14'
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: '0.13.5'
+          enable-cache: false
+      - run: uv sync --frozen --only-group release --no-install-project
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: pypi-wheels
+          path: dist
+      - name: Verify index bytes and both provenance predicates
+        id: verify
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          COMMIT: ${{ needs.prepare.outputs.commit }}
+          INDEX: pypi
+        run: uv run --frozen --no-sync python -m tools.pypi_provenance verify --tag "$TAG" --commit "$COMMIT" --index "$INDEX" --directory dist

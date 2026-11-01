@@ -7,6 +7,7 @@ For product usage, start with [the user guide](../user/index.md).
 | --- | --- |
 | Understand decisions and implementation boundaries | [OKF catalog](knowledge/index.md) |
 | Build and validate Rust changes | Setup and local checks below |
+| Build Python wheels or publish/recover a release | [Release procedure](releases.md) |
 | Write, reorganize, or preview documentation | [Documentation procedure](documentation.md) |
 
 Read relevant OKF concepts and their cited sources before implementation.
@@ -28,7 +29,7 @@ cargo build --locked --workspace
 
 `rust-toolchain.toml` selects the same compiler for local development and CI.
 Commit `Cargo.lock` whenever dependencies change. The package provides a pure
-inspection library and `taloon check`; publishing is disabled. Follow the
+inspection library and `taloon check`; crates.io publishing is disabled. Follow the
 [user guide](../user/index.md) for installation, runtime options, and supported
 formats, or the [baseline](knowledge/project-baseline.md) for verification scope.
 
@@ -126,6 +127,6 @@ requirements.
 The separate Documentation workflow validates OKF, repository document links,
 and the user-site build, and retains the generated HTML for review.
 
-Release automation, package publishing, and deployment are deferred. Branch
-protection and repository settings are not changed by these files; configure
-required checks after the workflows have run on GitHub.
+The [release procedure](releases.md) describes the Python wheel pipeline and
+required PyPI/TestPyPI publishers. crates.io publishing stays disabled. Branch
+protection is separate repository administration.

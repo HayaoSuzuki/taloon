@@ -35,4 +35,7 @@ covers external locked dependencies, including development and transitive
 records, through a pure inspection library and a binary-owned acquisition layer.
 Consult the [current baseline](docs/development/knowledge/project-baseline.md)
 and [user guide](docs/user/index.md) for implemented formats and limitations.
-Deployment and publishing are deferred.
+Python binary distribution and publishing follow the
+[distribution decision](docs/development/knowledge/python-distribution.md) and
+[release procedure](docs/development/releases.md). crates.io publication remains
+disabled; do not treat configured workflows as evidence of an actual upload.

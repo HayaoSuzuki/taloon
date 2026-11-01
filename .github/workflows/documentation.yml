@@ -31,7 +31,7 @@ jobs:
         with:
           version: '0.13.5'
           enable-cache: false
-      - run: uv sync --frozen --only-group docs --no-install-project
+      - run: uv sync --frozen --only-group docs --only-group release --no-install-project
       - run: uv run --frozen --no-sync pytest
       - run: uv run --frozen --no-sync python -m tools.check_docs
       - run: uv run --frozen --no-sync mkdocs build --strict
