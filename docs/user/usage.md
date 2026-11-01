@@ -28,8 +28,8 @@ aggregated. Failure paths show a shortest known route per entry point, with
 recorded group/extra/marker conditions; absent origins are explained rather than
 invented. Conditions describe locked alternatives, not environment evaluation.
 
-JSON stdout contains exactly one schema-version-1 object, including startup
-errors. Help/version requests print normal CLI help/version text.
+For `check --format json`, stdout contains exactly one schema-version-1 object,
+including startup errors. Help/version requests print normal CLI help/version text.
 When stderr is an interactive terminal, taloon shows processed/total artifact
 counts and elapsed time during acquisition, including while waiting for a
 response. Processed counts include failures; the final report determines the
@@ -67,6 +67,26 @@ Set `TALOON_CACHE_DIR` to isolate or relocate the evidence cache. Defaults use
 `~/Library/Caches/taloon` on macOS, `XDG_CACHE_HOME/taloon` or `~/.cache/taloon`
 on Unix, and `LOCALAPPDATA/taloon` on Windows. Windows paths are implemented but
 have not been tested locally.
+
+Clear taloon's cached evidence with:
+
+```sh
+taloon cache clear
+```
+
+This works outside a project and uses the same location as `check`, including
+`TALOON_CACHE_DIR`. The cache is shared across projects using that location.
+The command removes recognized completed v1 cache records, including damaged
+records, and prints the number removed. It retains the directory, unrelated or
+unknown filenames, temporary files, subdirectories and symlinks. It does not
+follow a cache-root symlink; select its actual directory instead. An absent
+cache succeeds with zero removed. Success exits 0; an I/O failure exits 2 with
+a stderr diagnostic and may leave partial progress.
+
+Stop other taloon checks before clearing; active writers can repopulate the
+cache. The next online check reacquires missing evidence, and offline checks
+can become incomplete. An empty `TALOON_CACHE_DIR` selects the current directory,
+matching existing cache writes; prefer an explicit dedicated directory.
 
 The cache stores observed declarations and provenance, never permission verdicts.
 The first online check may take substantially longer than a cached check because

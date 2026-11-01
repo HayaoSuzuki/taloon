@@ -4,6 +4,10 @@ title: License inspection specification
 description: Approved design for uv.lock coverage, Python license policy, evidence, and command behavior.
 status: accepted
 sources:
+- id: cache-clear
+  resource: ../work/cache-clear/design.md
+  working_tree: modified
+  sha256: bca6e015bde6bbe3c1a2c076a0f3c6c7f666599e21d0c2b9283a69afb2fb37e4
 - id: acquisition-measurements
   resource: ../work/index-acquisition/measurements.md
   working_tree: modified
@@ -254,6 +258,19 @@ a lock does not stop discovery. `--project <directory>` selects that directory
 without upward fallback. Missing/ambiguous inputs are errors. These exact
 discovery rules are implementer choices under Q28.[^owner]
 
+`taloon cache clear` uses the same configured/default cache location without
+project, policy, credential or HTTP initialization. The cache module alone owns
+recognition of completed canonical v1 archive/index cache names. Only immediate
+regular files with those names are removed, even when contents are corrupt;
+unknown names, temporary files, directories and links remain. Root links/files
+are rejected; a missing cache succeeds. Empty directory overrides resolve to
+current directory consistently with existing cache writes. Success prints the
+removed count and exits 0; failures use safe stderr diagnostics and exit 2.
+Clearing is per cache location across projects, not atomic with active checks,
+and can make offline evidence insufficient. Revisit recognition whenever cache
+naming/schema changes; retain migration/old-record handling deliberately rather
+than widening deletion to filename prefixes.[^cache-clear]
+
 Support `--format text|json`, `--offline`, and `--deny-warnings`. Emit a structured
 report for both complete and incomplete checks. In JSON mode, reserve stdout
 for one versioned JSON report and send incidental diagnostics to stderr. Text
@@ -336,3 +353,5 @@ prerequisites.[^owner]
 [^interactive-progress]: [Interactive progress tests and review](../work/interactive-progress/review.md).
 
 [^acquisition-measurements]: [Measured acquisition work and review](../work/index-acquisition/measurements.md).
+
+[^cache-clear]: [Confirmed selective cache-clearing design](../work/cache-clear/design.md).
