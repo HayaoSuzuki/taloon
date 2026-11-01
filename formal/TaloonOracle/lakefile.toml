@@ -8,3 +8,7 @@ name = "TaloonOracle"
 [[lean_exe]]
 name = "generate_corpus"
 root = "Main"
+
+[[lean_exe]]
+name = "generate_index"
+root = "IndexMain"

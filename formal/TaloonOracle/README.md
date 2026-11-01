@@ -64,10 +64,12 @@ and extended proof builds took 4.936 and 3.522 seconds under the same deadline.
 ## Reproduction from the repository root
 
 ```sh
-python3 -c "import subprocess; subprocess.run(['lake','build','TaloonOracle','generate_corpus'], cwd='formal/TaloonOracle', timeout=20, check=True)"
+python3 -c "import subprocess; subprocess.run(['lake','build','TaloonOracle','generate_corpus','generate_index'], cwd='formal/TaloonOracle', timeout=20, check=True)"
 formal/TaloonOracle/.lake/build/bin/generate_corpus --stats
 formal/TaloonOracle/.lake/build/bin/generate_corpus --check tests/fixtures/oracle/policy.jsonl
 cargo test --locked --test oracle
+formal/TaloonOracle/.lake/build/bin/generate_index --check tests/fixtures/oracle/index.jsonl
+cargo test --locked --bin taloon lean_index_corpus_matches_both_representation_lookups
 ```
 
 After a model change, regenerate with `--output` instead of `--check`, inspect
@@ -75,3 +77,29 @@ the diff, then check correspondence. Preserve broken-variant sensitivity.
 Initial measured build time was 4.792 seconds; no memory measurement was
 available and no exploration bound was raised. This is local execution evidence,
 not a cross-platform timing guarantee.
+
+## Exact index lookup model
+
+[IndexLookup.lean](TaloonOracle/IndexLookup.lean) models exact canonical URL keys,
+optional archive/metadata digest identities, missing and duplicate entries, and
+lookup outcomes. Kernel proofs establish that filtering to a complete locked
+scope preserves lookup for each included key, a wrong archive digest is
+rejected, and duplicate matching entries are rejected. They assume canonical
+keys and complete scope; they do not prove URL normalization, SHA-256, HTTP,
+OnceLock concurrency, or the Rust implementation.
+
+[IndexMain.lean](IndexMain.lean) generates 216 strict cases: nine entry profiles,
+four scopes, three keys and two locked digest identities. Sensitivity witnesses
+reject scope loss, hash bypass and duplicate acceptance. The private binary
+adapter in `src/acquisition/index.rs` translates each case to both Simple JSON
+and HTML responses (432 lookup observations). It compares the generated typed
+outcome and constructs real sidecar evidence for successful associations,
+checking metadata digest and IndexAssociated strength. The adapter derives no
+expected outcome. Unknown schema fields and setup failures fail the test.
+
+Local model/generator builds completed within the existing 20-second deadline
+(about six seconds on first build); no peak-memory measurement was available.
+Both corpus freshness checks and the Rust adapter passed. Separate concurrent
+transport tests exercise initialization, panic recovery, retries and fallback;
+256-case properties cover filtered association identity and malformed input.
+These tests supplement, rather than extend, the kernel proofs.

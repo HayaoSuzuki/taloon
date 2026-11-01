@@ -8,6 +8,7 @@ use taloon::{inspection::Inspection, model::EvaluationDate};
 struct Fixture {
     routes: Arc<Mutex<std::collections::BTreeMap<String, Reply>>>,
     calls: Arc<Mutex<Vec<Call>>>,
+    delay: std::time::Duration,
 }
 #[derive(Clone)]
 struct Reply {
@@ -45,6 +46,7 @@ impl Transport for Fixture {
         limit: u64,
         stats: &mut AcquisitionSummary,
     ) -> Result<Response, Error> {
+        std::thread::sleep(self.delay);
         self.calls.lock().unwrap().push(Call {
             url: url.to_string(),
             auth: auth.map(|c| format!("{}:{}", c.login, c.password)),
@@ -164,8 +166,10 @@ fn acquisition_progress_accounts_for_panicked_workers_and_empty_scope() {
             _auth: Option<&Credentials>,
             _accept: &str,
             _limit: u64,
-            _stats: &mut AcquisitionSummary,
+            stats: &mut AcquisitionSummary,
         ) -> Result<Response, Error> {
+            stats.downloaded_bytes += 7;
+            std::thread::sleep(std::time::Duration::from_millis(1));
             panic!("synthetic transport panic");
         }
     }
@@ -179,6 +183,11 @@ fn acquisition_progress_accounts_for_panicked_workers_and_empty_scope() {
     let mut progress = Vec::new();
     let batch = acquirer.acquire_with_progress(inspection.requests(), |p| progress.push(p));
     assert_eq!(batch.results.len(), inspection.requests().len());
+    assert_eq!(batch.summary.network_requests, 1);
+    assert_eq!(batch.summary.downloaded_bytes, 7);
+    assert_eq!(batch.summary.http.index.requests, 1);
+    assert_eq!(batch.summary.http.index.downloaded_bytes, 7);
+    assert!(batch.summary.http.index.request_time_us >= 1000);
     assert_eq!(
         progress.last().unwrap().completed,
         inspection.requests().len()
@@ -209,6 +218,429 @@ fn fixture_inspection(bytes: &[u8], required: bool) -> Inspection {
     };
     Inspection::from_documents(&lock, &config, EvaluationDate::parse("2026-10-31").unwrap())
         .unwrap()
+}
+
+#[test]
+fn http_metrics_count_redirects_and_retries() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    struct Sequenced(AtomicUsize);
+    impl Transport for Sequenced {
+        fn send(
+            &self,
+            url: &url::Url,
+            _auth: Option<&Credentials>,
+            _accept: &str,
+            _limit: u64,
+            stats: &mut AcquisitionSummary,
+        ) -> Result<Response, Error> {
+            let n = self.0.fetch_add(1, Ordering::SeqCst);
+            let (response_code, size, location) = match n {
+                0 => (429, 3, None),
+                1 => (302, 2, Some("/final".into())),
+                _ => (200, 4, None),
+            };
+            stats.downloaded_bytes += size;
+            Ok(Response {
+                status: response_code,
+                body: vec![0; usize::try_from(size).unwrap()],
+                location,
+                content_type: String::new(),
+                url: url.clone(),
+            })
+        }
+    }
+    let http = http::Http::new(
+        Sequenced(AtomicUsize::new(0)),
+        http::Authentication::default(),
+    );
+    let mut summary = AcquisitionSummary::default();
+    http.get(
+        RequestPurpose::Metadata,
+        url::Url::parse("https://example.test/start").unwrap(),
+        "test",
+        64,
+        &mut summary,
+    )
+    .unwrap();
+    assert_eq!((summary.network_requests, summary.downloaded_bytes), (3, 9));
+    assert_eq!(
+        (
+            summary.http.metadata.requests,
+            summary.http.metadata.downloaded_bytes
+        ),
+        (3, 9)
+    );
+    assert_eq!(
+        summary.http.index.requests + summary.http.archive.requests,
+        0
+    );
+    assert!(summary.http.metadata.retry_delay_us >= 50_000);
+}
+
+#[test]
+fn http_metrics_count_failed_partial_reads() {
+    struct Partial;
+    impl Transport for Partial {
+        fn send(
+            &self,
+            _url: &url::Url,
+            _auth: Option<&Credentials>,
+            _accept: &str,
+            _limit: u64,
+            stats: &mut AcquisitionSummary,
+        ) -> Result<Response, Error> {
+            stats.downloaded_bytes += 7;
+            std::thread::sleep(std::time::Duration::from_millis(1));
+            Err(http::failure())
+        }
+    }
+    let http = http::Http::new(Partial, http::Authentication::default());
+    let mut summary = AcquisitionSummary::default();
+    assert!(
+        http.get(
+            RequestPurpose::Archive,
+            url::Url::parse("https://example.test/file").unwrap(),
+            "test",
+            64,
+            &mut summary
+        )
+        .is_err()
+    );
+    assert_eq!(
+        (summary.network_requests, summary.downloaded_bytes),
+        (3, 21)
+    );
+    assert_eq!(
+        (
+            summary.http.archive.requests,
+            summary.http.archive.downloaded_bytes
+        ),
+        (3, 21)
+    );
+    assert!(summary.http.archive.request_time_us >= 3000);
+    assert!(summary.http.archive.retry_delay_us >= 150_000);
+}
+
+fn many_artifact_fixture(count: usize) -> (Fixture, Inspection, usize) {
+    use std::fmt::Write as _;
+    let transport = Fixture {
+        delay: std::time::Duration::from_millis(10),
+        ..Fixture::default()
+    };
+    let mut files = Vec::new();
+    let mut lock = "version=1\nrevision=5\n[[package]]\nname='example'\nversion='1.0'\nsource={registry='https://example.test/simple'}\nwheels=[".to_owned();
+    for n in 0..count {
+        let meta =
+            crate::testfixtures::metadata(&format!("License-Expression: MIT\nX-Variant: {n}"));
+        let archive = crate::testfixtures::wheel(&meta);
+        let hash = ContentHash::digest(&archive);
+        let metadata_hash = ContentHash::digest(&meta)
+            .to_string()
+            .replace("sha256:", "");
+        let url = format!("https://files.test/artifact-{n}.whl");
+        files.push(serde_json::json!({"url":url,"hashes":{"sha256":hash.to_string().replace("sha256:", "")},"core-metadata":{"sha256":metadata_hash}}));
+        transport.add(&format!("{url}.metadata"), 200, &meta);
+        transport.add(&url, 200, &archive);
+        write!(lock, "{{url='{url}',hash='{hash}'}},").unwrap();
+    }
+    lock.push(']');
+    let index =
+        serde_json::to_vec(&serde_json::json!({"meta":{"api-version":"1.0"},"files":files}))
+            .unwrap();
+    let index_bytes = index.len();
+    transport.add("https://example.test/simple/example/", 200, &index);
+    let inspection = Inspection::from_documents(
+        &lock,
+        "[tool.taloon]\nschema-version=1\nallow=['MIT']",
+        EvaluationDate::parse("2026-11-01").unwrap(),
+    )
+    .unwrap();
+    (transport, inspection, index_bytes)
+}
+
+#[test]
+fn one_index_snapshot_covers_all_concurrent_locked_artifacts() {
+    let temp = tempfile::tempdir().unwrap();
+    let (fixture, inspection, index_bytes) = many_artifact_fixture(16);
+    let acquirer =
+        Acquirer::with_transport(AcquisitionOptions::testing(temp.path(), false), fixture).unwrap();
+    let batch = acquirer.acquire(inspection.requests());
+    assert_eq!(batch.results.len(), 16);
+    assert_eq!(inspection.evaluate(batch.results).exit_code(false), 0);
+    assert_eq!(batch.summary.http.index.requests, 1);
+    assert_eq!(batch.summary.index_parse_count, 1);
+    assert_eq!(
+        batch.summary.http.index.downloaded_bytes,
+        u64::try_from(index_bytes).unwrap()
+    );
+    assert_eq!(batch.summary.http.metadata.requests, 16);
+    assert_eq!(batch.summary.http.archive.requests, 0);
+    assert_eq!(batch.summary.index_cache_hits, 15);
+    assert!(batch.summary.index_wait_us > 0);
+}
+
+fn mutate_fixture_index(fixture: &Fixture, change: impl FnOnce(&mut serde_json::Value)) {
+    let mut routes = fixture.routes.lock().unwrap();
+    let reply = routes
+        .get_mut("https://example.test/simple/example/")
+        .unwrap();
+    let mut document = serde_json::from_slice(&reply.body).unwrap();
+    change(&mut document);
+    reply.body = serde_json::to_vec(&document).unwrap();
+}
+
+#[test]
+fn index_snapshot_is_fresh_per_call_and_warm_offline_bypasses_it() {
+    let temp = tempfile::tempdir().unwrap();
+    let (fixture, inspection, _) = many_artifact_fixture(8);
+    let acquirer = Acquirer::with_transport(
+        AcquisitionOptions::testing(temp.path(), false),
+        fixture.clone(),
+    )
+    .unwrap();
+    let first = acquirer.acquire(inspection.requests());
+    assert_eq!(first.summary.http.index.requests, 1);
+    assert_eq!(inspection.evaluate(first.results).exit_code(false), 0);
+    let warm = acquirer.acquire(inspection.requests());
+    assert_eq!(
+        (
+            warm.summary.network_requests,
+            warm.summary.index_parse_count
+        ),
+        (0, 0)
+    );
+    let offline = Acquirer::with_transport(
+        AcquisitionOptions::testing(temp.path(), true),
+        fixture.clone(),
+    )
+    .unwrap();
+    let cached = offline.acquire(inspection.requests());
+    assert_eq!(
+        (
+            cached.summary.network_requests,
+            cached.summary.index_parse_count
+        ),
+        (0, 0)
+    );
+    assert_eq!(cached.summary.cache_hits, 8);
+    std::fs::remove_dir_all(temp.path().join("cache")).unwrap();
+    mutate_fixture_index(&fixture, |document| {
+        document["files"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("core-metadata");
+    });
+    let fresh = acquirer.acquire(inspection.requests());
+    assert_eq!(fresh.summary.http.index.requests, 1);
+    assert_eq!(fresh.summary.http.archive.requests, 1);
+    assert_eq!(fresh.summary.http.metadata.requests, 7);
+    assert_eq!(inspection.evaluate(fresh.results).exit_code(false), 0);
+}
+
+#[test]
+fn bad_bindings_do_not_invalidate_unrelated_artifacts() {
+    let temp = tempfile::tempdir().unwrap();
+    let (fixture, inspection, _) = many_artifact_fixture(3);
+    mutate_fixture_index(&fixture, |document| {
+        document["files"][0]["hashes"]["sha256"] = serde_json::Value::String("0".repeat(64));
+        let duplicate = document["files"][1].clone();
+        document["files"].as_array_mut().unwrap().push(duplicate);
+    });
+    let acquirer =
+        Acquirer::with_transport(AcquisitionOptions::testing(temp.path(), false), fixture).unwrap();
+    let batch = acquirer.acquire(inspection.requests());
+    assert_eq!(
+        (
+            batch.summary.http.index.requests,
+            batch.summary.index_parse_count
+        ),
+        (1, 1)
+    );
+    assert_eq!(batch.summary.http.metadata.requests, 1);
+    assert_eq!(batch.summary.http.archive.requests, 2);
+    assert_eq!(batch.warnings.len(), 2);
+    assert_eq!(inspection.evaluate(batch.results).exit_code(false), 0);
+}
+
+#[test]
+fn terminal_index_failure_is_shared_but_each_archive_is_verified() {
+    let temp = tempfile::tempdir().unwrap();
+    let (fixture, inspection, _) = many_artifact_fixture(8);
+    fixture.add("https://example.test/simple/example/", 503, b"unavailable");
+    let acquirer =
+        Acquirer::with_transport(AcquisitionOptions::testing(temp.path(), false), fixture).unwrap();
+    let batch = acquirer.acquire(inspection.requests());
+    assert_eq!(batch.summary.http.index.requests, 3);
+    assert_eq!(batch.summary.index_parse_count, 0);
+    assert_eq!(batch.summary.index_cache_hits, 7);
+    assert_eq!(batch.summary.http.metadata.requests, 0);
+    assert_eq!(batch.summary.http.archive.requests, 8);
+    assert_eq!(batch.summary.archive_extractions, 8);
+    assert_eq!(inspection.evaluate(batch.results).exit_code(false), 0);
+}
+
+#[test]
+fn same_package_from_different_source_queries_keeps_separate_snapshots() {
+    use std::fmt::Write as _;
+    let temp = tempfile::tempdir().unwrap();
+    let fixture = Fixture::default();
+    let mut lock = "version=1\nrevision=5\n".to_owned();
+    for tenant in ["a", "b"] {
+        let metadata =
+            crate::testfixtures::metadata(&format!("License-Expression: MIT\nX-Variant: {tenant}"));
+        let bytes = crate::testfixtures::wheel(&metadata);
+        let hash = ContentHash::digest(&bytes);
+        let url = format!("https://files.test/{tenant}.whl");
+        let index = serde_json::to_vec(&serde_json::json!({"files":[{"url":url,
+            "hashes":{"sha256":hash.to_string().replace("sha256:","")},
+            "core-metadata":{"sha256":ContentHash::digest(&metadata).to_string().replace("sha256:","")}}]})).unwrap();
+        fixture.add(
+            &format!("https://example.test/simple/example/?tenant={tenant}"),
+            200,
+            &index,
+        );
+        fixture.add(&format!("{url}.metadata"), 200, &metadata);
+        fixture.add(&url, 200, &bytes);
+        writeln!(lock,"[[package]]\nname='example'\nversion='1.0'\nsource={{registry='https://example.test/simple?tenant={tenant}'}}\nwheels=[{{url='{url}',hash='{hash}'}}]").unwrap();
+    }
+    let inspection = Inspection::from_documents(
+        &lock,
+        "[tool.taloon]\nschema-version=1\nallow=['MIT']",
+        EvaluationDate::parse("2026-11-01").unwrap(),
+    )
+    .unwrap();
+    let acquirer =
+        Acquirer::with_transport(AcquisitionOptions::testing(temp.path(), false), fixture).unwrap();
+    let batch = acquirer.acquire(inspection.requests());
+    assert_eq!(batch.summary.http.index.requests, 2);
+    assert_eq!(batch.summary.http.metadata.requests, 2);
+    assert_eq!(batch.summary.http.archive.requests, 0);
+    assert_eq!(batch.summary.index_cache_hits, 0);
+    assert_eq!(inspection.evaluate(batch.results).exit_code(false), 0);
+}
+
+#[test]
+fn panicked_index_initializer_releases_waiters_and_keeps_traffic() {
+    use std::{
+        sync::{
+            atomic::{AtomicBool, Ordering},
+            mpsc,
+        },
+        time::Duration,
+    };
+    struct PanicOnce {
+        fixture: Fixture,
+        entered: mpsc::Sender<()>,
+        release: Mutex<mpsc::Receiver<()>>,
+        started: AtomicBool,
+    }
+    impl Transport for PanicOnce {
+        fn send(
+            &self,
+            url: &url::Url,
+            auth: Option<&Credentials>,
+            accept: &str,
+            limit: u64,
+            stats: &mut AcquisitionSummary,
+        ) -> Result<Response, Error> {
+            if url.host_str() == Some("example.test") && !self.started.swap(true, Ordering::SeqCst)
+            {
+                stats.downloaded_bytes += 5;
+                self.entered.send(()).unwrap();
+                self.release.lock().unwrap().recv().unwrap();
+                panic!("synthetic initializer panic");
+            }
+            self.fixture.send(url, auth, accept, limit, stats)
+        }
+    }
+    let temp = tempfile::tempdir().unwrap();
+    let (fixture, inspection, index_bytes) = many_artifact_fixture(16);
+    let requests = inspection.requests().to_vec();
+    let (entered_tx, entered_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    let acquirer = Acquirer::with_transport(
+        AcquisitionOptions::testing(temp.path(), false),
+        PanicOnce {
+            fixture,
+            entered: entered_tx,
+            release: Mutex::new(release_rx),
+            started: AtomicBool::new(false),
+        },
+    )
+    .unwrap();
+    let (progress_tx, progress_rx) = mpsc::channel();
+    let (result_tx, result_rx) = mpsc::channel();
+    let worker = std::thread::spawn(move || {
+        let result = acquirer.acquire_with_progress(&requests, |p| {
+            let _ = progress_tx.send(p);
+        });
+        let _ = result_tx.send(result);
+    });
+    assert_eq!(
+        progress_rx
+            .recv_timeout(Duration::from_secs(5))
+            .unwrap()
+            .completed,
+        0
+    );
+    entered_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+    assert_eq!(
+        progress_rx
+            .recv_timeout(Duration::from_secs(5))
+            .unwrap()
+            .completed,
+        0
+    );
+    release_tx.send(()).unwrap();
+    let batch = result_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+    worker.join().unwrap();
+    assert_eq!(batch.results.len(), 16);
+    assert_eq!(batch.summary.http.index.requests, 2);
+    assert_eq!(
+        batch.summary.http.index.downloaded_bytes,
+        5 + u64::try_from(index_bytes).unwrap()
+    );
+    assert_eq!(batch.summary.index_parse_count, 1);
+    assert!(batch.summary.index_wait_us > 0);
+    assert_eq!(inspection.evaluate(batch.results).exit_code(false), 2);
+}
+
+#[test]
+#[ignore = "controlled initial-acquisition comparison; three fresh evidence caches"]
+fn cold_index_acquisition_benchmark() {
+    for trial in 1..=3 {
+        let temp = tempfile::tempdir().unwrap();
+        let (fixture, inspection, index_bytes) = many_artifact_fixture(48);
+        let acquirer = Acquirer::with_transport(
+            AcquisitionOptions::testing(temp.path(), false),
+            fixture.clone(),
+        )
+        .unwrap();
+        let batch = acquirer.acquire(inspection.requests());
+        assert_eq!(batch.results.len(), 48);
+        assert_eq!(inspection.evaluate(batch.results).exit_code(false), 0);
+        let summary = batch.summary;
+        assert_eq!(summary.http.index.requests, 1);
+        assert_eq!(summary.index_parse_count, 1);
+        assert_eq!(summary.index_cache_hits, 47);
+        assert_eq!(summary.http.metadata.requests, 48);
+        assert_eq!(summary.http.archive.requests, 0);
+        assert_eq!(summary.archive_extractions, 0);
+        assert_eq!(summary.network_requests, 49);
+        assert_eq!(fixture.count(), 49);
+        assert_eq!(
+            summary.http.index.downloaded_bytes,
+            u64::try_from(index_bytes).unwrap()
+        );
+        assert_eq!(
+            summary.downloaded_bytes,
+            summary.http.index.downloaded_bytes + summary.http.metadata.downloaded_bytes
+        );
+        println!(
+            "trial={trial}, index_response_bytes={index_bytes}, summary={}",
+            serde_json::to_string(&summary).unwrap()
+        );
+    }
 }
 #[test]
 fn sidecar_fallback_and_offline_keep_scope() {
@@ -299,6 +731,7 @@ fn redirects_and_errors_do_not_leak_or_skip() {
     let mut stats = AcquisitionSummary::default();
     let response = http
         .get(
+            RequestPurpose::Archive,
             url::Url::parse("https://inline:password@example.test/start?token=secret#fragment")
                 .unwrap(),
             "test",
@@ -325,6 +758,7 @@ fn redirects_and_errors_do_not_leak_or_skip() {
     let before = fixture.count();
     assert!(
         http.get(
+            RequestPurpose::Archive,
             url::Url::parse("https://example.test/downgrade").unwrap(),
             "test",
             64,
@@ -341,6 +775,7 @@ fn redirects_and_errors_do_not_leak_or_skip() {
     let before = fixture.count();
     let error = http
         .get(
+            RequestPurpose::Archive,
             url::Url::parse("https://example.test/unavailable?secret=token").unwrap(),
             "test",
             64,
@@ -354,6 +789,7 @@ fn redirects_and_errors_do_not_leak_or_skip() {
     let before = fixture.count();
     assert!(
         http.get(
+            RequestPurpose::Archive,
             url::Url::parse("https://missing.test/").unwrap(),
             "test",
             64,
@@ -522,6 +958,7 @@ fn real_https_transport_rejects_bad_tls_and_times_out() {
         let mut counters = AcquisitionSummary::default();
         let error = client
             .get(
+                RequestPurpose::Archive,
                 url::Url::parse(&format!("https://{address}/?signed=secret")).unwrap(),
                 "test",
                 64,
@@ -557,6 +994,7 @@ fn oversized_and_malformed_index_responses_fall_back_to_archives() {
     let mut stats = AcquisitionSummary::default();
     assert!(
         http.get(
+            RequestPurpose::Archive,
             url::Url::parse("https://example.test/oversized").unwrap(),
             "test",
             2,

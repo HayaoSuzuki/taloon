@@ -1,4 +1,5 @@
 //! Bounded HTTPS requests; redirects are followed here with explicit credential scope.
+use super::metrics::{Attempt, RequestPurpose, timed};
 use std::{collections::BTreeMap, io::Read, path::Path, time::Duration};
 use taloon::{
     model::{Code, Error},
@@ -220,6 +221,7 @@ impl Http {
     }
     pub(super) fn get(
         &self,
+        purpose: RequestPurpose,
         mut url: Url,
         accept: &str,
         limit: u64,
@@ -245,8 +247,11 @@ impl Http {
             };
             let mut attempts = 0;
             let response = loop {
-                stats.network_requests += 1;
-                let result = self.transport.send(&url, auth, accept, limit, stats);
+                let mut attempt = Attempt::begin(stats, purpose);
+                let result = self
+                    .transport
+                    .send(&url, auth, accept, limit, attempt.summary());
+                drop(attempt);
                 match result {
                     Ok(response)
                         if !(response.status == 429 || response.status >= 500) || attempts == 2 =>
@@ -256,7 +261,9 @@ impl Http {
                     Err(e) if attempts == 2 => return Err(e),
                     _ => {
                         attempts += 1;
-                        std::thread::sleep(Duration::from_millis(50 * attempts));
+                        timed(&mut purpose.summary(stats).retry_delay_us, || {
+                            std::thread::sleep(Duration::from_millis(50 * attempts));
+                        });
                     }
                 }
             };

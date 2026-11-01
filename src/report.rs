@@ -42,11 +42,64 @@ pub enum Status {
     Incomplete,
 }
 #[derive(Clone, Debug, Default, Serialize)]
+pub struct TransferSummary {
+    pub requests: u64,
+    pub downloaded_bytes: u64,
+    pub request_time_us: u64,
+    pub retry_delay_us: u64,
+}
+impl TransferSummary {
+    fn merge(&mut self, other: &Self) {
+        for (total, value) in [
+            (&mut self.requests, other.requests),
+            (&mut self.downloaded_bytes, other.downloaded_bytes),
+            (&mut self.request_time_us, other.request_time_us),
+            (&mut self.retry_delay_us, other.retry_delay_us),
+        ] {
+            *total = total.saturating_add(value);
+        }
+    }
+}
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct HttpSummary {
+    pub index: TransferSummary,
+    pub metadata: TransferSummary,
+    pub archive: TransferSummary,
+}
+#[derive(Clone, Debug, Default, Serialize)]
 pub struct AcquisitionSummary {
     pub network_requests: u64,
     pub downloaded_bytes: u64,
     pub archive_extractions: u64,
     pub cache_hits: u64,
+    /// Wall time of acquisition; not a sum of overlapping worker durations.
+    pub elapsed_us: u64,
+    pub index_cache_hits: u64,
+    pub index_wait_us: u64,
+    pub index_parse_count: u64,
+    pub index_parse_us: u64,
+    pub http: HttpSummary,
+}
+impl AcquisitionSummary {
+    /// Combine observed work while preserving this summary's wall elapsed time.
+    /// Counters and accumulated durations saturate instead of wrapping.
+    pub fn merge(&mut self, other: &Self) {
+        for (total, value) in [
+            (&mut self.network_requests, other.network_requests),
+            (&mut self.downloaded_bytes, other.downloaded_bytes),
+            (&mut self.archive_extractions, other.archive_extractions),
+            (&mut self.cache_hits, other.cache_hits),
+            (&mut self.index_cache_hits, other.index_cache_hits),
+            (&mut self.index_wait_us, other.index_wait_us),
+            (&mut self.index_parse_count, other.index_parse_count),
+            (&mut self.index_parse_us, other.index_parse_us),
+        ] {
+            *total = total.saturating_add(value);
+        }
+        self.http.index.merge(&other.http.index);
+        self.http.metadata.merge(&other.http.metadata);
+        self.http.archive.merge(&other.http.archive);
+    }
 }
 #[derive(Debug, Serialize)]
 pub struct ArtifactReport {
