@@ -1,0 +1,19 @@
+[package]
+name = "taloon-decisions"
+description = "Pure observation accounting and verdict decisions for taloon"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[target.'cfg(creusot)'.dependencies]
+creusot-std = "=0.14.0"
+
+[dev-dependencies]
+rstest = { version = "0.28.0", default-features = false }
+proptest = "1.12"

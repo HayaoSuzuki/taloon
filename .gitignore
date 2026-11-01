@@ -36,3 +36,8 @@ __pycache__/
 # Lean build output and fuzzing crash artifacts
 **/.lake/
 /fuzz/artifacts/
+
+# Fresh Creusot verification output and local proof reports
+/verif/
+/formal/creusot/reports/
+/.why3find/

@@ -23,6 +23,46 @@ fn observations(i: &Inspection, b: &[u8]) -> Vec<AcquisitionResult> {
         .map(|r| AcquisitionResult::observed(r.id(), Evidence::from_archive(r, b).unwrap()))
         .collect()
 }
+
+#[rstest::rstest]
+#[case::success_success(vec![true, true])]
+#[case::success_failure(vec![true, false])]
+#[case::failure_success(vec![false, true])]
+#[case::failure_failure(vec![false, false])]
+#[case::third_success(vec![true, false, true])]
+fn duplicate_outcomes_remain_invalid(#[case] successful: Vec<bool>) {
+    // Arrange
+    let bytes = wheel(&metadata("License-Expression: MIT"));
+    let inspection = Inspection::from_documents(&lock(&bytes), &policy("'MIT'"), date()).unwrap();
+    let request = &inspection.requests()[0];
+    let mut results = observations(&inspection, &bytes);
+    results.remove(0);
+    results.extend(successful.into_iter().map(|success| {
+        if success {
+            AcquisitionResult::observed(
+                request.id(),
+                Evidence::from_archive(request, &bytes).unwrap(),
+            )
+        } else {
+            AcquisitionResult::failed(
+                request.id(),
+                taloon::model::Error::new(taloon::model::Code::Acquisition, "fixture failure"),
+            )
+        }
+    }));
+
+    // Act
+    let report = inspection.evaluate(results);
+
+    // Assert
+    assert_eq!(report.status(), taloon::report::Status::Incomplete);
+    assert!(report.packages()[0].artifacts.iter().any(|artifact| {
+        artifact
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.error.code == taloon::model::Code::InvalidResult)
+    }));
+}
 #[test]
 fn missing_or_weak_results_never_succeed() {
     let bytes = wheel(&metadata("License-Expression: MIT"));

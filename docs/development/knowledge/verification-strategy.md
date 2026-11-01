@@ -4,6 +4,10 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: creusot-contracts
+  resource: ../work/creusot-contracts/review.md
+  working_tree: modified
+  sha256: 683954a4f68f9be8093cfaa6bb144ab94ec2e2d5a187310809c9b98d4994d8b7
 - id: typed-acquisition-review
   resource: ../work/typed-acquisition/review.md
   working_tree: modified
@@ -324,3 +328,24 @@ generated-shuffle and seed-12345 suites each pass 307 local tests. A separate
 fresh completion reviewer confirms current ownership boundaries and identifies
 no further required implementation refactor; it does not certify unobserved
 executor or CI results.[^typed-acquisition-review]
+
+
+# Direct Rust decision contracts
+
+Creusot 0.14.0 additionally verifies the production observation-slot transitions
+in `taloon-decisions`, using the same bodies called by ResultLedger. Exact
+payload preservation, duplicate absorption until consumption, typed cardinality
+errors and consumption to None have contracts over arbitrary payload types.
+BTreeMap association/removal and Evidence rebinding remain tested adapter
+boundaries; this is not a proof of the entire ledger or application. No custom
+trusted function or map axiom is introduced. The existing Lean proofs and finite
+correspondence remain unchanged.[^creusot-contracts]
+
+The separate pinned nightly/Why3/solver environment never becomes a runtime
+requirement. Fresh exact obligation inventories, explicit named goals, no-cache
+proofs, input snapshots and compiling rejected mutations guard the verification
+command. Revisit when the production decisions, compiler/contracts or upstream
+environment recipe changes. Commands and installation belong to the
+[Creusot procedure](../../../formal/creusot/README.md).[^creusot-contracts]
+
+[^creusot-contracts]: [Adoption evidence and five-pass reviews](../work/creusot-contracts/review.md).
