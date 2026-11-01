@@ -78,6 +78,10 @@ once-initialized parsed result; exact artifact URL/hash lookup remains separate.
   47 index response bodies saved. Record timing instead of an internet threshold.
 - [x] Check cached/offline zero-HTTP/parse behavior and warm 10,000-artifact
   process regression. Run relevant normal tests, strict lints/docs and model checks.
-- [ ] Review five times and request one fresh whole-branch review. Fix reproduced
-  important findings; commit/push/create PR and verify hosted checks. Record actual
-  scope/results without publishing private inputs or their validation results.
+- [x] Review five times and request one fresh whole-branch review. Fix reproduced
+  important findings and commit the implementation. The [final review](review.md)
+  records the result and local verification.
+
+After Task 2, push/create the PR and verify hosted checks. Record actual hosted
+results in the PR body, keeping local evidence tied to its recorded revision.
+Do not publish private inputs or their validation results.
