@@ -4,6 +4,10 @@ title: Pure core and acquisition boundary
 description: Approved deep modules and request/result API for license inspection without core I/O.
 status: accepted
 sources:
+- id: policy-evaluation-review
+  resource: ../work/policy-evaluation/review.md
+  working_tree: untracked
+  sha256: fb1ab90f04a90894c3876baf58456f31b3e08be6661077e217065f1d91037ef7
 - id: core-design-review
   resource: ../work/core-accounting-and-resolution/review.md
   working_tree: untracked
@@ -313,3 +317,24 @@ different observation protocol or measured workloads justify more indexing.
 Do not remove binding validation merely to save copying.[^core-design-review]
 
 [^core-design-review]: [Core assessment and staged reviews](../work/core-accounting-and-resolution/review.md).
+
+
+# Indexed policy evaluation
+
+Policy owns a PackageId-keyed map of ordered exception entries. The validated
+key retains normalized name/version/source semantics, while each entry retains
+its original file ordinal and optional content hash. One private matcher serves
+proof-requirement and permission queries; unrelated package entries are not
+scanned. Evaluation borrows global/scoped permission sets rather than cloning
+their union. Usage accounting scans observations once, retaining configured
+package/content usage and pending global/clarification entries; diagnostics
+retain original ordinals and final report ordering. This implements the earlier
+policy-scan follow-up without adding a cache or public API.[^policy-evaluation-review]
+
+Construction still validates every input entry in file order. Hashless local
+requests match overrides against observed content, and all OR units count for
+unused-permission reporting. Reconsider the layout if measured same-package
+fork/hash workloads justify a further index; current measurements isolate lookup
+and evaluation, not setup or whole-CLI costs.[^policy-evaluation-review]
+
+[^policy-evaluation-review]: [Policy evaluation assessment and staged review](../work/policy-evaluation/review.md).

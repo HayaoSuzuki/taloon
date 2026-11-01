@@ -4,6 +4,10 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: policy-evaluation-review
+  resource: ../work/policy-evaluation/review.md
+  working_tree: untracked
+  sha256: fb1ab90f04a90894c3876baf58456f31b3e08be6661077e217065f1d91037ef7
 - id: core-design-review
   resource: ../work/core-accounting-and-resolution/review.md
   working_tree: untracked
@@ -205,3 +209,16 @@ separates model proofs, exercised correspondence, red/green regression evidence,
 fuzz bounds and measured timings.[^core-design-review]
 
 [^core-design-review]: [Core assessment and staged reviews](../work/core-accounting-and-resolution/review.md).
+
+
+# Scoped policy follow-up evidence
+
+Public fixed/generated tests check the indexed policy against integer
+identity/hash selectors: additive Boolean permissions, original exception IDs
+and order, normalized identities, custom proof requirements, hashless observed
+content, all-OR-unit usage and clarification warnings. The unchanged Lean corpus
+and strict adapter retain their original scope; no model theorem about the new
+private map is asserted. Synthetic timing samples and limits are in the
+[policy measurement record](../work/policy-evaluation/performance.md).[^policy-evaluation-review]
+
+[^policy-evaluation-review]: [Policy evaluation assessment and staged review](../work/policy-evaluation/review.md).
