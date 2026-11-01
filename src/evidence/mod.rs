@@ -12,6 +12,7 @@ use std::{
     io::{Cursor, Read},
     sync::Arc,
 };
+use taloon_decisions::evidence::{ProofBinding, content_matches, request_matches, sidecar_matches};
 
 /// Maximum observed metadata bytes, shared with bounded acquisition and persistence.
 pub const MAX_METADATA_BYTES: u64 = 4 * 1024 * 1024;
@@ -25,6 +26,17 @@ enum Proof {
         source: ContentHash,
         request: RequestId,
     },
+}
+impl Proof {
+    fn binding(&self) -> ProofBinding<'_> {
+        match self {
+            Self::ArchiveVerified => ProofBinding::ArchiveVerified,
+            Self::IndexAssociated { source, request } => ProofBinding::IndexAssociated {
+                source: source.binding_bytes(),
+                request: request.binding_bytes(),
+            },
+        }
+    }
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -86,7 +98,7 @@ impl SidecarAssociation {
         index: ContentHash,
         metadata: ContentHash,
     ) -> Result<Self, Error> {
-        if archive != index {
+        if !content_matches(Some(archive.binding_bytes()), index.binding_bytes()) {
             return Err(Error::new(
                 Code::HashMismatch,
                 "index artifact digest differs from lock",
@@ -384,8 +396,14 @@ impl Evidence {
                 "metadata exceeds the 4 MiB reading limit",
             ));
         }
-        if request.hash() != Some(binding.archive) || ContentHash::digest(bytes) != binding.metadata
-        {
+        let locked = request.hash();
+        if !sidecar_matches(
+            locked.as_ref().map(ContentHash::binding_bytes),
+            binding.archive.binding_bytes(),
+        ) || !content_matches(
+            Some(binding.metadata.binding_bytes()),
+            ContentHash::digest(bytes).binding_bytes(),
+        ) {
             return Err(Error::new(
                 Code::HashMismatch,
                 "sidecar binding or digest mismatch",
@@ -419,8 +437,7 @@ impl Evidence {
     }
     #[must_use]
     pub fn requirement_satisfied(&self, need: EvidenceRequirement) -> bool {
-        matches!(self.record.data.proof, Proof::ArchiveVerified)
-            || need == EvidenceRequirement::IndexAssociated
+        self.record.data.proof.binding().satisfies(need)
     }
     #[must_use]
     pub fn content_hash(&self) -> ContentHash {
@@ -431,11 +448,7 @@ impl Evidence {
         EvidenceSummary {
             content_hash: self.content_hash(),
             metadata_hash: self.record.data.metadata_hash,
-            strength: if matches!(self.record.data.proof, Proof::ArchiveVerified) {
-                EvidenceRequirement::ArchiveVerified
-            } else {
-                EvidenceRequirement::IndexAssociated
-            },
+            strength: self.record.data.proof.binding().strength(),
             metadata_version: self.metadata.version.clone(),
             original_expression: self
                 .metadata
@@ -462,7 +475,12 @@ impl Evidence {
     /// # Errors
     /// Rejects cross-request hashless observations and invalid record bindings.
     pub fn rebind(&self, request: &ArtifactRequest) -> Result<Self, Error> {
-        if request.hash().is_none() && self.observed_request != request.id() {
+        let locked = request.hash();
+        if !request_matches(
+            locked.as_ref().map(ContentHash::binding_bytes),
+            self.observed_request.binding_bytes(),
+            request.id().binding_bytes(),
+        ) {
             return Err(Error::new(
                 Code::InvalidResult,
                 "hashless observation belongs to another artifact request",
@@ -488,22 +506,28 @@ impl Evidence {
                 "corrupt or incompatible evidence record",
             ));
         }
-        if request.hash().is_some_and(|hash| hash != data.content) {
+        let locked = request.hash();
+        if !content_matches(
+            locked.as_ref().map(ContentHash::binding_bytes),
+            data.content.binding_bytes(),
+        ) {
             return Err(Error::new(
                 Code::HashMismatch,
                 "cached content differs from locked artifact",
             ));
         }
-        if let Proof::IndexAssociated {
-            source,
-            request: association,
-        } = data.proof
-            && (source_binding(request)? != source || association != request.id())
-        {
-            return Err(Error::new(
-                Code::IdentityMismatch,
-                "cached sidecar belongs to another source",
-            ));
+        if let Proof::IndexAssociated { .. } = data.proof {
+            let source = source_binding(request)?;
+            if !data
+                .proof
+                .binding()
+                .matches(source.binding_bytes(), request.id().binding_bytes())
+            {
+                return Err(Error::new(
+                    Code::IdentityMismatch,
+                    "cached sidecar belongs to another source",
+                ));
+            }
         }
         let metadata = parse_metadata(request, &data.metadata)?;
         Ok(Self {

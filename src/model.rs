@@ -69,6 +69,10 @@ impl EvaluationDate {
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct ContentHash([u8; 32]);
 impl ContentHash {
+    pub(crate) fn binding_bytes(&self) -> &[u8; 32] {
+        &self.0
+    }
+
     #[must_use]
     pub fn digest(bytes: &[u8]) -> Self {
         Self(Sha256::digest(bytes).into())
@@ -311,12 +315,7 @@ pub enum ArtifactFormat {
     Wheel,
     Sdist,
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum EvidenceRequirement {
-    IndexAssociated,
-    ArchiveVerified,
-}
+pub use taloon_decisions::evidence::EvidenceRequirement;
 
 /// Fetch locations are private data. They are never serialized into reports or cache records.
 #[derive(Clone, Eq, PartialEq)]
@@ -382,6 +381,11 @@ impl ArtifactLocator {
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub struct RequestId(ContentHash);
+impl RequestId {
+    pub(crate) fn binding_bytes(&self) -> &[u8; 32] {
+        self.0.binding_bytes()
+    }
+}
 impl fmt::Display for RequestId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)

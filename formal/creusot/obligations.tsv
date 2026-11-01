@@ -1,5 +1,12 @@
 accounting/impl_AcquisitionSummary/merge.coma vc_merge vc_merge'0 vc_saturating_add
 accounting/impl_TransferSummary/merge.coma vc_merge vc_saturating_add
+evidence/content_matches.coma vc_content_matches vc_elim_Some vc_same
+evidence/impl_ProofBinding/matches.coma vc_elim_IndexAssociated vc_matches vc_same
+evidence/impl_ProofBinding/satisfies.coma vc_satisfies
+evidence/impl_ProofBinding/strength.coma vc_strength
+evidence/request_matches.coma vc_request_matches vc_same
+evidence/same.coma vc_eq_ref_array_u8_32 vc_same
+evidence/sidecar_matches.coma vc_elim_Some vc_same vc_sidecar_matches
 name/is_alphanumeric.coma vc_is_alphanumeric
 name/is_separator.coma vc_is_separator
 name/normalization_fixed_point.coma vc_normalization_fixed_point
