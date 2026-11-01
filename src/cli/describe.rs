@@ -35,7 +35,7 @@ struct Envelope<'a> {
 }
 pub(super) fn emit(report: &DescriptionReport, format: Format) -> u8 {
     let encoded = match format {
-        Format::Json => serde_json::to_vec(&Envelope {
+        Format::Json => super::json::encode(&Envelope {
             report,
             exit_code: report.exit_code(),
         })

@@ -2,7 +2,7 @@
 use crate::{
     model::{
         ArtifactFormat, ArtifactLocator, ArtifactRequest, Code, ContentHash, Error,
-        EvidenceRequirement, PackageId, RequestId, SourceId, safe_locator,
+        EvidenceRequirement, PackageId, RequestId, SourceId,
     },
     policy::LicenseExpression,
 };
@@ -441,13 +441,13 @@ impl Evidence {
                 .metadata
                 .expression
                 .iter()
-                .map(|s| safe_locator(s))
+                .map(|s| crate::declaration::redact_urls(s))
                 .collect(),
             original_license: self
                 .metadata
                 .legacy
                 .iter()
-                .map(|s| safe_locator(s))
+                .map(|s| crate::declaration::redact_urls(s))
                 .collect(),
             warnings: self.metadata.warnings.clone(),
         }

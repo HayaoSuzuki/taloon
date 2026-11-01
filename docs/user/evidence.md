@@ -62,3 +62,13 @@ then restore access or sufficient cache evidence. For unknown metadata, review
 an exact artifact before adding a clarification and explicit permission. For a
 violation, change the dependency or deliberately amend the policy. Re-running
 with a broader cache does not change the policy's meaning.
+
+## Original license declarations
+
+The JSON output of `check` and `describe` retains declaration prose in
+`original_expression` and `original_license`, including ordinary email addresses
+and question marks. URL tokens embedded in that prose have credentials, query
+values and fragments removed; malformed URL tokens are individually redacted.
+This does not change which declarations count as valid SPDX permissions.
+Text output escapes terminal controls; JSON encodes disruptive control and bidi
+characters as escapes without changing the decoded declaration value.

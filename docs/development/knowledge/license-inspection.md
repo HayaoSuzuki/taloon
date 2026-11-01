@@ -4,6 +4,10 @@ title: License inspection specification
 description: Approved design for uv.lock coverage, Python license policy, evidence, and command behavior.
 status: accepted
 sources:
+- id: declaration-reporting
+  resource: ../work/evidence-and-invariants/issue15.md
+  working_tree: untracked
+  sha256: a64063c9751e5f613c6f40a7fd8696a18ece4c7098040bbb5f42f815086189d4
 - id: typed-acquisition-review
   resource: ../work/typed-acquisition/review.md
   working_tree: modified
@@ -420,3 +424,18 @@ backward compatibility, while valid external metadata spellings remain supported
 [^typed-acquisition-review]
 
 [^typed-acquisition-review]: [Typed acquisition staged review](../work/typed-acquisition/review.md).
+
+
+# Original declaration rendering
+
+Check and describe JSON preserve ordinary declaration prose/email in their
+original_expression/original_license fields. Declaration rendering redacts only
+embedded URL tokens using the existing credential/query/fragment policy; invalid
+URL-like tokens fail closed individually. It does not change permission parsing,
+header precedence or cache records. Shared CLI JSON formatting escapes disruptive
+control/bidi scalars while preserving decoded values, and text retains its
+existing terminal escaping. The reproduction and generated regressions address
+Issue #15; parser and cryptographic correctness are separate boundaries.
+[^declaration-reporting]
+
+[^declaration-reporting]: [Declaration reporting correction and five-pass review](../work/evidence-and-invariants/issue15.md).

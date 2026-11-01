@@ -1,6 +1,7 @@
 //! Runtime setup and rendering; inspection owns all verdict rules.
 use crate::acquisition::{Acquirer, AcquisitionBatch, AcquisitionOptions, EvidenceCache};
 mod describe;
+mod json;
 use clap::{Parser, Subcommand, ValueEnum};
 use serde::Serialize;
 use std::{
@@ -283,7 +284,7 @@ fn cache_directory(home: Option<&Path>) -> Result<PathBuf, Error> {
 fn emit(report: &Report, format: Format, deny_warnings: bool) -> u8 {
     let code = report.exit_code(deny_warnings);
     let encoded = match format {
-        Format::Json => serde_json::to_vec(&Envelope {
+        Format::Json => json::encode(&Envelope {
             report,
             exit_code: code,
         })

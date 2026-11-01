@@ -12,3 +12,5 @@ pub mod resolution;
 pub mod description;
 
 mod observations;
+
+mod declaration;

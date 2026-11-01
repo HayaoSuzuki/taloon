@@ -612,3 +612,41 @@ fn describe_cli_empty_project_and_multiple_source_versions_are_explicit() {
     );
     assert_eq!(report["acquisition"]["network_requests"], 0);
 }
+
+#[rstest::rstest]
+#[case::check_license("check", "License", "original_license")]
+#[case::describe_license("describe", "License", "original_license")]
+#[case::check_expression("check", "License-Expression", "original_expression")]
+#[case::describe_expression("describe", "License-Expression", "original_expression")]
+fn declaration_json_preserves_prose_and_protects_terminal(
+    #[case] command: &str,
+    #[case] header: &str,
+    #[case] field: &str,
+) {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let declaration = "Copyright <author@example.org> \u{1b}[31m\u{202e} see https://alice:password@licenses.test/license?token=hidden#private";
+    project(temp.path(), &format!("{header}: {declaration}"));
+    let mut args = vec![command];
+    if command == "describe" {
+        args.push("example");
+    }
+    args.extend(["--offline", "--format=json"]);
+    // Act
+    let output = invoke(temp.path(), &temp.path().join("cache"), &args);
+    // Assert
+    let stdout = String::from_utf8(output.stdout.clone()).unwrap();
+    assert!(!stdout.contains('\u{1b}'));
+    assert!(!stdout.contains('\u{202e}'));
+    assert!(!stdout.contains("password"));
+    assert!(!stdout.contains("token=hidden"));
+    let value = json(&output);
+    let actual = value["packages"][0]["artifacts"][0]["evidence"][field][0]
+        .as_str()
+        .unwrap();
+    assert!(actual.contains("author@example.org"), "{actual}");
+    assert!(
+        actual.contains("https://licenses.test/license?redacted"),
+        "{actual}"
+    );
+}
