@@ -1,7 +1,6 @@
 # Policy-free description of locked package licenses
 
-Status: owner-facing behavior confirmed in conversation; this concrete design
-is proposed for approval before implementation. Current implementation inspected
+Status: approved for implementation by the owner in this session. Current implementation inspected
 at `4c481d4` on 2026-11-01. No describe command exists at that revision.
 
 ## Confirmed owner decisions

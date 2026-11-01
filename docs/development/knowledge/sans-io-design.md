@@ -6,8 +6,8 @@ status: accepted
 sources:
 - id: describe-design
   resource: ../work/describe-licenses/design.md
-  working_tree: untracked
-  sha256: 4f1b8ba4966713e2e5741b6b677d4efae711c1ded7aa3929296a20c06a98573c
+  working_tree: modified
+  sha256: 739306eecb05253fec189602923098bd44db6416c2288ca57ef126b12f4b2458
 - id: acquisition-measurements
   resource: ../work/index-acquisition/measurements.md
   working_tree: modified
@@ -267,7 +267,7 @@ The describe proposal keeps selection/conditional-edge knowledge in resolution,
 original declarations and completeness in a policy-free description surface,
 and request fulfillment/cache in the existing acquisition runtime. It does not
 run a full check and filter after acquisition, or add display flags throughout
-permission evaluation. This proposed extension awaits design approval and
+permission evaluation. This proposed extension is approved and awaits
 implementation; current APIs remain unchanged.[^describe-design]
 
 [^describe-design]: [Proposed description ownership and alternatives](../work/describe-licenses/design.md).

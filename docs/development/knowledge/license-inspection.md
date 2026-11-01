@@ -6,8 +6,8 @@ status: accepted
 sources:
 - id: describe-design
   resource: ../work/describe-licenses/design.md
-  working_tree: untracked
-  sha256: 4f1b8ba4966713e2e5741b6b677d4efae711c1ded7aa3929296a20c06a98573c
+  working_tree: modified
+  sha256: 739306eecb05253fec189602923098bd44db6416c2288ca57ef126b12f4b2458
 - id: cache-clear
   resource: ../work/cache-clear/design.md
   working_tree: modified
@@ -368,7 +368,7 @@ branches, without development edges; a project name selects check's whole
 external inventory, with own/workspace license observations excluded. Match all
 locked versions/sources, and preserve artifact-specific declarations/unknowns.
 The [concrete proposal](../work/describe-licenses/design.md) records CLI, graph,
-output and evidence choices awaiting design approval. This command is not yet
+output and evidence choices approved for implementation. This command is not yet
 implemented and does not change check's coverage or permission contract.[^describe-design]
 
 [^describe-design]: [Proposed describe design and confirmed owner decisions](../work/describe-licenses/design.md).
