@@ -4,6 +4,10 @@ title: Pure core and acquisition boundary
 description: Approved deep modules and request/result API for license inspection without core I/O.
 status: accepted
 sources:
+- id: describe-design
+  resource: ../work/describe-licenses/design.md
+  working_tree: untracked
+  sha256: 4f1b8ba4966713e2e5741b6b677d4efae711c1ded7aa3929296a20c06a98573c
 - id: acquisition-measurements
   resource: ../work/index-acquisition/measurements.md
   working_tree: modified
@@ -256,3 +260,14 @@ may vary during a single call; either would invalidate the sealed-scope
 premise.[^acquisition-measurements]
 
 [^acquisition-measurements]: [Measured acquisition and stage reviews](../work/index-acquisition/measurements.md).
+
+# Proposed description boundary
+
+The describe proposal keeps selection/conditional-edge knowledge in resolution,
+original declarations and completeness in a policy-free description surface,
+and request fulfillment/cache in the existing acquisition runtime. It does not
+run a full check and filter after acquisition, or add display flags throughout
+permission evaluation. This proposed extension awaits design approval and
+implementation; current APIs remain unchanged.[^describe-design]
+
+[^describe-design]: [Proposed description ownership and alternatives](../work/describe-licenses/design.md).

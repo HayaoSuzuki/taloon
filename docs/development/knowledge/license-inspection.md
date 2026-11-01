@@ -4,6 +4,10 @@ title: License inspection specification
 description: Approved design for uv.lock coverage, Python license policy, evidence, and command behavior.
 status: accepted
 sources:
+- id: describe-design
+  resource: ../work/describe-licenses/design.md
+  working_tree: untracked
+  sha256: 4f1b8ba4966713e2e5741b6b677d4efae711c1ded7aa3929296a20c06a98573c
 - id: cache-clear
   resource: ../work/cache-clear/design.md
   working_tree: modified
@@ -355,3 +359,16 @@ prerequisites.[^owner]
 [^acquisition-measurements]: [Measured acquisition work and review](../work/index-acquisition/measurements.md).
 
 [^cache-clear]: [Confirmed selective cache-clearing design](../work/cache-clear/design.md).
+
+# Proposed license-description command
+
+The owner confirmed a policy-free describe command over uv.lock: an external
+name selects itself plus normal/all-extra dependencies across locked environment
+branches, without development edges; a project name selects check's whole
+external inventory, with own/workspace license observations excluded. Match all
+locked versions/sources, and preserve artifact-specific declarations/unknowns.
+The [concrete proposal](../work/describe-licenses/design.md) records CLI, graph,
+output and evidence choices awaiting design approval. This command is not yet
+implemented and does not change check's coverage or permission contract.[^describe-design]
+
+[^describe-design]: [Proposed describe design and confirmed owner decisions](../work/describe-licenses/design.md).
