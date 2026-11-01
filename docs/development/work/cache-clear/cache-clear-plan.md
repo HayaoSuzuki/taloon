@@ -47,7 +47,7 @@ CacheCommand::Clear. Existing cache_directory resolves the location unchanged.
   and index producers yield recognized paths through the binary cache adapter. Keep corrupt records removable.
 - [x] Update user guidance and the owning OKF contract. Perform five actual
   self-reviews: scope, identity, symlinks, errors/concurrency and architecture.
-- [ ] Run cargo test --offline --locked --workspace --all-features, fmt, strict
+- [x] Run cargo test --offline --locked --workspace --all-features, fmt, strict
   Clippy/rustdoc and docs validation; commit. Request one fresh whole-branch
   review and fix reproduced important findings with RED→GREEN tests.
 

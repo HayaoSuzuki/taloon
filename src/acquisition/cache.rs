@@ -31,7 +31,10 @@ impl EvidenceCache {
     /// directories. The configured root may contain unrelated files. Concurrent
     /// publishers can recreate records; clearing is intentionally not atomic.
     pub(crate) fn clear(&self) -> Result<u64, Error> {
-        let root = match fs::symlink_metadata(&self.root) {
+        // Trailing '/' or '/.' would make lstat follow a root directory link.
+        // Components removes redundant spellings without resolving symlinks.
+        let root_path: PathBuf = self.root.components().collect();
+        let root = match fs::symlink_metadata(&root_path) {
             Ok(metadata) => metadata,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(0),
             Err(_) => return Err(failure()),
@@ -39,7 +42,7 @@ impl EvidenceCache {
         if !root.is_dir() || root.file_type().is_symlink() {
             return Err(failure());
         }
-        let entries = match fs::read_dir(&self.root) {
+        let entries = match fs::read_dir(&root_path) {
             Ok(entries) => entries,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(0),
             Err(_) => return Err(failure()),

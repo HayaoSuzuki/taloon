@@ -55,3 +55,36 @@ checks rather than adding a model that cannot establish filesystem ownership.
 3. Restrict invalid-UTF-8 filesystem entry creation to Linux, where hosted CI
    exercises it. macOS local verification cannot establish this input's behavior
    because fixture creation returned EPERM.
+
+## Independent review and correction
+
+On 2026-11-01, fresh reviewer gpt-6-astra (`cache_clear_final_review`) inspected
+`d135b05..ad34eab` read-only, with temporary-only independent reproduction. It
+found one Important issue: a root link ending in `/` or `/.` bypassed lstat
+rejection and cleared its target. No Critical or Minor findings were reported.
+The initial verdict was with fixes.
+
+The author reproduced the finding with
+`cache_clear_rejects_root_symlink_with_redundant_components`: exit 0 and one
+removed record instead of exit 2. Collecting lexical path components before
+root inspection removes redundant separators/dots without canonicalizing away
+link identity. The regression now checks four spellings, target preservation
+and root-link retention. The complete final suite passed 100/100 on macOS;
+strict Clippy and formatting passed after the fix. No second independent review
+was requested; regression RED→GREEN and the full suite verify this correction.
+
+Review limitations and rulings:
+
+4. Hostile concurrent path replacement stays outside the trusted-local
+   guarantees; clearing is not atomic. A hostile writer could redirect
+   operations, so this must not be presented as whole-path race protection.
+5. Links in parent components retain normal OS path resolution, allowing
+   legitimate linked cache parents. Only the final root component is rejected
+   when it is a link; this is not whole-path no-follow protection.
+6. The reviewer did not execute Windows behavior, Linux invalid-UTF-8 entries,
+   or broad/hosted campaigns. Local macOS tests and hosted checks supply their
+   own evidence; review alone does not establish platform or CI success.
+
+All Important findings were corrected. There are no deferred Minor findings.
+Hosted results are recorded in the PR after observation, separately from these
+local results.

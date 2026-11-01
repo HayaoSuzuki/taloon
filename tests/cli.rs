@@ -397,3 +397,24 @@ fn cache_clear_empty_override_matches_existing_cache_writes() {
     assert!(temp.path().join("uv.lock").is_file());
     assert!(temp.path().join("pyproject.toml").is_file());
 }
+
+#[cfg(unix)]
+#[test]
+fn cache_clear_rejects_root_symlink_with_redundant_components() {
+    use std::os::unix::fs::symlink;
+    let temp = tempfile::tempdir().unwrap();
+    let cache = temp.path().join("cache");
+    std::fs::create_dir(&cache).unwrap();
+    let record = cache.join(format!("v1-archive-wheel-sha256-{}.json", "e".repeat(64)));
+    std::fs::write(&record, b"keep").unwrap();
+    let root_link = temp.path().join("linked-cache");
+    symlink(&cache, &root_link).unwrap();
+    for suffix in ["/", "/.", "/./", "//"] {
+        let spelling = std::path::PathBuf::from(format!("{}{suffix}", root_link.display()));
+        let output = invoke(temp.path(), &spelling, &["cache", "clear"]);
+        assert_eq!(output.status.code(), Some(2), "suffix {suffix}: {output:?}");
+        assert_eq!(output.stderr, b"cannot clear taloon cache\n");
+        assert!(root_link.is_symlink());
+        assert_eq!(std::fs::read(&record).unwrap(), b"keep");
+    }
+}
