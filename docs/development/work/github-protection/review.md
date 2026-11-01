@@ -72,8 +72,62 @@ paths remain eligible for tracking. Documentation links/OKF and strict site buil
 passed. No behavior test was added for reversible declarative configuration;
 Pulumi validation and actual API/effective-rule readback are the relevant checks.
 
-The user's subsequent request was to present other useful settings. Review-thread
-resolution, immutable v* tags, merged-branch deletion and Dependabot security
-updates are recommendations only in this change. Secret scanning/push protection
-were already enabled. No extra setting is silently included beyond the declared
-main ruleset. The canonical README/configuration remains the operations owner.
+The user's subsequent request initially asked for recommendations, then explicitly
+authorized all four and requested protection for taloon-release-state. The next
+stage records those additions; they were not silently included in the first
+main-only deployment. Secret scanning/push protection were already enabled.
+
+
+## Authorized additions: design, five passes
+
+1. Resolve review threads before main merge while retaining zero approving reviews.
+2. Protect v* tags against updates/deletions without restricting new tag creation.
+3. Adopt the existing repository only for deleteBranchOnMerge. Ignore every other
+   input in the pinned schema, including deprecated vulnerabilityAlerts; use its
+   dedicated resource instead of sharing management with repository defaults.
+4. Enable prerequisite vulnerability alerts (previously disabled), then Dependabot
+   updates with explicit dependency ordering. Keep existing scanning flags intact.
+5. Confirm release state's exact ref and reservation ancestry/CAS code. Prohibit
+   deletion/non-fast-forward only; a PR/status/update restriction would obstruct
+   the direct reservation job and is deliberately absent.
+
+## Authorized additions: implementation, five passes
+
+1. Preview the expanded program before mutation; validate tag and branch payload
+   scopes. YAML flow-list interpolation required quotes, corrected before apply.
+2. Apply main-thread resolution, branch cleanup, alerts and security updates through
+   gh. Create release tag rule 26313565 and state rule 26313567 with no bypass.
+3. Import existing repository/alert/security identities and new rules through the
+   same explicit provider. No existing repository or main rule is recreated.
+4. Refresh and require zero resource drift before reconciling local outputs.
+   Final preview --refresh --expect-no-changes reports eight unchanged resources.
+5. Compare repository before/after: descriptions, visibility, feature flags, merge
+   methods, default branch and existing secret scanning/push protection unchanged.
+   New managed fields and alert/security settings agree with live API.
+
+## Authorized additions: verification, five passes
+
+1. Read effective main and state-branch rules plus both new rule objects. Confirm
+   exact context/app-ID set, resolved threads, zero approvals, tag creation not
+   restricted, and state scope containing only deletion/non-fast-forward rules.
+2. Run the actual reservation helper against a synthetic bare Git remote denying
+   deletion/non-fast-forward and rejecting existing v* tag changes. Initial,
+   next-version and repeated reservations succeed. This checks real Git lease/
+   ancestry compatibility, not an unobserved GitHub production release.
+3. Inspect scoped repository adoption/ignored fields and dedicated alert resource;
+   record pinned provider's deprecated imported-field warnings without silently
+   suppressing them. They do not represent configured ownership of those fields.
+4. Revalidate credentials/state inclusion, docs/OKF and exact source hashes; all
+   canonical resources remain protected. Fresh review covers expanded ownership.
+5. Update the existing PR and observe checks for its final SHA. Changes are already
+   live; no destructive production push/delete probe or main merge is required.
+
+
+Fresh expanded-scope reviewer `github_extended_rules_review` (separate context,
+2026-11-01) found no Critical/Important/Minor issue after inspecting all three
+rulesets, repository ignore-list coverage, six protected GitHub resources,
+security dependency ordering, canonical-state hygiene and updated source hashes.
+The source/checkpoint/API/effective-rule snapshots agree. It read the eight-
+unchanged preview and reservation implementation but did not independently run
+API/Pulumi, repeat the local experiment or observe a production release/final
+branch CI. No technical finding is deferred.

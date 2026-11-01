@@ -13,7 +13,9 @@ PyPI and TestPyPI must trust the release workflow through OIDC. GitHub environme
 `pypi` and `testpypi` allow deployment only from `main`; automatic publication
 requires no manual approval on those environments. Required main checks must
 remain enabled. The workflow uses no stored PyPI API token, and only individual
-reservation/signing/upload jobs request write permissions.
+reservation/signing/upload jobs request write permissions. The
+[GitHub infrastructure](../../infra/github/README.md) owns release-tag and
+reservation-reference protection; preserve those identities during recovery.
 
 ## Normal publication
 

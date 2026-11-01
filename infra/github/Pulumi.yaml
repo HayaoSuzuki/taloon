@@ -36,7 +36,7 @@ resources:
           dismissStaleReviewsOnPush: false
           requireCodeOwnerReview: false
           requireLastPushApproval: false
-          requiredReviewThreadResolution: false
+          requiredReviewThreadResolution: true
         requiredStatusChecks:
           # Personal repositories cannot use merge queues. Check against current main.
           strictRequiredStatusChecksPolicy: true
@@ -71,5 +71,121 @@ resources:
             - context: validate
               integrationId: 15368
 
+  # Adopt existing identity, but manage only merged-branch deletion here.
+  # Keep every other repository input from refreshed state, including security.
+  repositorySettings:
+    type: github:index/repository:Repository
+    options:
+      provider: ${github}
+      version: 6.15.0
+      protect: true
+      ignoreChanges:
+        - allowAutoMerge
+        - allowForking
+        - allowMergeCommit
+        - allowRebaseMerge
+        - allowSquashMerge
+        - allowUpdateBranch
+        - archiveOnDestroy
+        - archived
+        - autoInit
+        - defaultBranch
+        - description
+        - etag
+        - fork
+        - gitignoreTemplate
+        - hasDiscussions
+        - hasDownloads
+        - hasIssues
+        - hasProjects
+        - hasWiki
+        - homepageUrl
+        - ignoreVulnerabilityAlertsDuringRead
+        - isTemplate
+        - licenseTemplate
+        - mergeCommitMessage
+        - mergeCommitTitle
+        - name
+        - pages
+        - private
+        - securityAndAnalysis
+        - sourceOwner
+        - sourceRepo
+        - squashMergeCommitMessage
+        - squashMergeCommitTitle
+        - template
+        - topics
+        - visibility
+        - vulnerabilityAlerts
+        - webCommitSignoffRequired
+    properties:
+      name: taloon
+      deleteBranchOnMerge: true
+
+  vulnerabilityAlerts:
+    type: github:index/repositoryVulnerabilityAlerts:RepositoryVulnerabilityAlerts
+    options:
+      provider: ${github}
+      version: 6.15.0
+      protect: true
+    properties:
+      repository: ${repositorySettings.name}
+      enabled: true
+
+  dependabotUpdates:
+    type: github:index/repositoryDependabotSecurityUpdates:RepositoryDependabotSecurityUpdates
+    options:
+      provider: ${github}
+      version: 6.15.0
+      protect: true
+      dependsOn: ["${vulnerabilityAlerts}"]
+    properties:
+      repository: ${repositorySettings.name}
+      enabled: true
+
+  releaseTags:
+    type: github:index/repositoryRuleset:RepositoryRuleset
+    options:
+      provider: ${github}
+      version: 6.15.0
+      protect: true
+    properties:
+      repository: taloon
+      name: release-tag-protection
+      target: tag
+      enforcement: active
+      bypassActors: []
+      conditions:
+        refName:
+          includes: [refs/tags/v*]
+          excludes: []
+      # New version tags remain creatable; published identities cannot move/disappear.
+      rules:
+        update: true
+        deletion: true
+
+  releaseState:
+    type: github:index/repositoryRuleset:RepositoryRuleset
+    options:
+      provider: ${github}
+      version: 6.15.0
+      protect: true
+    properties:
+      repository: taloon
+      name: release-state-protection
+      target: branch
+      enforcement: active
+      bypassActors: []
+      conditions:
+        refName:
+          includes: [refs/heads/taloon-release-state]
+          excludes: []
+      # Atomic CAS reservations advance directly; no PR/check gate on this state ref.
+      rules:
+        deletion: true
+        nonFastForward: true
+
 outputs:
   rulesetId: ${main.rulesetId}
+  releaseTagRulesetId: ${releaseTags.rulesetId}
+  releaseStateRulesetId: ${releaseState.rulesetId}
