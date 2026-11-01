@@ -4,6 +4,7 @@ mod describe;
 use clap::{Parser, Subcommand, ValueEnum};
 use serde::Serialize;
 use std::{
+    borrow::Cow,
     ffi::OsString,
     fmt::Write as _,
     io::{IsTerminal as _, Read, Write as _},
@@ -299,17 +300,25 @@ fn emit(report: &Report, format: Format, deny_warnings: bool) -> u8 {
     }
     code
 }
-fn safe(text: &str) -> String {
-    text.chars()
-        .flat_map(|c| {
-            if c.is_control() || matches!(c,'\u{202a}'..='\u{202e}'|'\u{2066}'..='\u{2069}') {
-                c.escape_default().collect::<Vec<_>>()
-            } else {
-                vec![c]
-            }
-        })
-        .collect()
+// Ordinary report fields borrow their text; only escaped output needs storage.
+fn safe(text: &str) -> Cow<'_, str> {
+    if !text.chars().any(needs_terminal_escape) {
+        return Cow::Borrowed(text);
+    }
+    let mut out = String::with_capacity(text.len());
+    for c in text.chars() {
+        if needs_terminal_escape(c) {
+            out.extend(c.escape_default());
+        } else {
+            out.push(c);
+        }
+    }
+    Cow::Owned(out)
 }
+fn needs_terminal_escape(c: char) -> bool {
+    c.is_control() || matches!(c, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
+}
+
 fn diagnostic(out: &mut String, d: &Diagnostic) {
     let _ = writeln!(
         out,
@@ -450,3 +459,6 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod text_tests;

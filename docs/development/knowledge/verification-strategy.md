@@ -4,6 +4,10 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: terminal-text-review
+  resource: ../work/terminal-text/review.md
+  working_tree: untracked
+  sha256: cb3282d33446737e80e3432c30dd0710a7624ef4f306b61aa64d91127ada745e
 - id: html-index-filtering-review
   resource: ../work/html-index-filtering/review.md
   working_tree: untracked
@@ -276,3 +280,18 @@ staged report records those boundaries and measured synthetic parser costs.
 [^html-index-filtering-review]
 
 [^html-index-filtering-review]: [HTML index staged review](../work/html-index-filtering/review.md).
+
+
+# Terminal text ownership and output
+
+Named fixed cases and a 256-case Unicode property compare terminal output with
+an independent numeric-scalar escape oracle. Separate Cow::Borrowed cases pin
+unchanged-text ownership; they initially rejected the previous String type.
+That type-level RED is an allocation-interface claim, not a previous wrong-output
+claim. Existing process tests check rendered report behavior. Stable/shuffled
+suites retain core/model correspondence; Lean and metadata/inspection fuzz do
+not prove or exercise this binary-private helper. The stage record separates
+executor results, fresh reviewer scope and synthetic timing limits.
+[^terminal-text-review]
+
+[^terminal-text-review]: [Terminal text staged review](../work/terminal-text/review.md).

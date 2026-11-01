@@ -4,6 +4,10 @@ title: Pure core and acquisition boundary
 description: Approved deep modules and request/result API for license inspection without core I/O.
 status: accepted
 sources:
+- id: terminal-text-review
+  resource: ../work/terminal-text/review.md
+  working_tree: untracked
+  sha256: cb3282d33446737e80e3432c30dd0710a7624ef4f306b61aa64d91127ada745e
 - id: html-index-filtering-review
   resource: ../work/html-index-filtering/review.md
   working_tree: untracked
@@ -397,3 +401,19 @@ record links complete synthetic timing samples and preservation limits.
 [^html-index-filtering-review]
 
 [^html-index-filtering-review]: [HTML index staged review](../work/html-index-filtering/review.md).
+
+
+# Borrowed terminal rendering
+
+The CLI's private escaping helper returns Cow<str>: unchanged text borrows its
+input, while escaped output owns a growable String. Both command renderers keep
+their existing Display-based calls and exact control/bidi policy; the pure core
+and serialized reports gain no output-lifetime constraint. A private predicate
+owns the escape decision once. This removes per-character Vec construction and
+ordinary-text duplication without a bespoke type/public abstraction. Reconsider
+if actual workloads favor always-owned output or escape policy changes; escaped
+text still scans a prefix twice and can grow its output allocation. Measurements
+are helper-only and do not establish whole-command speed or RSS improvements.
+[^terminal-text-review]
+
+[^terminal-text-review]: [Terminal text staged review](../work/terminal-text/review.md).
