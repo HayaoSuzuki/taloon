@@ -84,7 +84,7 @@ No --deny-warnings or policy/clarification evaluation. Exit0 complete,2 incomple
 - [x] Update implemented user guidance and existing owning OKF topics/formal
   reproduction links. Review scope, output/security, sharing, errors and docs five
   times. Run full Rust tests, strict lints/docs, Python tooling and workflow checks.
-- [ ] Commit implementation and request one fresh whole-branch review. Reproduce
+- [x] Commit implementation and request one fresh whole-branch review. Reproduce
   important findings RED→GREEN, fix in one pass and run the full suite.
 
 Push/create a PR via gh, observe hosted checks and record results before handoff.

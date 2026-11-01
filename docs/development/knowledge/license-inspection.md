@@ -7,7 +7,7 @@ sources:
 - id: describe-review
   resource: ../work/describe-licenses/implementation-review.md
   working_tree: modified
-  sha256: a4b065df62eb9fa98cfaa74bf0c814cca62bdce9f354464e907e82da5ceb4453
+  sha256: da2011db34cf05805f633424b8c977d54a204f09fed2befa5a664eafa3d2bc34
 - id: describe-design
   resource: ../work/describe-licenses/design.md
   working_tree: modified
@@ -388,6 +388,13 @@ metrics, including startup errors. Current operation is documented in the
 whole-inventory and permission contract is unchanged.[^describe-design]
 
 [^describe-design]: [Proposed describe design and confirmed owner decisions](../work/describe-licenses/design.md).
+
+Hashless in-memory archive observations retain their acquiring request ID;
+Evidence.rebind rejects cross-request substitution in describe, check and cache
+publication. Digest-pinned archive reuse remains content-based. Persisted v1
+records are unchanged: local cache restoration still requires a fresh observed
+content hash from the trusted runtime. This boundary was pinned by a reproduced
+substitution regression, independently of the graph model.[^describe-review]
 
 Implementation evidence and staged review limits are recorded separately from
 the approved design.[^describe-review]

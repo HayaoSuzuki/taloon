@@ -83,5 +83,69 @@ because structured inspection fuzz uses a fixed graph; this requires both
 changed targets' smoke checks. Inline feature checkout remains the existing
 session choice, with no separate filesystem isolation.
 
-The final independent review and warm process regression are recorded below
-once observed. Hosted CI results are tracked in the PR after observation.
+Hosted CI results are tracked in the PR after observation.
+
+## Final independent review and association fix
+
+On 2026-11-01, fresh reviewer gpt-6-astra (`describe_final_review`) inspected
+`4c481d4..fd133be` read-only and independently ran the description/CLI test
+binaries. It reported one Important finding, no Critical or Minor findings,
+and no behavior declined as out of scope. Live network/hosted checks were not
+independently executed. The initial verdict was with fixes.
+
+The reviewer reproduced archive evidence acquired for one hashless local wheel
+being accepted for a different wheel of the same package through arbitrary
+AcquisitionResult IDs. The author pinned that reproduction: expected exit 2,
+observed exit 0. Evidence now retains its originating request ID in memory and
+owns a rebind operation. Description, Inspection and cache publication use it;
+hashless observations cannot transfer to another request. Digest-pinned archive
+content reuse remains valid, and sidecars retain their existing exact bindings.
+A positive content-reuse regression and the existing cache/process tests pass.
+
+The source fix is `12f7b7b`. The full suite passed 117/117 normal Rust tests on
+macOS after correction, with strict formatting/Clippy/rustdoc. The author fixed
+the one Important finding in one RED→GREEN pass; no second independent review
+was requested. There are no deferred Minor findings.
+
+Implementation rulings, in order:
+
+1. Continue inline on the session's dedicated feature checkout: branch isolation
+   without separate filesystem isolation from other local changes.
+2. Extend uv_lock fuzz as well as structured inspection fuzz: fixed-graph result
+   fuzzing alone would not exercise selection from mutated graph inputs. Both
+   changed targets therefore need bounded smoke verification.
+3. Keep request provenance transient, restoring trusted persisted observations
+   only after the runtime freshly hashes local content. This preserves existing
+   content-keyed v1 cache records without migration; that trusted fresh-hash
+   boundary remains a premise for hashless cache restoration.
+
+## Synthetic warm process regression
+
+The existing release-profile check benchmark ran against source `12f7b7b` on
+macOS arm64: 1,000 synthetic packages, 10,000 distinct local archives and a fresh
+evidence cache. Its first local population took 46.905769 s;
+five warm processes took 0.700427, 0.543940, 0.558798, 0.566864, 0.634141 s,
+all below the existing two-second criterion. Every warm process reported 10,000
+cache hits, zero HTTP/bytes, zero index parses and zero archive extraction.
+This is a local cached-check regression, not a cold-network or describe latency
+guarantee. Measured executable SHA-256:
+`90a2fe7a73784d504342992dd03ce4c6f4e2a8608aaf31d3cbe1f66601f12c88`.
+
+The first harness invocation lacked TALOON_BENCH_BINARY and stopped before any
+product execution. With that prerequisite supplied, an earlier `fd133be` run
+also passed. The final run above was repeated because the subsequent shared
+association fix changed evidence validation; it is the final source evidence.
+After the fix, the structured inspection/description fuzz campaign was repeated
+for 1,000 executions with max_len 4,096 and passed (reported RSS 434Mb), as did
+the actual loopback TLS rejection/timeout regression. No second code review or
+extra unrelated fuzz campaigns were run.
+
+## Final design assessment
+
+Seven of eight software-design-philosophy diagnostics are supported, about
+8.75/10: named boundaries, deep request/result interfaces, hidden graph/protocol
+choices, interface intent comments, design review, decision ownership and readable
+module boundaries. The design-effort time fraction was not measured; record it
+in future work to substantiate the remaining diagnostic. No speculative cache
+framework or policy mode was introduced. Evidence rebinding owns the association
+rule for all consumers, with the persisted-record trust premise stated explicitly.

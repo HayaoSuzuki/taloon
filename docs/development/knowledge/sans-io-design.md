@@ -7,7 +7,7 @@ sources:
 - id: describe-review
   resource: ../work/describe-licenses/implementation-review.md
   working_tree: modified
-  sha256: a4b065df62eb9fa98cfaa74bf0c814cca62bdce9f354464e907e82da5ceb4453
+  sha256: da2011db34cf05805f633424b8c977d54a204f09fed2befa5a664eafa3d2bc34
 - id: describe-design
   resource: ../work/describe-licenses/design.md
   working_tree: modified
