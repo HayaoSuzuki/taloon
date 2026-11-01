@@ -45,6 +45,45 @@ jobs:
           RUSTDOCFLAGS: -D warnings
         run: cargo doc --locked --workspace --all-features --no-deps
 
+  rust-shuffle:
+    name: Rust randomized order (nightly-2026-10-08)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: '0.13.5'
+          enable-cache: false
+      - name: Install local hook integration prerequisite
+        run: uv tool install prek==0.5.7
+      - name: Install pinned nightly Rust
+        run: rustup toolchain install nightly-2026-10-08 --profile minimal
+      - name: Run Rust tests in randomized order
+        run: cargo +nightly-2026-10-08 test --locked --workspace --all-features -- -Z unstable-options --shuffle
+
+  python-quality:
+    name: Python formatting, lint and types
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: '0.13.5'
+          enable-cache: false
+      - name: Install Python tooling
+        run: uv sync --frozen --only-group docs --only-group release --no-install-project
+      - run: uv run --frozen --no-sync ruff format --check .
+      - run: uv run --frozen --no-sync ruff check --no-fix .
+      - run: uv run --frozen --no-sync ty check
+
   workflow-lint:
     name: Workflow lint
     runs-on: ubuntu-latest

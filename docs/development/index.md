@@ -59,6 +59,88 @@ behavior.
 The Python tooling tests exercise documentation validation. Run those and the
 strict user-site build using the [documentation procedure](documentation.md).
 
+## Python quality
+
+Install the frozen docs and release groups using the
+[documentation prerequisites](documentation.md#validate-and-preview), then run:
+
+```sh
+uv run --frozen --no-sync ruff format --check .
+uv run --frozen --no-sync ruff check --no-fix .
+uv run --frozen --no-sync ty check
+uv run --frozen --no-sync pytest
+```
+
+Use `ruff format .` to apply formatting. CI and local prek hooks check formatting,
+Ruff's `ALL` rule selection, and ty's all-error strict analysis. Type-ignore
+comments cannot suppress ty diagnostics. Ruff exceptions are limited to two
+formatter conflicts, standalone test conventions, and individually explained
+boundary operations. Generated output and synthetic fixture data are excluded;
+maintained tooling and tests are checked. The frozen lock pins the tool versions;
+review new diagnostics when updating them.
+
+## Test design
+
+Apply these requirements to Rust and Python tests:
+
+- Separate Arrange, Act and Assert. Keep setup before the operation being tested
+  and inspect its observable result afterward; expected failures may combine Act
+  and Assert in an exception/panic matcher.
+- Give each test function one scenario or property. Multiple assertions may
+  describe that single outcome; split unrelated behavior and repeated operations
+  into separate tests. Shared setup belongs in fixtures/helpers.
+- Use named `rstest` cases in Rust and `pytest.mark.parametrize` cases in Python
+  for input variants. Each case must run independently; do not hide cases inside
+  a loop in a test body. Fixture construction loops remain appropriate.
+- Generalize meaningful fixed case domains with `proptest` or Hypothesis and an
+  independent oracle or invariant. Keep readable boundary regressions. Do not
+  replace expected values with a duplicate of the implementation.
+
+The policy tests demonstrate fixed permission/expiry cases and generated Boolean
+permission semantics. Python release tests combine version boundary examples
+with a generated numeric oracle. These examples guide new and modified tests;
+this change does not claim to rewrite every pre-existing Rust test. Test ordering
+checks below complement behavioral and generated coverage.
+
+## Randomized test order
+
+CI adds a separate pinned nightly job alongside the stable Rust checks, following
+[hoimin's shuffle job](https://github.com/HayaoSuzuki/hoimin/blob/39d35f3980c428ab15258b519a233b86f1551ffa/.github/workflows/ci.yml).
+The standard harness shuffles tests within each executable and prints its seed:
+
+```sh
+rustup toolchain install nightly-2026-10-08 --profile minimal
+cargo +nightly-2026-10-08 test --locked --workspace --all-features -- -Z unstable-options --shuffle
+```
+
+Replay a reported seed with the same nightly, revision and test selection:
+
+```sh
+cargo +nightly-2026-10-08 test --locked --workspace --all-features -- -Z unstable-options --shuffle-seed 12345
+```
+
+Different executables can report different generated seeds. Narrow a reproduction
+with Cargo's `--test NAME` or `--bin NAME` when needed. A seed reproduces harness
+ordering, not arbitrary parallel completion/interleaving; append
+`--test-threads=1` when investigating a serial ordering dependency. Cargo's order
+of test executables is not shuffled. Ignored benchmarks/TLS fixtures remain
+ignored here; their existing explicit checks are unchanged.
+
+The docs/test dependency group includes `pytest-randomly`, which pytest requires
+to load. Ordinary pytest commands randomize collection and reseed Python's random
+generator automatically. Use normal verbosity to see the session seed; install
+the [documentation prerequisites](documentation.md#validate-and-preview) first.
+
+```sh
+uv run --frozen --no-sync pytest
+uv run --frozen --no-sync pytest --randomly-seed=12345
+uv run --frozen --no-sync pytest --randomly-seed=last
+```
+
+`last` uses pytest's local cache; CI has no cross-run last-seed guarantee. Keep the
+seed printed in the failing CI session and pass that number explicitly to replay.
+These tools are development-only and do not change the installed taloon command.
+
 For workflow checks, install uv and the docs environment using the
 [documentation procedure](documentation.md), then run:
 

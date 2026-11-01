@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Elastic-2.0
 # Adapted from HayaoSuzuki/hoimin at 39d35f3980c428ab15258b519a233b86f1551ffa.
 # Copyright the hoimin contributors; Elastic-2.0, see LICENSE.
 """Validate published GitHub Release wheels before staging a PyPI upload."""
@@ -11,6 +12,10 @@ import re
 import shutil
 import tomllib
 import zipfile
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from email.message import Message
 from email.parser import Parser
 from pathlib import Path
 
@@ -24,6 +29,7 @@ LICENSE_FILES = ("LICENSE",)
 
 
 def validate_wheel(wheel: Path, version: str) -> None:
+    """Validate wheel layout, metadata and license contents before publication."""
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))[
         "project"
     ]
@@ -37,17 +43,22 @@ def validate_wheel(wheel: Path, version: str) -> None:
             msg = f"ambiguous wheel metadata: {wheel.name}"
             raise ValueError(msg)
         metadata = Parser().parsestr(archive.read(metadata_files[0]).decode("utf-8"))
-        platform_tag = wheel.name.removesuffix('.whl').split('-')[-1]
-        executable = 'taloon.exe' if platform_tag == 'win_amd64' else 'taloon'
-        if f'taloon-{version}.data/scripts/{executable}' not in names:
-            raise ValueError('Missing packaged executable')
-        wheel_metadata = Parser().parsestr(archive.read(prefix + 'WHEEL').decode('utf-8'))
-        if (wheel_metadata.get_all('Root-Is-Purelib') != ['false'] or
-                set(wheel_metadata.get_all('Tag', [])) !=
-                {'py3-none-' + tag for tag in platform_tag.split('.')}):
-            raise ValueError('Wheel internal tags disagree with filename')
-        if metadata.get_all('Requires-Dist', []):
-            raise ValueError('Binary distribution must not have Python dependencies')
+        platform_tag = wheel.name.removesuffix(".whl").split("-")[-1]
+        executable = "taloon.exe" if platform_tag == "win_amd64" else "taloon"
+        if f"taloon-{version}.data/scripts/{executable}" not in names:
+            msg = "Missing packaged executable"
+            raise ValueError(msg)
+        wheel_metadata = Parser().parsestr(
+            archive.read(prefix + "WHEEL").decode("utf-8")
+        )
+        if wheel_metadata.get_all("Root-Is-Purelib") != ["false"] or set(
+            wheel_metadata.get_all("Tag", [])
+        ) != {"py3-none-" + tag for tag in platform_tag.split(".")}:
+            msg = "Wheel internal tags disagree with filename"
+            raise ValueError(msg)
+        if metadata.get_all("Requires-Dist", []):
+            msg = "Binary distribution must not have Python dependencies"
+            raise ValueError(msg)
         expected = {
             "Name": "taloon",
             "Version": version,
@@ -66,21 +77,28 @@ def validate_wheel(wheel: Path, version: str) -> None:
             if actual != [expected_value]:
                 msg = f"unexpected {field} in {wheel.name}"
                 raise ValueError(msg)
-        if set(metadata.get_all("License-File", [])) != set(LICENSE_FILES):
-            msg = f"missing license declarations in {wheel.name}"
+        _validate_licenses(archive, prefix, metadata, wheel)
+
+
+def _validate_licenses(
+    archive: zipfile.ZipFile, prefix: str, metadata: Message[str, str], wheel: Path
+) -> None:
+    if set(metadata.get_all("License-File", [])) != set(LICENSE_FILES):
+        msg = f"missing license declarations in {wheel.name}"
+        raise ValueError(msg)
+    for name in LICENSE_FILES:
+        # Windows checkouts can package CRLF; compare text without rewriting wheels.
+        actual_license = archive.read(prefix + "licenses/" + name).replace(
+            b"\r\n", b"\n"
+        )
+        expected_license = (ROOT / name).read_bytes().replace(b"\r\n", b"\n")
+        if actual_license != expected_license:
+            msg = f"unexpected license text in {wheel.name}: {name}"
             raise ValueError(msg)
-        for name in LICENSE_FILES:
-            # Windows checkouts can package CRLF; compare text without rewriting wheels.
-            actual_license = archive.read(prefix + "licenses/" + name).replace(
-                b"\r\n", b"\n"
-            )
-            expected_license = (ROOT / name).read_bytes().replace(b"\r\n", b"\n")
-            if actual_license != expected_license:
-                msg = f"unexpected license text in {wheel.name}: {name}"
-                raise ValueError(msg)
 
 
 def prepare_wheels(tag: str, release_json: Path, assets: Path, output: Path) -> None:
+    """Reject incomplete release inventories before creating staging output."""
     if re.fullmatch("v" + SEMVER, tag) is None:
         msg = f"expected stable vMAJOR.MINOR.PATCH tag, got {tag!r}"
         raise ValueError(msg)
@@ -133,6 +151,7 @@ def prepare_wheels(tag: str, release_json: Path, assets: Path, output: Path) -> 
 
 
 def main() -> None:
+    """Validate release assets before staging their original wheels."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tag", required=True)
     parser.add_argument("--release-json", type=Path, required=True)
