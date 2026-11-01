@@ -43,17 +43,17 @@ Binary `RequestPurpose::{Index, Metadata, Archive}` selects classification;
 `Attempt::begin(summary, purpose)` records panic-safe request accounting;
 `timed(&mut u64, FnOnce() -> T)` records monotonic microseconds, including unwind.
 
-- [ ] Write failing request/byte/parse/timing, merge saturation and panic-retention
+- [x] Write failing request/byte/parse/timing, merge saturation and panic-retention
   tests. Assert original totals equal per-purpose sums after retries/redirects
   and failed partial reads; wall time is not the sum of worker time.
-- [ ] Observe missing metric behavior fail before implementation.
-- [ ] Implement pure value aggregation and runtime-only timers; retain per-worker
+- [x] Observe missing metric behavior fail before implementation.
+- [x] Implement pure value aggregation and runtime-only timers; retain per-worker
   summaries outside returned batches and recover poisoned summary locks after join.
-- [ ] Add an ignored controlled benchmark with 48 distinct artifacts from one
+- [x] Add an ignored controlled benchmark with 48 distinct artifacts from one
   synthetic package, index+sidecar routes and 10 ms per transport call. Run three
   fresh-cache trials; report actual calls, bytes, parses and times. Expected before
   reuse: 48 index fetches/parses plus 48 metadata fetches, no archive acquisition.
-- [ ] Run strict lint/tests/docs as relevant; review five times, record baseline
+- [x] Run strict lint/tests/docs as relevant; review five times, record baseline
   and commit. Whole-stage test command: `cargo test --offline --locked --workspace --all-features`.
 
 ### Task 2: Share a bounded parsed index per run

@@ -66,7 +66,14 @@ mod http;
 #[cfg(test)]
 mod http_tests;
 mod index;
-use std::{collections::BTreeMap, path::PathBuf, sync::mpsc, time::Duration};
+mod metrics;
+use metrics::{RequestPurpose, micros, timed};
+use std::{
+    collections::BTreeMap,
+    path::PathBuf,
+    sync::{Mutex, mpsc},
+    time::{Duration, Instant},
+};
 use taloon::{inspection::AcquisitionResult, model::EvidenceRequirement};
 pub(crate) struct AcquisitionOptions {
     pub project_dir: PathBuf,
@@ -134,47 +141,46 @@ impl Acquirer {
         requests: &[ArtifactRequest],
         mut observe: impl FnMut(AcquisitionProgress),
     ) -> AcquisitionBatch {
+        let started = Instant::now();
         let mut progress = AcquisitionProgress {
             completed: 0,
             total: requests.len(),
         };
         observe(progress);
-        // Keep shared-content jobs in one worker. Requests still receive distinct results.
-        let mut grouped: BTreeMap<String, Vec<&ArtifactRequest>> = BTreeMap::new();
-        for request in requests {
-            let key = request.hash().map_or_else(
-                || request.id().to_string(),
-                |h| format!("{h}:{:?}", request.format()),
-            );
-            grouped.entry(key).or_default().push(request);
-        }
-        let workers = 8.min(grouped.len().max(1));
-        let mut partitions = vec![Vec::new(); workers];
-        for (n, group) in grouped.into_values().enumerate() {
-            partitions[n % workers].extend(group);
-        }
-        std::thread::scope(|scope| {
+        let partitions = partition_requests(requests);
+        let workers = partitions.len();
+        // Summaries outlive worker return values, so an unwind cannot discard
+        // already observed traffic. Each worker owns its lock until it finishes.
+        let summaries: Vec<_> = (0..workers)
+            .map(|_| Mutex::new(AcquisitionSummary::default()))
+            .collect();
+        let mut batch = std::thread::scope(|scope| {
             let (completed_tx, completed_rx) = mpsc::channel();
             let jobs: Vec<_> = partitions
                 .iter()
-                .map(|partition| {
+                .zip(&summaries)
+                .map(|(partition, summary)| {
                     let completed_tx = completed_tx.clone();
                     (
                         partition,
+                        summary,
                         scope.spawn(move || {
                             let mut batch = AcquisitionBatch::default();
+                            let mut stats = summary
+                                .lock()
+                                .unwrap_or_else(std::sync::PoisonError::into_inner);
                             for request in partition {
                                 let result = match request.locator() {
                                     ArtifactLocator::Local(_) => acquire_local(
                                         request,
                                         &self.options.project_dir,
                                         &self.cache,
-                                        &mut batch.summary,
+                                        &mut stats,
                                         &mut batch.warnings,
                                     ),
                                     ArtifactLocator::Remote { .. } => self.acquire_remote(
                                         request,
-                                        &mut batch.summary,
+                                        &mut stats,
                                         &mut batch.warnings,
                                     ),
                                 };
@@ -201,15 +207,11 @@ impl Acquirer {
                 observe(progress);
             }
             let mut batch = AcquisitionBatch::default();
-            for (partition, job) in jobs {
+            for (partition, summary, job) in jobs {
                 match job.join() {
                     Ok(mut part) => {
                         batch.results.append(&mut part.results);
                         batch.warnings.append(&mut part.warnings);
-                        batch.summary.network_requests += part.summary.network_requests;
-                        batch.summary.downloaded_bytes += part.summary.downloaded_bytes;
-                        batch.summary.archive_extractions += part.summary.archive_extractions;
-                        batch.summary.cache_hits += part.summary.cache_hits;
                     }
                     Err(_) => {
                         batch.results.extend(partition.iter().map(|r| {
@@ -220,6 +222,10 @@ impl Acquirer {
                         }));
                     }
                 }
+                let stats = summary
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
+                batch.summary.merge(&stats);
             }
             if progress.completed != batch.results.len() {
                 // Panicked workers become terminal failures when joined.
@@ -227,7 +233,9 @@ impl Acquirer {
                 observe(progress);
             }
             batch
-        })
+        });
+        batch.summary.elapsed_us = micros(started.elapsed());
+        batch
     }
     fn acquire_remote(
         &self,
@@ -273,9 +281,13 @@ impl Acquirer {
                 }
             }
         }
-        let response = self
-            .http
-            .get(url, "application/octet-stream", MAX_ARCHIVE, stats)?;
+        let response = self.http.get(
+            RequestPurpose::Archive,
+            url,
+            "application/octet-stream",
+            MAX_ARCHIVE,
+            stats,
+        )?;
         stats.archive_extractions += 1;
         let evidence = Evidence::from_archive(request, &response.body)?;
         self.persist(request, &evidence, warnings);
@@ -296,19 +308,27 @@ impl Acquirer {
         );
         base.set_path(&path);
         let response = self.http.get(
+            RequestPurpose::Index,
             base,
             "application/vnd.pypi.simple.v1+json, text/html;q=0.1",
             16 * 1024 * 1024,
             stats,
         )?;
-        let Some((url, binding)) =
-            index::sidecar(&response, url, request.hash().ok_or_else(http::failure)?)?
+        stats.index_parse_count = stats.index_parse_count.saturating_add(1);
+        let locked = request.hash().ok_or_else(http::failure)?;
+        let Some((url, binding)) = timed(&mut stats.index_parse_us, || {
+            index::sidecar(&response, url, locked)
+        })?
         else {
             return Ok(None);
         };
-        let response = self
-            .http
-            .get(url, "application/octet-stream", MAX_METADATA_BYTES, stats)?;
+        let response = self.http.get(
+            RequestPurpose::Metadata,
+            url,
+            "application/octet-stream",
+            MAX_METADATA_BYTES,
+            stats,
+        )?;
         Evidence::from_sidecar(request, binding, &response.body).map(Some)
     }
     fn persist(
@@ -321,4 +341,22 @@ impl Acquirer {
             cache_warning(warnings, "cache write failed; using in-memory evidence");
         }
     }
+}
+
+fn partition_requests(requests: &[ArtifactRequest]) -> Vec<Vec<&ArtifactRequest>> {
+    // Keep shared-content jobs in one worker. Requests still receive distinct results.
+    let mut grouped: BTreeMap<String, Vec<&ArtifactRequest>> = BTreeMap::new();
+    for request in requests {
+        let key = request.hash().map_or_else(
+            || request.id().to_string(),
+            |h| format!("{h}:{:?}", request.format()),
+        );
+        grouped.entry(key).or_default().push(request);
+    }
+    let workers = 8.min(grouped.len().max(1));
+    let mut partitions = vec![Vec::new(); workers];
+    for (n, group) in grouped.into_values().enumerate() {
+        partitions[n % workers].extend(group);
+    }
+    partitions
 }

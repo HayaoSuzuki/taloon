@@ -4,6 +4,10 @@ title: License inspection specification
 description: Approved design for uv.lock coverage, Python license policy, evidence, and command behavior.
 status: accepted
 sources:
+- id: acquisition-measurements
+  resource: ../work/index-acquisition/measurements.md
+  working_tree: untracked
+  sha256: ca9efc2bedf8b2bcdbee6ff50e4126b975b5ed5fa27b7a3f318ec3ffe2238dbd
 - id: interactive-progress
   resource: ../work/interactive-progress/review.md
   working_tree: untracked
@@ -263,6 +267,14 @@ or source details. Redirected stderr suppresses progress; JSON stdout remains
 one final report. This presentation is owned by the binary, with no I/O added
 to the pure inspection library.[^interactive-progress]
 
+The acquisition summary retains its original counters and adds HTTP-purpose
+request/received-byte/transport-duration/retry-sleep measurements, index parse
+and reuse/wait counters, and acquisition wall elapsed time. Durations use integer
+microseconds; overlapping worker durations are accumulated separately from wall
+time. Aggregation saturates sums and never adds worker wall times. Already
+observed traffic is retained after worker unwind. These observations do not
+choose policy results or disclose per-source identities.[^acquisition-measurements]
+
 | Exit | Meaning |
 | --- | --- |
 | `0` | Complete check, all targets comply, no escalated warnings. |
@@ -313,3 +325,5 @@ prerequisites.[^owner]
 [^uv-roots]: [uv lock implementation at the inspected revision](https://github.com/astral-sh/uv/blob/d041e5700a7bb39bff687ebbba4f6f6f2bda5cc8/crates/uv-lock/src/lock/mod.rs).
 
 [^interactive-progress]: [Interactive progress tests and review](../work/interactive-progress/review.md).
+
+[^acquisition-measurements]: [Measured acquisition work and review](../work/index-acquisition/measurements.md).

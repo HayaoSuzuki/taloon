@@ -42,6 +42,16 @@ records completeness/compliance; `exit_code` additionally reflects warning
 escalation. Counter values measure requests, response-body bytes, archive
 extraction attempts, and cache hits. Incidental output belongs on stderr.
 
+The acquisition summary also separates HTTP work into `http.index`,
+`http.metadata`, and `http.archive`. Each contains actual `requests`,
+`downloaded_bytes`, `request_time_us` through body receipt, and `retry_delay_us`.
+Attempts include retries, redirects, and failed partial responses. Durations
+accumulate across workers and can overlap; they are not wall elapsed time.
+`elapsed_us` measures acquisition wall time, excluding input discovery and final
+policy/report rendering. `index_parse_count`/`index_parse_us` measure parsing;
+`index_cache_hits`/`index_wait_us` describe in-run reuse and coordination waiting.
+All timing values use integer microseconds and do not decide compliance.
+
 ## Cache and offline mode
 
 Set `TALOON_CACHE_DIR` to isolate or relocate the evidence cache. Defaults use

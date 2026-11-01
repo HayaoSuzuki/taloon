@@ -309,17 +309,39 @@ fn text_report(report: &Report) -> String {
             }
         }
     }
-    let counters = report.acquisition();
+    acquisition_summary(&mut out, report.acquisition());
+    out
+}
+
+fn acquisition_summary(out: &mut String, counters: &taloon::report::AcquisitionSummary) {
     let _ = write!(
         out,
-        "requests={}, downloaded_bytes={}, archive_extractions={}, cache_hits={}",
+        "requests={}, downloaded_bytes={}, archive_extractions={}, cache_hits={}, elapsed_us={}, index_cache_hits={}, index_wait_us={}, index_parses={}, index_parse_us={}",
         counters.network_requests,
         counters.downloaded_bytes,
         counters.archive_extractions,
-        counters.cache_hits
+        counters.cache_hits,
+        counters.elapsed_us,
+        counters.index_cache_hits,
+        counters.index_wait_us,
+        counters.index_parse_count,
+        counters.index_parse_us
     );
-    out
+    for (name, phase) in [
+        ("index", &counters.http.index),
+        ("metadata", &counters.http.metadata),
+        ("archive", &counters.http.archive),
+    ] {
+        if phase.requests > 0 {
+            let _ = write!(
+                out,
+                "\nhttp_{name}: requests={}, downloaded_bytes={}, request_time_us={}, retry_delay_us={}",
+                phase.requests, phase.downloaded_bytes, phase.request_time_us, phase.retry_delay_us
+            );
+        }
+    }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
