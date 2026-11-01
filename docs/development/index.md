@@ -173,6 +173,9 @@ boundaries and correspondence. Install the pinned Lean toolchain in
 `formal/TaloonOracle/lean-toolchain`; follow the
 [formal reproduction procedure](../../formal/TaloonOracle/README.md).
 The Rust test command above includes the generated-corpus adapter and proptest.
+Creusot additionally checks the production decision crate; follow its
+[pinned environment and reproduction procedure](../../formal/creusot/README.md).
+The verifier and solvers are development-only tools.
 
 With cargo-fuzz 0.13.2 and nightly-2026-10-08 installed, run the initial smoke target:
 

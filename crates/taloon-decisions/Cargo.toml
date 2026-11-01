@@ -1,0 +1,27 @@
+[package]
+name = "taloon-decisions"
+description = "Pure observation accounting and verdict decisions for taloon"
+# Internal crate is not released; only taloon receives the reserved version.
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[features]
+default = []
+serde = ["dep:serde"]
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"], optional = true }
+
+[target.'cfg(creusot)'.dependencies]
+creusot-std = "=0.14.0"
+
+[dev-dependencies]
+rstest = { version = "0.28.0", default-features = false }
+proptest = "1.12"

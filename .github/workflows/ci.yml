@@ -104,7 +104,7 @@ jobs:
   formal:
     name: Lean proofs and generated corpus freshness
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -127,6 +127,29 @@ jobs:
           formal/TaloonOracle/.lake/build/bin/generate_corpus --check tests/fixtures/oracle/policy.jsonl
           formal/TaloonOracle/.lake/build/bin/generate_index --check tests/fixtures/oracle/index.jsonl
           formal/TaloonOracle/.lake/build/bin/generate_selection --check tests/fixtures/oracle/selection.jsonl
+      # Keep the existing required status context; both formal checks must pass.
+      - name: Build checksum-pinned Creusot environment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: timeout 1200s formal/creusot/build-image.sh
+      - name: Prove production observation and verdict contracts
+        run: |
+          docker run --rm -v "$PWD:/workspace" -w /workspace \
+            -e CARGO_TARGET_DIR=/workspace/target/creusot taloon-creusot:local \
+            timeout 600s formal/creusot/verify.sh
+      - name: Reject compiling contract mutations
+        run: |
+          docker run --rm -v "$PWD:/workspace" -w /workspace \
+            -e CARGO_TARGET_DIR=/workspace/target/creusot taloon-creusot:local \
+            timeout 600s formal/creusot/sensitivity.sh
+      - name: Retain Creusot diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: creusot-contracts
+          path: formal/creusot/reports
+          if-no-files-found: ignore
+          retention-days: 7
 
   fuzz:
     name: Bounded parser and inspection fuzz smoke

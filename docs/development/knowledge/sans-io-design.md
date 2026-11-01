@@ -4,6 +4,10 @@ title: Pure core and acquisition boundary
 description: Approved deep modules and request/result API for license inspection without core I/O.
 status: accepted
 sources:
+- id: creusot-contracts
+  resource: ../work/creusot-contracts/review.md
+  working_tree: modified
+  sha256: ff933df572ba1c9e7a8b88d53a0d7c5e3db628a83eccf7c8fec9bab79c44a0c2
 - id: typed-acquisition-review
   resource: ../work/typed-acquisition/review.md
   working_tree: modified
@@ -451,3 +455,24 @@ or infer a nonexistent package-specific lookup. Inspection still supplies the
 observed hash and enforces archive proof before applying the replacement. This
 intentional public signature change follows the same no-compatibility decision.
 [^typed-acquisition-review]
+
+
+# Verifier dependency isolation
+
+The internal `taloon-decisions` crate isolates the production observation-slot
+and verdict bodies so Creusot can compile/prove them with its own pinned compiler
+without specifying the application's parsers, HTTP, archives and BTreeMap. This
+is the concrete dependency-isolation benefit required for a crate split above.
+The verified kernel now also owns exact evidence binding/strength rules, name
+normalization, saturating statistics and the borrowed report scan. A generic
+PackageOutcome retains the existing named fields; the public PackageReport is
+its concrete type alias, preserving storage and serde shape. The core retains
+cryptography, parsing and diagnostic/warning classification; acquisition and CLI
+remain outside the kernel. Only the verifier cfg
+selects Creusot dependencies, and ordinary report serialization uses an optional
+serde feature. This adds no general transport abstraction or I/O capability to
+the pure core. Reconsider when proof coverage or callers require a different
+boundary; the [verification decision](verification-strategy.md#direct-rust-decision-contracts)
+owns proof guarantees and limits.[^creusot-contracts]
+
+[^creusot-contracts]: [Production decision extraction and verification evidence](../work/creusot-contracts/review.md).

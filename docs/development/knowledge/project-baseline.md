@@ -6,6 +6,9 @@ status: verified
 verified_by: Codex implementation agent
 verified_at: "2026-11-01"
 sources:
+- id: decision-kernel
+  resource: ../../../crates/taloon-decisions/Cargo.toml
+  revision: a7c3f93bdcea1cb9f7721c9db3d600ca666c5ac9
 - id: cargo
   resource: ../../../Cargo.toml
   revision: a4914e4e9967c7e5282e29f1b994a5b5962e1a2e
@@ -52,9 +55,12 @@ sources:
 # Current baseline
 
 taloon uses Rust edition 2024 with Rust 1.99.1 pinned for development. Workspace
-Clippy settings deny `all` and `pedantic` lints. The sole package has publishing
-disabled for crates.io. It now depends on Rust crates for validated Python identities, SPDX
-expressions, TOML, and supporting data types.[^cargo][^toolchain]
+Clippy settings deny `all` and `pedantic` lints. The workspace contains `taloon`
+and the internal `taloon-decisions` kernel, both with crates.io publishing
+disabled. The kernel keeps an independent fixed version and isolates optional
+verification dependencies; its serde feature supports the existing report
+schema. The checker depends on Rust crates for validated Python identities,
+SPDX expressions, TOML and supporting data types.[^cargo][^toolchain][^decision-kernel]
 
 The repository owner selected Elastic-2.0, matching hoimin. Cargo records that
 license, and LICENSE contains the license text.[^cargo][^license]
@@ -121,3 +127,5 @@ and [user command guide](../../user/usage.md#describe-package-licenses) own its
 selection, evidence, output and exit rules. The [implementation review](../work/describe-licenses/implementation-review.md)
 records local/hosted verification boundaries; a configured command or model
 alone is not evidence of a published wheel version.
+
+[^decision-kernel]: [Internal decision kernel package](../../../crates/taloon-decisions/Cargo.toml).

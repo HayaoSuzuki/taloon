@@ -69,6 +69,10 @@ impl EvaluationDate {
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct ContentHash([u8; 32]);
 impl ContentHash {
+    pub(crate) fn binding_bytes(&self) -> &[u8; 32] {
+        &self.0
+    }
+
     #[must_use]
     pub fn digest(bytes: &[u8]) -> Self {
         Self(Sha256::digest(bytes).into())
@@ -269,32 +273,10 @@ impl fmt::Display for PackageId {
 /// # Errors
 /// Rejects empty/non-ASCII names and names without alphanumeric endpoints.
 pub fn normalize_name(name: &str) -> Result<String, Error> {
-    if name.is_empty()
-        || !name
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.'))
-        || !name.as_bytes()[0].is_ascii_alphanumeric()
-        || !name.as_bytes()[name.len() - 1].is_ascii_alphanumeric()
-    {
-        return Err(Error::new(
-            Code::Configuration,
-            "invalid Python package name",
-        ));
-    }
-    let mut result = String::new();
-    let mut separator = false;
-    for b in name.bytes() {
-        if matches!(b, b'-' | b'_' | b'.') {
-            if !separator {
-                result.push('-');
-            }
-            separator = true;
-        } else {
-            result.push(char::from(b.to_ascii_lowercase()));
-            separator = false;
-        }
-    }
-    Ok(result)
+    let invalid = || Error::new(Code::Configuration, "invalid Python package name");
+    let bytes = taloon_decisions::name::normalize(name.as_bytes()).ok_or_else(invalid)?;
+    // The decision only emits ASCII; conversion consumes the existing allocation.
+    String::from_utf8(bytes).map_err(|_| invalid())
 }
 
 pub(crate) fn parse_url(value: &str) -> Result<Url, Error> {
@@ -333,12 +315,7 @@ pub enum ArtifactFormat {
     Wheel,
     Sdist,
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum EvidenceRequirement {
-    IndexAssociated,
-    ArchiveVerified,
-}
+pub use taloon_decisions::evidence::EvidenceRequirement;
 
 /// Fetch locations are private data. They are never serialized into reports or cache records.
 #[derive(Clone, Eq, PartialEq)]
@@ -404,6 +381,11 @@ impl ArtifactLocator {
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub struct RequestId(ContentHash);
+impl RequestId {
+    pub(crate) fn binding_bytes(&self) -> &[u8; 32] {
+        self.0.binding_bytes()
+    }
+}
 impl fmt::Display for RequestId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)

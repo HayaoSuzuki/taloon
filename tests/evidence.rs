@@ -306,3 +306,19 @@ fn wheel_metadata_must_be_a_regular_member() {
     bytes[directory + 38..directory + 42].copy_from_slice(&(0o010_644_u32 << 16).to_le_bytes());
     assert!(Evidence::from_archive(&request(&bytes, ArtifactFormat::Wheel), &bytes).is_err());
 }
+
+#[rstest::rstest]
+#[case::email("Copyright authors <maintainer@example.org>")]
+#[case::question("Redistribution permitted? See the conditions below.")]
+#[case::url("See https://example.org/license for the full license.")]
+#[case::folded("Copyright authors\n Contact: maintainer@example.org")]
+fn declaration_prose_is_not_a_locator(#[case] declaration: &str) {
+    // Arrange
+    let bytes = wheel(&metadata(&format!("License: {declaration}")));
+    let evidence = Evidence::from_archive(&request(&bytes, ArtifactFormat::Wheel), &bytes).unwrap();
+    let expected = declaration.replace("\n ", " ");
+    // Act
+    let original = evidence.summary().original_license;
+    // Assert
+    assert_eq!(original, vec![expected]);
+}

@@ -20,6 +20,22 @@ name = "taloon"
 version = "=0.1.0"
 allow = ["Elastic-2.0"]
 
+[[licenses.exceptions]]
+name = "taloon-decisions"
+version = "=0.1.0"
+allow = ["Elastic-2.0"]
+
+# Verification-only under cfg(creusot); absent from ordinary binary builds.
+[[licenses.exceptions]]
+name = "creusot-std"
+version = "=0.14.0"
+allow = ["LGPL-2.1-or-later"]
+
+[[licenses.exceptions]]
+name = "creusot-std-proc"
+version = "=0.14.0"
+allow = ["LGPL-2.1-or-later"]
+
 # Reviewed TLS implementation and certificate-data declarations; exact versions only.
 [[licenses.exceptions]]
 name = "aws-lc-rs"

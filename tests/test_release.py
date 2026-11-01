@@ -5,14 +5,11 @@ import shutil
 import subprocess
 import tomllib
 from concurrent.futures import ThreadPoolExecutor
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 import pytest
 
 from tools import release
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 GIT = shutil.which("git") or pytest.fail("Git is required for reservation tests")
 
@@ -228,3 +225,24 @@ def test_set_version_preserves_other_packages_and_dynamic_metadata(
     )
     packages = tomllib.loads((tmp_path / "Cargo.lock").read_text())["package"]
     assert [p["version"] for p in packages] == ["0.1.1", "0.1.0"]
+
+
+@pytest.mark.parametrize("version", ["0.1.1", "0.2.0", "1.0.0"])
+def test_release_version_keeps_internal_decisions_locked(
+    tmp_path: Path, version: str
+) -> None:
+    # Arrange: exercise real repository manifests with the release preparation.
+    root = Path(__file__).resolve().parents[1]
+    for name in ("Cargo.toml", "Cargo.lock"):
+        shutil.copyfile(root / name, tmp_path / name)
+    internal = tomllib.loads((root / "crates/taloon-decisions/Cargo.toml").read_text())
+
+    # Act
+    release.set_version(tmp_path, version)
+
+    # Assert: Cargo's inherited version must still agree with the locked package.
+    declared = internal["package"]["version"]
+    actual = version if isinstance(declared, dict) else declared
+    packages = tomllib.loads((tmp_path / "Cargo.lock").read_text())["package"]
+    locked = next(p for p in packages if p["name"] == "taloon-decisions")
+    assert locked["version"] == actual
