@@ -1,3 +1,5 @@
+accounting/impl_AcquisitionSummary/merge.coma vc_merge vc_merge'0 vc_saturating_add
+accounting/impl_TransferSummary/merge.coma vc_merge vc_saturating_add
 name/is_alphanumeric.coma vc_is_alphanumeric
 name/is_separator.coma vc_is_separator
 name/normalization_fixed_point.coma vc_normalization_fixed_point
