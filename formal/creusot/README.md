@@ -5,10 +5,19 @@ ledger and report evaluator. Ordinary stable builds do not compile its
 `cfg(creusot)` dependency. Observation contracts cover slot cardinality and exact
 payload consumption. Retained slots contain only Single/Duplicate; Option/map
 absence represents Missing, avoiding a second stored empty-state discriminant.
-Verdict contracts cover incomplete/violation precedence
-and warning-dependent exit codes. They do not prove BTreeMap selection/removal,
-request identity, Evidence rebinding, collection traversal, warning discovery,
-serialization, parsing, allocation success, arbitrary destructors or I/O.
+Verdict contracts cover incomplete/violation precedence, warning-dependent exit
+codes and the actual borrowed early-stopping package scan. Additional contracts
+cover ASCII package-name validity/canonicalization/idempotence, exact evidence
+strength/content/source/request matching, and saturating acquisition counter
+merges that preserve elapsed time. The current inventory contains 21 files and
+43 named goals per target.
+
+These contracts do not prove BTreeMap selection/removal, complete graph traversal,
+warning discovery, serialization, cryptographic hashing, metadata/URL parsing,
+allocation success, arbitrary destructors, clocks or I/O. Evidence adapters call
+the verified byte-comparison rules; their surrounding parsing/storage remains
+outside the proof. See the [scope records](../../docs/development/work/evidence-and-invariants/plan.md)
+and [ordered-container probe](../../docs/development/work/evidence-and-invariants/graph.md).
 The internal crate keeps version 0.1.0 independently: automatic release preparation
 changes only the published root package and its locked entry.
 
@@ -73,8 +82,11 @@ docker run --rm -v "$PWD:/workspace" -w /workspace \
   timeout 900s formal/creusot/sensitivity.sh
 ```
 
-The duplicate, consumption, precedence, incomplete-exit and warning-policy
-mutations must generate successfully, then fail their own named contract goals. A compiler error, timeout, missing proof target
+Fourteen mutations cover duplicate/consumption, precedence/exit/warnings,
+evidence strength/source-request association/content/hashless requests/sidecar
+pinning, dropped final aggregation input, incorrect name lowercase conversion,
+elapsed-time merging and counter loss. Each must generate successfully, then
+fail its own named contract goal. A compiler error, timeout, missing proof target
 or unexpected successful proof fails the sensitivity check. The shipping source
 is never mutated. These witnesses test contract sensitivity, not complete bug
 coverage.
@@ -84,7 +96,7 @@ coverage.
 The existing required `Lean proofs and generated corpus freshness` context runs
 both the unchanged Lean checks and the Creusot build/proofs/sensitivity checks.
 Its 30-minute job deadline bounds the complete run; CI uses additional 1,200-second
-image-build, 600-second verification and 300-second sensitivity deadlines. A
+image-build, 600-second verification and 600-second sensitivity deadlines. A
 timeout fails the existing required context. The extra tooling is built from
 checksummed source on each fresh runner; cold setup can dominate job time. Proof
 reports are retained for seven days on success or failure. This task does not

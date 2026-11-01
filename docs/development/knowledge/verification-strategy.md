@@ -4,6 +4,26 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: expanded-contract-review
+  resource: ../work/evidence-and-invariants/review.md
+  working_tree: untracked
+  sha256: 5697f25cb4816577b1eb311decb1294f6eef59d300f0479c1f16a38e59f239b4
+- id: contract-aggregate
+  resource: ../work/evidence-and-invariants/aggregate.md
+  revision: 4b00c6b
+- id: contract-name
+  resource: ../work/evidence-and-invariants/name.md
+  revision: 5481a60
+- id: contract-accounting
+  resource: ../work/evidence-and-invariants/accounting.md
+  revision: 7f5e4c3
+- id: contract-evidence
+  resource: ../work/evidence-and-invariants/evidence.md
+  revision: 7dfc332
+- id: contract-graph
+  resource: ../work/evidence-and-invariants/graph.md
+  working_tree: untracked
+  sha256: 12dd36c6089914719bc34714368000c4c8d0b342091150c6257daacc3e7d5597
 - id: creusot-contracts
   resource: ../work/creusot-contracts/review.md
   working_tree: modified
@@ -332,29 +352,56 @@ executor or CI results.[^typed-acquisition-review]
 
 # Direct Rust decision contracts
 
-Creusot 0.14.0 additionally verifies production observation-slot transitions
-and verdict/exit decisions in `taloon-decisions`, using the same bodies called
-by ResultLedger and Report. Exact
-payload preservation, duplicate absorption until consumption, typed cardinality
-errors and consumption to None have contracts over arbitrary payload types.
-Pairwise status combination proves Incomplete over Violation over Compliant;
-exit contracts prove exact 0/1/2 outcomes and warning escalation. Report uses
-one early-stopping package scan; traversal, warning discovery and serialization
-retain independent properties and fixed tests rather than a whole-report proof.
-BTreeMap association/removal and Evidence rebinding remain tested adapter
-boundaries; this is not a proof of the entire ledger or application. No custom
-trusted function or map axiom is introduced. The existing Lean proofs and finite
-correspondence remain unchanged.[^creusot-contracts]
+Creusot 0.14.0 verifies the production bodies in `taloon-decisions`, including
+observation-slot transitions, status precedence/exit decisions and the borrowed
+report scan. The scan proves exact aggregate precedence, input-error handling,
+empty input and early termination on incompleteness; root diagnostic/warning
+classification and serialization remain separately tested adapters. No extra
+status vector or cloned package payload is introduced.[^creusot-contracts][^contract-aggregate]
 
-The separate pinned nightly/Why3/solver environment never becomes a runtime
-requirement. The existing required formal CI context builds the checksum-pinned
-environment and runs proofs plus five compiling rejected mutations. The internal
-crate has a fixed version independent of automatic root release numbering;
-regression tests cover the release/lock boundary. Fresh exact obligation
-inventories, explicit named goals, no-cache
-proofs, input snapshots and compiling rejected mutations guard the verification
-command. Revisit when the production decisions, compiler/contracts or upstream
-environment recipe changes. Commands and installation belong to the
-[Creusot procedure](../../../formal/creusot/README.md).[^creusot-contracts]
+The production byte normalizer proves accepted ASCII name syntax, lowercase and
+separator-collapse semantics, canonical output, length bounds, loop termination
+and fixed-point/idempotence. Public string adapters retain their error codes.
+Acquisition merges prove exact saturation and monotonicity for all twenty
+counters while preserving elapsed time. Measuring clocks/network traffic is
+outside those arithmetic contracts.[^contract-name][^contract-accounting]
 
-[^creusot-contracts]: [Adoption evidence and five-pass reviews](../work/creusot-contracts/review.md).
+Evidence contracts compare actual 32-byte identities: archive strength satisfies
+both requirements, index evidence cannot satisfy archive verification, index
+source and request must both match, pinned content must match exactly, and
+hashless evidence cannot be rebound to another request. Sidecar construction
+requires an advertised pinned digest. Production archive/sidecar/cache adapters
+call these rules. Cryptographic collision resistance, metadata parsing, cache
+schema/checksum validation and fresh hashing stay outside the proof; no signature
+or whole-Evidence correctness claim follows.[^contract-evidence]
+
+Full dependency exploration remains deferred with owner permission. Real ordered
+map/set and borrowed visited-state probes lack contracts in the pinned verifier;
+positive scalar and VecDeque FIFO controls prove. Keep the current efficient
+traversal and existing Lean selection/independent graph properties, rather than
+introduce trusted map axioms, duplicate graphs or a proof-driven replacement
+algorithm. Reconsider when upstream contracts or a separately justified data
+representation improvement supports the actual traversal.[^contract-graph]
+
+The separate pinned compiler/Why3/solver environment is development-only. The
+existing required formal CI context checks an exact 21-file/43-goal inventory on
+three target architectures, with fresh generation, no proof cache and input
+snapshots. Fourteen compiling mutations must fail their own named goals; these
+test sensitivity, not all possible defects. No custom trusted application
+function or map axiom is introduced. Compiler, solver and standard-library
+contracts remain trusted; cross-target proofs inside Linux do not establish
+native OS execution. Existing Lean proofs/corpora retain their original scope.
+Final integration checks and independent-review fixes are recorded separately.
+[^expanded-contract-review]
+Commands, limits and CI deadlines belong to the [Creusot procedure](../../../formal/creusot/README.md).
+Revisit contracts when production decisions or the pinned environment changes.
+[^creusot-contracts][^contract-aggregate][^contract-name][^contract-accounting][^contract-evidence]
+
+[^creusot-contracts]: [Initial adoption and five-pass reviews](../work/creusot-contracts/review.md).
+[^contract-aggregate]: [Actual report loop and reviews](../work/evidence-and-invariants/aggregate.md).
+[^contract-name]: [Name semantics, fixed point and reviews](../work/evidence-and-invariants/name.md).
+[^contract-accounting]: [Counter/elapsed contracts and reviews](../work/evidence-and-invariants/accounting.md).
+[^contract-evidence]: [Evidence binding contracts and reviews](../work/evidence-and-invariants/evidence.md).
+[^contract-graph]: [Ordered-container feasibility and deferral](../work/evidence-and-invariants/graph.md).
+
+[^expanded-contract-review]: [Expanded contracts final integration and limits](../work/evidence-and-invariants/review.md).
