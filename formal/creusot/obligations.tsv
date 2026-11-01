@@ -1,5 +1,11 @@
-observation/impl_Observation_T/new.coma vc_new_T
+name/is_alphanumeric.coma vc_is_alphanumeric
+name/is_separator.coma vc_is_separator
+name/normalization_fixed_point.coma vc_normalization_fixed_point
+name/normalize.coma vc_is_alphanumeric vc_is_empty_u8 vc_is_separator vc_len_u8 vc_new_u8 vc_normalize vc_push_u8
+name/normalized_prefix.coma vc_normalized_prefix
+name/normalized_prefix_fixed_point.coma vc_normalized_prefix_fixed_point
 observation/impl_Observation_T/mark_duplicate.coma vc_mark_duplicate_T
-observation/impl_Observation_T/take.coma vc_take_Observation_T vc_elim_Some vc_elim_Single vc_take_T
+observation/impl_Observation_T/new.coma vc_new_T
+observation/impl_Observation_T/take.coma vc_elim_Single vc_elim_Some vc_take_Observation_T vc_take_T
 status/impl_Status/combine.coma vc_combine
-status/impl_Status/exit_code.coma vc_from_u8 vc_exit_code
+status/impl_Status/exit_code.coma vc_exit_code vc_from_u8
