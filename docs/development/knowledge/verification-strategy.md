@@ -4,6 +4,10 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: evidence-ownership-review
+  resource: ../work/evidence-ownership/review.md
+  working_tree: untracked
+  sha256: 9da1686b4f85fe2e04ea4f700aea467fd9ca15b8678e4459b53699adb5a33d78
 - id: permission-unit-review
   resource: ../work/permission-units/review.md
   working_tree: untracked
@@ -239,3 +243,17 @@ Lean model. The [measurement record](../work/permission-units/performance.md)
 separates the type guarantee from timing observations.[^permission-unit-review]
 
 [^permission-unit-review]: [Validated permission unit assessment and reviews](../work/permission-units/review.md).
+
+
+# Immutable payload correspondence
+
+Named archive/sidecar/hashless cases preserve exact rebinding outcomes and error
+codes. A 256-case generated cloning property preserves declarations, future-minor
+warnings and proof strength. Existing cache corruption, bounded expansion and
+concurrent-publication tests retain wire/validation coverage. Stable and shuffled
+suites, metadata/inspection fuzz and unchanged Lean corpus adapters provide
+separate finite evidence. Arc allocation, serde implementation and performance
+are outside the Lean theorem claims; the staged record identifies those limits
+and the fresh whole-PR reviewer.[^evidence-ownership-review]
+
+[^evidence-ownership-review]: [Immutable payload staged review](../work/evidence-ownership/review.md).

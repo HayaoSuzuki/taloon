@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
     io::{Cursor, Read},
+    sync::Arc,
 };
 
 /// Maximum observed metadata bytes, shared with bounded acquisition and persistence.
@@ -41,7 +42,8 @@ struct RecordData {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EvidenceRecord {
-    data: RecordData,
+    // Serialized payload is immutable; per-request interpretation stays in Evidence.
+    data: Arc<RecordData>,
     checksum: ContentHash,
 }
 #[derive(Debug, Clone)]
@@ -342,7 +344,7 @@ impl Evidence {
         };
         let record = EvidenceRecord {
             checksum: checksum(&data)?,
-            data,
+            data: Arc::new(data),
         };
         Ok(Self {
             observed_request: request.id(),

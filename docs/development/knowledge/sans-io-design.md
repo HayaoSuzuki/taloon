@@ -4,6 +4,10 @@ title: Pure core and acquisition boundary
 description: Approved deep modules and request/result API for license inspection without core I/O.
 status: accepted
 sources:
+- id: evidence-ownership-review
+  resource: ../work/evidence-ownership/review.md
+  working_tree: untracked
+  sha256: 9da1686b4f85fe2e04ea4f700aea467fd9ca15b8678e4459b53699adb5a33d78
 - id: permission-unit-review
   resource: ../work/permission-units/review.md
   working_tree: untracked
@@ -356,3 +360,20 @@ AST is introduced. The existing expression units() API is a cached canonical
 reporting view, independent of typed permission storage.[^permission-unit-review]
 
 [^permission-unit-review]: [Validated permission unit assessment and reviews](../work/permission-units/review.md).
+
+
+# Immutable record payloads
+
+EvidenceRecord shares its private immutable payload across clones. Acquisition
+and evaluation keep their existing APIs and revalidate each requested binding;
+sharing does not confer additional provenance or bypass checks. Parsed metadata
+and transient request identity remain in Evidence. The persisted JSON/schema
+and checksum inputs stay unchanged. This hides ownership optimization inside
+the evidence module instead of introducing consuming/borrowing protocols into
+callers. serde's rc support adds no new package, but adds reference-count costs
+and a retained allocation (plus a transient Box on deserialization). Reconsider
+for measured short-record regressions or new mutation requirements. The staged
+record and its linked measurements distinguish avoided payload copies from
+unproven overall speed/RSS improvements.[^evidence-ownership-review]
+
+[^evidence-ownership-review]: [Immutable payload staged review](../work/evidence-ownership/review.md).
