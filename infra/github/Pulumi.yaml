@@ -1,0 +1,75 @@
+name: taloon-github
+runtime: yaml
+description: GitHub main protection for HayaoSuzuki/taloon
+backend:
+  url: file://./state
+
+resources:
+  github:
+    type: pulumi:providers:github
+    options:
+      version: 6.15.0
+    properties:
+      owner: HayaoSuzuki
+
+  main:
+    type: github:index/repositoryRuleset:RepositoryRuleset
+    options:
+      provider: ${github}
+      version: 6.15.0
+      protect: true
+    properties:
+      repository: taloon
+      name: main-protection
+      target: branch
+      enforcement: active
+      bypassActors: []
+      conditions:
+        refName:
+          includes: [refs/heads/main]
+          excludes: []
+      rules:
+        deletion: true
+        nonFastForward: true
+        pullRequest:
+          requiredApprovingReviewCount: 0
+          dismissStaleReviewsOnPush: false
+          requireCodeOwnerReview: false
+          requireLastPushApproval: false
+          requiredReviewThreadResolution: false
+        requiredStatusChecks:
+          # Personal repositories cannot use merge queues. Check against current main.
+          strictRequiredStatusChecksPolicy: true
+          doNotEnforceOnCreate: false
+          # Include prerequisites: skipped dependents must not hide a failed prepare.
+          # Bind exact PR job names to GitHub Actions, not an arbitrary status sender.
+          requiredChecks:
+            - context: Rust quality and tests
+              integrationId: 15368
+            - context: Rust randomized order (nightly-2026-10-08)
+              integrationId: 15368
+            - context: Python formatting, lint and types
+              integrationId: 15368
+            - context: Workflow lint
+              integrationId: 15368
+            - context: Lean proofs and generated corpus freshness
+              integrationId: 15368
+            - context: Bounded parser and inspection fuzz smoke
+              integrationId: 15368
+            - context: Rust dependency audit and policy
+              integrationId: 15368
+            - context: Check documentation and build user guide
+              integrationId: 15368
+            - context: prepare
+              integrationId: 15368
+            - context: Wheel and uv smoke (linux-x86_64)
+              integrationId: 15368
+            - context: Wheel and uv smoke (macos-aarch64)
+              integrationId: 15368
+            - context: Wheel and uv smoke (windows-x86_64)
+              integrationId: 15368
+            - context: validate
+              integrationId: 15368
+
+outputs:
+  rulesetId: ${main.rulesetId}

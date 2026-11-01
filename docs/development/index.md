@@ -7,6 +7,7 @@ For product usage, start with [the user guide](../user/index.md).
 | --- | --- |
 | Understand decisions and implementation boundaries | [OKF catalog](knowledge/index.md) |
 | Build and validate Rust changes | Setup and local checks below |
+| Manage GitHub main protection | [GitHub infrastructure](../../infra/github/README.md) |
 | Build Python wheels or publish/recover a release | [Release procedure](releases.md) |
 | Write, reorganize, or preview documentation | [Documentation procedure](documentation.md) |
 
