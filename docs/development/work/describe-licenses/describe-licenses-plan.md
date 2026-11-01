@@ -71,17 +71,17 @@ docs/user/usage.md and owning OKF contracts/decisions; work review record.
 [--offline]. Reuse Description from Task 1, existing Acquirer and AcquisitionSummary.
 No --deny-warnings or policy/clarification evaluation. Exit0 complete,2 incomplete.
 
-- [ ] Observe new process tests fail before command wiring. Cover lock-only input,
+- [x] Observe new process tests fail before command wiring. Cover lock-only input,
   ignored broken policy, all-external/project/empty scope, text/JSON/input errors,
   shared cache/offline, all identity variants and unchanged check/cache behavior.
-- [ ] Extract common evidence fulfillment/progress from check into runtime-only
+- [x] Extract common evidence fulfillment/progress from check into runtime-only
   helper; select requests before fetching; wire describe and separate typed report.
   Render unique package lists, license groups/unknown artifacts, annotated edges
   and workspace/origin context; safe sources and terminal control escaping.
-- [ ] Verify synthetic transport receives no unrelated requests. Extend existing
+- [x] Verify synthetic transport receives no unrelated requests. Extend existing
   structured inspection fuzz target with description parsing/selection/results and
   bounded smoke; preserve all existing campaigns and limits.
-- [ ] Update implemented user guidance and existing owning OKF topics/formal
+- [x] Update implemented user guidance and existing owning OKF topics/formal
   reproduction links. Review scope, output/security, sharing, errors and docs five
   times. Run full Rust tests, strict lints/docs, Python tooling and workflow checks.
 - [ ] Commit implementation and request one fresh whole-branch review. Reproduce

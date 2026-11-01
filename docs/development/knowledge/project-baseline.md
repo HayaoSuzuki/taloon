@@ -111,3 +111,13 @@ runtime guarantees beyond the recorded checks and supported input ranges.[^cargo
 [^cache]: [Evidence persistence](../../../src/acquisition/cache.rs).
 [^reviews]: [Actual stage verification and decisions](../work/initial-design/implementation-reviews.md).
 [^distribution]: [Distribution decision](python-distribution.md).
+
+## Locked license descriptions
+
+The pure Description API and `taloon describe <package>` provide policy-free
+license observations over a selected locked closure or the whole external
+inventory for a workspace name. The [inspection contract](license-inspection.md#license-description-command)
+and [user command guide](../../user/usage.md#describe-package-licenses) own its
+selection, evidence, output and exit rules. The [implementation review](../work/describe-licenses/implementation-review.md)
+records local/hosted verification boundaries; a configured command or model
+alone is not evidence of a published wheel version.

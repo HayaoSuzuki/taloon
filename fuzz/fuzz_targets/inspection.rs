@@ -1,5 +1,6 @@
 #![no_main]
 use libfuzzer_sys::fuzz_target;
+use taloon::description::Description;
 use taloon::{inspection::{Inspection,AcquisitionResult},evidence::{Evidence,SidecarAssociation},model::{ContentHash,EvaluationDate}};
 fuzz_target!(|data: &[u8]| {
     let bytes=include_bytes!("../corpus/wheel/example.whl");
@@ -25,4 +26,11 @@ fuzz_target!(|data: &[u8]| {
     assert_eq!(serde_json::to_value(&a).unwrap(),serde_json::to_value(&b).unwrap());
     let incomplete=(0..2).any(|n|{let slot=data.get(n+1).copied().unwrap_or(0)%4;slot==0||slot==3||(slot==1&&required)});
     if incomplete{assert_eq!(a.exit_code(false),2);}
+    let description=Description::from_uv_lock(&lock,"EXAMPLE").unwrap();
+    let a=description.evaluate(build());let mut reverse=build();reverse.reverse();
+    let b=description.evaluate(reverse);
+    assert_eq!(serde_json::to_value(&a).unwrap(),serde_json::to_value(&b).unwrap());
+    let incomplete=(0..2).any(|n|{let slot=data.get(n+1).copied().unwrap_or(0)%4;slot==0||slot==3});
+    assert_eq!(a.exit_code(),if incomplete{2}else{0});
+    if let Ok(text)=std::str::from_utf8(data){let _=Description::from_uv_lock(text,"example");}
 });

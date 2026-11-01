@@ -498,4 +498,7 @@ impl Resolution {
 }
 
 mod selection;
-pub use selection::{DependencyGraph, DependencyKind, PackageIdentity, SelectionMode};
+pub use selection::{
+    DependencyGraph, DependencyKind, GraphEdge, GraphNode, GraphOrigin, OriginEdge,
+    PackageIdentity, SelectionMode,
+};

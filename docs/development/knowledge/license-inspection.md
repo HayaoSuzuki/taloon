@@ -4,6 +4,10 @@ title: License inspection specification
 description: Approved design for uv.lock coverage, Python license policy, evidence, and command behavior.
 status: accepted
 sources:
+- id: describe-review
+  resource: ../work/describe-licenses/implementation-review.md
+  working_tree: modified
+  sha256: a4b065df62eb9fa98cfaa74bf0c814cca62bdce9f354464e907e82da5ceb4453
 - id: describe-design
   resource: ../work/describe-licenses/design.md
   working_tree: modified
@@ -360,15 +364,32 @@ prerequisites.[^owner]
 
 [^cache-clear]: [Confirmed selective cache-clearing design](../work/cache-clear/design.md).
 
-# Proposed license-description command
+# License-description command
 
-The owner confirmed a policy-free describe command over uv.lock: an external
-name selects itself plus normal/all-extra dependencies across locked environment
-branches, without development edges; a project name selects check's whole
-external inventory, with own/workspace license observations excluded. Match all
-locked versions/sources, and preserve artifact-specific declarations/unknowns.
-The [concrete proposal](../work/describe-licenses/design.md) records CLI, graph,
-output and evidence choices approved for implementation. This command is not yet
-implemented and does not change check's coverage or permission contract.[^describe-design]
+`taloon describe <package>` is implemented as a policy-free request/result
+operation over the selected uv.lock. An external name selects itself plus all
+normal/extra dependencies across locked environment branches, without development
+edges. A workspace/project name selects check's complete external inventory;
+own/workspace license observations remain excluded. All matching versions/sources
+are included, with AllExternal winning workspace/external collisions. Workspace
+routing and cycles remain graph context without recursive output expansion.
+Selection occurs before acquisition, which shares check's evidence cache,
+authentication, fallback, proof and progress behavior.[^describe-design]
+
+The command reads no pyproject policy or date and applies no clarifications,
+exceptions or permission decisions. It uses original declarations, exact-text
+artifact grouping and explicit unknown/unsupported outcomes; differing artifact
+licenses are not joined into a synthetic expression. Complete description exits
+0, input/incomplete outcomes exit 2, and no permission exit 1 is produced. Text
+lists unique packages and annotated relationships; the separate describe JSON
+schema includes roots/scope, graph, observations, diagnostics and acquisition
+metrics, including startup errors. Current operation is documented in the
+[user command guide](../../user/usage.md#describe-package-licenses). Check's
+whole-inventory and permission contract is unchanged.[^describe-design]
 
 [^describe-design]: [Proposed describe design and confirmed owner decisions](../work/describe-licenses/design.md).
+
+Implementation evidence and staged review limits are recorded separately from
+the approved design.[^describe-review]
+
+[^describe-review]: [Staged implementation and validation](../work/describe-licenses/implementation-review.md).

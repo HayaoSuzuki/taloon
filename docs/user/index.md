@@ -39,7 +39,9 @@ Add a [policy](configuration.md), then run from your project or a subdirectory:
 taloon check
 ```
 
-See [commands and automation](usage.md) for JSON, offline checks, and hooks, and
+To display a locked package's declared licenses and dependencies without a policy,
+run `taloon describe requests`. See [commands and automation](usage.md) for
+selection rules, JSON, offline operation, and hooks, and
 [evidence and troubleshooting](evidence.md) for supported inputs and trust limits.
 For contributor procedures, follow the repository's
 [development entry point](https://github.com/HayaoSuzuki/taloon/blob/main/docs/development/index.md).

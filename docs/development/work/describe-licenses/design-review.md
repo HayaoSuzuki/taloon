@@ -1,7 +1,7 @@
 # Describe design review
 
 Design-only record on 2026-11-01, based on repository `4c481d4`. No product code,
-new CLI or executable behavior is implemented in this change.
+new CLI or executable behavior existed at that design-review checkpoint.
 
 ## Five self-review passes
 

@@ -2,7 +2,7 @@
 use crate::{
     evidence::{Evidence, EvidenceSummary},
     inspection::AcquisitionResult,
-    model::{ArtifactRequest, Code, Error, RequestId, safe_locator},
+    model::{ArtifactRequest, Code, Error, RequestId, normalize_name, safe_locator},
     report::{AcquisitionSummary, Diagnostic, Severity},
     resolution::{DependencyGraph, PackageIdentity, Resolution, SelectionMode, Target},
 };
@@ -58,7 +58,7 @@ impl DescriptionReport {
         Self {
             schema_version: 1,
             command: "describe",
-            query: safe_locator(query),
+            query: normalize_name(query).unwrap_or_else(|_| safe_locator(query)),
             selection_mode: None,
             roots: vec![],
             status: DescriptionStatus::Incomplete,
