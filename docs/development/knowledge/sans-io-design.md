@@ -4,6 +4,10 @@ title: Pure core and acquisition boundary
 description: Approved deep modules and request/result API for license inspection without core I/O.
 status: accepted
 sources:
+- id: html-index-filtering-review
+  resource: ../work/html-index-filtering/review.md
+  working_tree: untracked
+  sha256: f040c5b2244aa4d8e5dcaa5c6762316c0a59a1d85e193b32269d1983154b3f55
 - id: evidence-ownership-review
   resource: ../work/evidence-ownership/review.md
   working_tree: untracked
@@ -377,3 +381,19 @@ record and its linked measurements distinguish avoided payload copies from
 unproven overall speed/RSS improvements.[^evidence-ownership-review]
 
 [^evidence-ownership-review]: [Immutable payload staged review](../work/evidence-ownership/review.md).
+
+
+# HTML index retention
+
+HTML tokenization interprets base/meta/anchor tokens immediately inside the
+private index parser. It borrows tokenizer attributes and retains only locked
+URL bindings, one optional explicit base and an absorbing Result. This removes
+the historical tag vector and duplicate attribute maps while keeping exact
+association/hash checks and all-document version rejection. JSON, HTTP body
+bounds and tokenizer allocation remain unchanged. Reconsider if new HTML
+semantics require a tree builder or measured inputs show a different tradeoff;
+no generic parser event API is warranted by the present consumer. The staged
+record links complete synthetic timing samples and preservation limits.
+[^html-index-filtering-review]
+
+[^html-index-filtering-review]: [HTML index staged review](../work/html-index-filtering/review.md).

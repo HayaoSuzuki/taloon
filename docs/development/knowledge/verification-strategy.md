@@ -4,6 +4,10 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: html-index-filtering-review
+  resource: ../work/html-index-filtering/review.md
+  working_tree: untracked
+  sha256: f040c5b2244aa4d8e5dcaa5c6762316c0a59a1d85e193b32269d1983154b3f55
 - id: evidence-ownership-review
   resource: ../work/evidence-ownership/review.md
   working_tree: untracked
@@ -257,3 +261,18 @@ are outside the Lean theorem claims; the staged record identifies those limits
 and the fresh whole-PR reviewer.[^evidence-ownership-review]
 
 [^evidence-ownership-review]: [Immutable payload staged review](../work/evidence-ownership/review.md).
+
+
+# HTML streaming preservation
+
+Named HTML cases preserve base encounter order, raw-text/RCDATA suppression,
+late version errors, duplicate target rejection and attribute precedence. A
+256-case generated property derives expected absolute URLs independently from
+base encounter order and irrelevant history. The unchanged index model adapter
+still exercises both representation parsers; it does not prove html5ever or
+arbitrary browser semantics. Existing metadata/inspection fuzz remains separate
+core regression evidence and does not reach the binary-private HTML sink. The
+staged report records those boundaries and measured synthetic parser costs.
+[^html-index-filtering-review]
+
+[^html-index-filtering-review]: [HTML index staged review](../work/html-index-filtering/review.md).
