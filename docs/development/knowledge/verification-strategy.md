@@ -4,6 +4,10 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: permission-unit-review
+  resource: ../work/permission-units/review.md
+  working_tree: untracked
+  sha256: 38137e298604b7ba9efc0d82deda8f5ca649d9106e7005866847968929f08eca
 - id: policy-evaluation-review
   resource: ../work/policy-evaluation/review.md
   working_tree: untracked
@@ -222,3 +226,16 @@ private map is asserted. Synthetic timing samples and limits are in the
 [policy measurement record](../work/policy-evaluation/performance.md).[^policy-evaluation-review]
 
 [^policy-evaluation-review]: [Policy evaluation assessment and staged review](../work/policy-evaluation/review.md).
+
+
+# Permission unit invariants
+
+Public constructor regressions and 256-case generated checks cover atomic
+validation, custom WITH scope/proof requirements and canonical Eq/Ord/Borrow
+coherence. Positive catalogue sampling follows the existing strict parser's
+supported subset; fixed negatives retain rejected GNU-plus spellings. These
+checks do not establish independent parser correctness or expand the existing
+Lean model. The [measurement record](../work/permission-units/performance.md)
+separates the type guarantee from timing observations.[^permission-unit-review]
+
+[^permission-unit-review]: [Validated permission unit assessment and reviews](../work/permission-units/review.md).

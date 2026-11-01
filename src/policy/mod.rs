@@ -6,6 +6,9 @@ use crate::model::{
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
+mod unit;
+pub use unit::PermissionUnit;
+
 /// The SPDX identifier database compiled into this version.
 pub const SPDX_LIST_VERSION: &str = spdx::identifiers::VERSION;
 
@@ -68,6 +71,8 @@ impl LicenseExpression {
         &self.text
     }
     #[must_use]
+    /// Cached canonical string view for reporting and existing consumers.
+    /// Policy permission storage uses validated `PermissionUnit` values.
     pub fn units(&self) -> &BTreeSet<String> {
         &self.units
     }
@@ -148,7 +153,7 @@ struct RawClarification {
 struct Exception {
     ordinal: usize,
     hash: Option<ContentHash>,
-    allow: BTreeSet<String>,
+    allow: BTreeSet<PermissionUnit>,
     reason: String,
 }
 #[derive(Debug, Clone)]
@@ -170,7 +175,7 @@ impl Clarification {
 /// One immutable workspace policy; validation includes all entries, even unmatched ones.
 #[derive(Debug, Clone)]
 pub struct Policy {
-    allow: BTreeSet<String>,
+    allow: BTreeSet<PermissionUnit>,
     exceptions: BTreeMap<PackageId, Vec<Exception>>,
     clarifications: BTreeMap<ContentHash, Clarification>,
 }
@@ -191,28 +196,17 @@ fn check_entry(reason: &str, expires: Option<&str>, date: EvaluationDate) -> Res
     }
     Ok(())
 }
-fn permission_unit(text: &str, custom: bool) -> Result<String, Error> {
-    let expr = LicenseExpression::parse(text)
-        .map_err(|_| Error::new(Code::Configuration, "invalid permission unit"))?;
-    if expr.ast.iter().count() != 1 {
-        return Err(Error::new(
-            Code::Configuration,
-            "permission entries must be single license/WITH units",
-        ));
-    }
-    let unit = expr
-        .units
-        .iter()
-        .next()
-        .ok_or_else(|| Error::new(Code::Configuration, "empty permission"))?;
-    if !custom && unit.contains("LicenseRef-") {
+fn permission_unit(text: &str, custom: bool) -> Result<PermissionUnit, Error> {
+    let unit = PermissionUnit::parse(text)?;
+    if !custom && unit.is_custom() {
         return Err(Error::new(
             Code::Configuration,
             "custom permissions require a hash-scoped exception",
         ));
     }
-    Ok(unit.clone())
+    Ok(unit)
 }
+
 impl Policy {
     /// Parse one workspace policy and validate all overrides on the supplied UTC day.
     /// Other pyproject tables are outside this policy's schema.
@@ -292,7 +286,7 @@ impl Policy {
             && (self.clarifications.contains_key(&hash)
                 || self
                     .matching_exceptions(request, hash)
-                    .any(|e| e.allow.iter().any(|a| a.contains("LicenseRef-"))))
+                    .any(|e| e.allow.iter().any(PermissionUnit::is_custom)))
         {
             return EvidenceRequirement::ArchiveVerified;
         }
@@ -366,13 +360,13 @@ impl Policy {
     ) -> Vec<Error> {
         // Retain only configured usage. A common all-used global-only policy
         // stops early, while exception/clarification checks share one input pass.
-        let mut unused_units: BTreeSet<_> = self.allow.iter().collect();
+        let mut unused_units: BTreeSet<_> = self.allow.iter().map(PermissionUnit::as_str).collect();
         let mut used_packages: BTreeMap<&PackageId, BTreeSet<ContentHash>> = BTreeMap::new();
         let mut unused_clarifications: BTreeSet<_> = self.clarifications.keys().copied().collect();
         for (request, hash, expression) in observations {
             if !unused_units.is_empty() {
                 for unit in expression.units() {
-                    unused_units.remove(unit);
+                    unused_units.remove(unit.as_str());
                 }
             }
             if !self.exceptions.is_empty() && self.exceptions.contains_key(request.package()) {

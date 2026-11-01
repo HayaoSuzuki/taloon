@@ -86,12 +86,13 @@ fn custom_proof_requirement_uses_exact_package_and_content(
     #[case] selected: usize,
     #[case] exact_hash: bool,
     #[case] expected: EvidenceRequirement,
+    #[values("LicenseRef-Reviewed", "LicenseRef-Reviewed WITH LLVM-exception")] unit: &str,
 ) {
     // Arrange
     let first = ContentHash::digest(b"first");
     let other = ContentHash::digest(b"other");
     let text = config(&[(0, 1, false)], "", first, other)
-        .replace("allow=['MIT']", "allow=['LicenseRef-Reviewed']");
+        .replace("allow=['MIT']", &format!("allow=['{unit}']"));
     let policy = Policy::from_pyproject(&text, date()).unwrap();
     let request = request(selected, if exact_hash { first } else { other });
     // Act
@@ -100,7 +101,7 @@ fn custom_proof_requirement_uses_exact_package_and_content(
     assert_eq!(requirement, expected);
 }
 proptest! {
-    #![proptest_config(ProptestConfig::with_cases(128))]
+    #![proptest_config(ProptestConfig::with_cases(256))]
     #[test]
     fn additive_decisions_and_entry_ids_match_integer_selectors(
         rules in prop::collection::vec((0_usize..4,0_u8..3,any::<bool>()),0..24),

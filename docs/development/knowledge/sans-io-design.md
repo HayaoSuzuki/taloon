@@ -4,6 +4,10 @@ title: Pure core and acquisition boundary
 description: Approved deep modules and request/result API for license inspection without core I/O.
 status: accepted
 sources:
+- id: permission-unit-review
+  resource: ../work/permission-units/review.md
+  working_tree: untracked
+  sha256: 38137e298604b7ba9efc0d82deda8f5ca649d9106e7005866847968929f08eca
 - id: policy-evaluation-review
   resource: ../work/policy-evaluation/review.md
   working_tree: untracked
@@ -338,3 +342,17 @@ fork/hash workloads justify a further index; current measurements isolate lookup
 and evaluation, not setup or whole-CLI costs.[^policy-evaluation-review]
 
 [^policy-evaluation-review]: [Policy evaluation assessment and staged review](../work/policy-evaluation/review.md).
+
+
+# Atomic permission values
+
+Policy stores validated PermissionUnit values, with private canonical text and
+Standard/CustomReference classification. Construction reuses the expression
+owner and requires one atomic license/WITH term. Scope remains a policy rule:
+custom references require hash-bound exceptions. Equality, ordering and borrowed
+lookup use canonical spelling; native requirement comparison does not implicitly
+change the application's GNU/plus distinctions. No duplicate SPDX catalogue or
+AST is introduced. The existing expression units() API is a cached canonical
+reporting view, independent of typed permission storage.[^permission-unit-review]
+
+[^permission-unit-review]: [Validated permission unit assessment and reviews](../work/permission-units/review.md).
