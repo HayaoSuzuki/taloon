@@ -28,7 +28,9 @@ or future built wheels have the same license.
 
 Index sidecars require the exact locked artifact URL/digest and a verified
 advertised metadata digest. Their evidence is index-associated, not archive
-verified. Sidecar failures fall back to full archive verification; integrity
+verified. Malformed JSON field types, null metadata advertisements, positional arrays in
+place of object records and duplicate consumed fields invalidate an index response and cause archive fallback. Unknown index
+extension fields are ignored. Sidecar failures fall back to full archive verification; integrity
 failures remain warnings when that fallback succeeds. Clarifications and custom
 permissions require the stronger proof. Stored observations retain metadata
 headers and full-observation hashes, excluding Description bodies.
@@ -41,7 +43,7 @@ memory without filesystem extraction. UTF-8 metadata is required.
 ## HTTPS and credentials
 
 Production acquisition uses HTTPS with certificate verification and rejects
-HTTP redirects. It uses eight workers, 30-second request/10-second connect
+HTTP redirects. It uses up to eight workers, 30-second request/10-second connect
 limits, at most three attempts on transport failures/429/5xx, and five redirects.
 URLs and signed queries retain fetching/matching semantics while reports redact
 userinfo and query values. Userinfo does not supply HTTP Authorization.

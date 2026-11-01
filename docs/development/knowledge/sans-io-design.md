@@ -4,6 +4,10 @@ title: Pure core and acquisition boundary
 description: Approved deep modules and request/result API for license inspection without core I/O.
 status: accepted
 sources:
+- id: typed-acquisition-review
+  resource: ../work/typed-acquisition/review.md
+  working_tree: untracked
+  sha256: ba606a797a03b4d1d983fd6ac7dd1b832961ce5411b1d892d15b4e59154f40f7
 - id: terminal-text-review
   resource: ../work/terminal-text/review.md
   working_tree: untracked
@@ -417,3 +421,25 @@ are helper-only and do not establish whole-command speed or RSS improvements.
 [^terminal-text-review]
 
 [^terminal-text-review]: [Terminal text staged review](../work/terminal-text/review.md).
+
+
+# Typed acquisition protocol and scheduling
+
+The owner removed taloon backward compatibility as a constraint for this audit.
+Private scheduling keys use Pinned(content, format) or Unpinned(request), with
+binary domain ordering and no formatting dependency. Empty scope starts no
+workers. The new order can change worker assignment and warning order; it does
+not rank evidence strength or remove per-request observations.
+
+JSON indexes decode only consumed records and boolean/hash advertisements.
+A private Object<T> enforces actual object input at every consumed record;
+serde struct derivation alone also accepts positional arrays. Explicit modern
+presence takes priority over the legacy protocol alias, with null advertisements
+rejected. Unknown extensions are ignored. Typed records still retain a file
+vector and consumed Strings; this is not streaming JSON. These internal owners
+replace permissive Value traversal without compatibility adapters. Reconsider
+when a real protocol field or measured resource limit requires a different
+representation; preserve exact association/integrity and complete fallback.
+[^typed-acquisition-review]
+
+[^typed-acquisition-review]: [Typed acquisition staged review](../work/typed-acquisition/review.md).

@@ -4,6 +4,10 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: typed-acquisition-review
+  resource: ../work/typed-acquisition/review.md
+  working_tree: untracked
+  sha256: ba606a797a03b4d1d983fd6ac7dd1b832961ce5411b1d892d15b4e59154f40f7
 - id: terminal-text-review
   resource: ../work/terminal-text/review.md
   working_tree: untracked
@@ -295,3 +299,20 @@ executor results, fresh reviewer scope and synthetic timing limits.
 [^terminal-text-review]
 
 [^terminal-text-review]: [Terminal text staged review](../work/terminal-text/review.md).
+
+
+# Typed acquisition regression evidence
+
+Integer-label properties independently check worker coverage/affinity/bounds and
+modern/legacy digest selection (256 cases each). Runtime RED/GREEN covers empty
+scope and malformed/duplicate known fields. Independent whole-PR review found
+one Important positional-array acceptance gap; six object-boundary cases and
+one valid-digest-array HTTP case failed before the map-only fix and passed after.
+The complete stable/generated/seeded suites passed 305 local tests afterward.
+No second independent approval of the fix is claimed. Existing Lean adapters and
+core fuzz retain their original scope; they do not prove serde wire shape,
+worker load balance, cryptographic collision freedom or allocation performance.
+The staged record separates the reviewer finding, executor fix pass, final
+measurements and subsequent CI observation.[^typed-acquisition-review]
+
+[^typed-acquisition-review]: [Typed acquisition staged review](../work/typed-acquisition/review.md).

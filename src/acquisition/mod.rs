@@ -6,7 +6,9 @@ pub(crate) use cache::EvidenceCache;
 use std::{io::Read, path::Path};
 use taloon::{
     evidence::{Evidence, MAX_METADATA_BYTES},
-    model::{ArtifactLocator, ArtifactRequest, Code, ContentHash, Error},
+    model::{
+        ArtifactFormat, ArtifactLocator, ArtifactRequest, Code, ContentHash, Error, RequestId,
+    },
     report::{AcquisitionSummary, Diagnostic},
 };
 const MAX_ARCHIVE: u64 = 256 * 1024 * 1024;
@@ -325,20 +327,33 @@ impl Acquirer {
     }
 }
 
+// Different identity domains cannot alias, and formatting is never part of
+// scheduling. Enum/value order is internal; it does not rank evidence strength.
+#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
+enum WorkKey {
+    Pinned(ContentHash, ArtifactFormat),
+    Unpinned(RequestId),
+}
 fn partition_requests(requests: &[ArtifactRequest]) -> Vec<Vec<&ArtifactRequest>> {
+    if requests.is_empty() {
+        return Vec::new();
+    }
     // Keep shared-content jobs in one worker. Requests still receive distinct results.
-    let mut grouped: BTreeMap<String, Vec<&ArtifactRequest>> = BTreeMap::new();
+    let mut grouped: BTreeMap<WorkKey, Vec<&ArtifactRequest>> = BTreeMap::new();
     for request in requests {
-        let key = request.hash().map_or_else(
-            || request.id().to_string(),
-            |h| format!("{h}:{:?}", request.format()),
-        );
+        let key = match request.hash() {
+            Some(hash) => WorkKey::Pinned(hash, request.format()),
+            None => WorkKey::Unpinned(request.id()),
+        };
         grouped.entry(key).or_default().push(request);
     }
-    let workers = 8.min(grouped.len().max(1));
+    let workers = 8.min(grouped.len());
     let mut partitions = vec![Vec::new(); workers];
     for (n, group) in grouped.into_values().enumerate() {
         partitions[n % workers].extend(group);
     }
     partitions
 }
+
+#[cfg(test)]
+mod partition_tests;

@@ -326,7 +326,8 @@ pub fn safe_locator(value: &str) -> String {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+/// Artifact container type; ordering is for deterministic keys, not proof preference.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ArtifactFormat {
     Wheel,

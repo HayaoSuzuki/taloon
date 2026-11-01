@@ -21,6 +21,7 @@ use taloon::{
     report::AcquisitionSummary,
 };
 use url::Url;
+mod json;
 // Interpret links as tokens arrive; historical tags never become a second
 // document representation. A terminal error invalidates even earlier matches.
 struct HtmlSink<'a> {
@@ -275,7 +276,7 @@ impl PackageIndex {
     fn parse(response: &Response, targets: &BTreeSet<Url>) -> Result<Self, Error> {
         let links =
             if response.content_type.contains("json") || response.body.first() == Some(&b'{') {
-                json_links(response, targets)?
+                json::links(response, targets)?
             } else {
                 html_links(response, targets)?
             };
@@ -311,53 +312,6 @@ pub(super) fn sidecar(
         .sidecar(artifact, locked)
 }
 
-fn json_links(
-    response: &Response,
-    targets: &BTreeSet<Url>,
-) -> Result<BTreeMap<Url, Binding>, Error> {
-    let doc: serde_json::Value = serde_json::from_slice(&response.body).map_err(|_| invalid())?;
-    let version = doc
-        .pointer("/meta/api-version")
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or("1.0");
-    if version.split('.').next() != Some("1") {
-        return Err(invalid());
-    }
-    let files = doc
-        .get("files")
-        .and_then(serde_json::Value::as_array)
-        .ok_or_else(invalid)?;
-    let mut found = BTreeMap::new();
-    for file in files {
-        let Some(url) = file
-            .get("url")
-            .and_then(serde_json::Value::as_str)
-            .and_then(|s| response.url.join(s).ok())
-        else {
-            continue;
-        };
-        let url = normalized(url);
-        if !targets.contains(&url) {
-            continue;
-        }
-        let archive = file
-            .pointer("/hashes/sha256")
-            .and_then(serde_json::Value::as_str)
-            .and_then(digest);
-        let metadata = file
-            .get("core-metadata")
-            .or_else(|| file.get("dist-info-metadata"))
-            .and_then(|v| v.get("sha256"))
-            .and_then(serde_json::Value::as_str)
-            .and_then(digest);
-        record(
-            &mut found,
-            normalized(url),
-            Binding::from_hashes(archive, metadata),
-        );
-    }
-    Ok(found)
-}
 fn html_links(
     response: &Response,
     targets: &BTreeSet<Url>,
@@ -593,3 +547,6 @@ mod tests {
 
 #[cfg(test)]
 mod html_tests;
+
+#[cfg(test)]
+mod json_tests;
