@@ -22,8 +22,8 @@ distinct accounting. A second test covers panicked workers and an empty scope.
    per second with initial/final updates. A real local pseudoterminal verified
    both endpoints with isolated JSON stdout for exits 0/1/2. Piped stderr remains
    quiet in the CLI regression. Display includes only counts and elapsed time.
-4. Boundaries: the callback type belongs to binary acquisition. Clock, terminal
-   detection and rendering belong to the CLI. No public library, permission,
+4. Boundaries: the callback type belongs to binary acquisition. Elapsed-time
+   measurement, terminal detection and rendering belong to the CLI. No public library, permission,
    evidence, scope, timeout or dependency changes were made; the Lean policy
    model is unaffected. Existing Rust tests still execute its corpus adapter.
 5. Integration/performance: all 79 normal Rust tests, strict Clippy, formatting,
@@ -50,3 +50,9 @@ process spawn through report and exit, not inferred from acquisition counters.
 These local measurements are not a remote-download guarantee. No initial online
 latency target is introduced. Interactive rendering adds periodic terminal I/O;
 it does not change which artifacts are inspected or cache policy decisions.
+
+A fresh read-only reviewer found no code findings and independently passed both
+progress tests and the piped JSON CLI test. The same locally built wheel also
+passed actual `uv tool run` pseudoterminal checks on Python 3.14 and 3.15 for
+all three exits, preserving JSON stdout isolation. The measured runtime source
+is committed as `338d219`; these documentation updates do not alter it.

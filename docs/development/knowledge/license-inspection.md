@@ -7,7 +7,7 @@ sources:
 - id: interactive-progress
   resource: ../work/interactive-progress/review.md
   working_tree: untracked
-  sha256: 2c08622b7172df7c0882d094850bf0841dfa8b210319a404ec131fcd45af00ce
+  sha256: c205dcc8ebdabb6a0e22ef34daae56ebef6a342fa4ccdb8208fa96f068c93b8d
 - id: owner
   resource: ../work/initial-design/specification-inputs.md
   working_tree: untracked
