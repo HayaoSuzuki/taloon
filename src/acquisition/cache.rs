@@ -124,7 +124,7 @@ impl EvidenceCache {
     }
     pub(super) fn put(&self, r: &ArtifactRequest, e: &Evidence) -> Result<(), Error> {
         // Validate the association before publishing caller-supplied observations.
-        let e = Evidence::from_record(r, e.to_record())?;
+        let e = e.rebind(r)?;
         fs::create_dir_all(&self.root).map_err(|_| failure())?;
         let mut temporary = tempfile::Builder::new()
             .prefix(".evidence-")

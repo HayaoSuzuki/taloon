@@ -418,3 +418,197 @@ fn cache_clear_rejects_root_symlink_with_redundant_components() {
         assert_eq!(std::fs::read(&record).unwrap(), b"keep");
     }
 }
+
+fn describe_project(root: &Path) {
+    let mit = common::wheel(&common::metadata("License-Expression: MIT"));
+    let bsd = common::wheel(&common::metadata("License-Expression: BSD-3-Clause"));
+    std::fs::write(root.join("mit.whl"), mit).unwrap();
+    std::fs::write(root.join("bsd.whl"), bsd).unwrap();
+    std::fs::write(root.join("uv.lock"),"version=1\nrevision=5\n[[package]]\nname='app'\nversion='1.0'\nsource={virtual='.'}\ndependencies=[{name='example'}]\n[[package]]\nname='example'\nversion='1.0'\nsource={path='mit.whl'}\nwheels=[{path='mit.whl'},{path='bsd.whl'}]\n[[package]]\nname='unrelated'\nversion='1.0'\nsource={path='does-not-exist.whl'}").unwrap();
+}
+#[test]
+fn describe_cli_is_policy_free_selected_and_shares_check_cache() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path();
+    let cache = root.join("cache");
+    describe_project(root);
+    let output = invoke(root, &cache, &["describe", "EXAMPLE", "--format", "json"]);
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    let report = json(&output);
+    assert_eq!(report["command"], "describe");
+    assert_eq!(report["query"], "example");
+    assert_eq!(report["packages"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        report["packages"][0]["licenses"].as_array().unwrap().len(),
+        2
+    );
+    assert_eq!(report["acquisition"]["archive_extractions"], 2);
+    assert_eq!(output.stderr, b"");
+    // An existing policy can be malformed/expired: describe does not read it.
+    std::fs::write(root.join("pyproject.toml"), "not valid toml").unwrap();
+    let output = invoke(
+        root,
+        &cache,
+        &["describe", "example", "--offline", "--format=json"],
+    );
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(json(&output)["acquisition"]["cache_hits"], 2);
+    assert_eq!(json(&output)["acquisition"]["network_requests"], 0);
+    let text = invoke(root, &cache, &["describe", "example", "--offline"]);
+    assert_eq!(text.status.code(), Some(0));
+    let text = String::from_utf8(text.stdout).unwrap();
+    assert!(text.contains("MIT"));
+    assert!(text.contains("BSD-3-Clause"));
+    assert!(!text.contains("Compliant"));
+    // Check can consume the same original evidence even after a describe run.
+    policy(root, "'MIT','BSD-3-Clause'");
+    let check = invoke(root, &cache, &["check", "--offline", "--format", "json"]);
+    assert_eq!(check.status.code(), Some(2)); // unrelated missing artifact remains in check scope
+    assert_eq!(json(&check)["acquisition"]["cache_hits"], 2);
+    let project = invoke(
+        root,
+        &cache,
+        &["describe", "app", "--offline", "--format", "json"],
+    );
+    assert_eq!(project.status.code(), Some(2));
+    let report = json(&project);
+    assert_eq!(report["selection_mode"], "all_external");
+    assert_eq!(report["packages"].as_array().unwrap().len(), 2);
+    assert!(
+        report["packages"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|p| p["name"] != "app")
+    );
+}
+#[test]
+fn describe_cli_reports_its_own_json_errors_and_exact_project_selection() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path();
+    let cache = root.join("cache");
+    describe_project(root);
+    for args in [
+        vec!["describe", "missing", "--format", "json"],
+        vec!["describe", "--format=json"],
+        vec!["describe", "example", "--unknown", "--format", "json"],
+        vec![
+            "describe",
+            "example",
+            "--project",
+            "missing",
+            "--format",
+            "json",
+        ],
+    ] {
+        let output = invoke(root, &cache, &args);
+        assert_eq!(output.status.code(), Some(2));
+        let report = json(&output);
+        assert_eq!(report["command"], "describe");
+        assert_eq!(report["status"], "incomplete");
+        assert_eq!(report["acquisition"]["network_requests"], 0);
+    }
+    let member = root.join("subdir");
+    std::fs::create_dir(&member).unwrap();
+    let output = invoke(
+        &member,
+        &cache,
+        &["describe", "example", "--format", "json"],
+    );
+    assert_eq!(output.status.code(), Some(0));
+    let output = invoke(
+        &member,
+        &cache,
+        &["describe", "example", "--project", ".", "--format", "json"],
+    );
+    assert_eq!(output.status.code(), Some(2));
+    assert_eq!(json(&output)["command"], "describe");
+}
+
+#[test]
+fn describe_cli_redacts_sources_and_escapes_conditions() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path();
+    let hash = taloon::model::ContentHash::digest(b"archive");
+    let lock = format!(
+        "version=1\nrevision=5\n[[package]]\nname='example'\nversion='1.0'\nsource={{registry='https://alice:password@index.test/simple?token=secret'}}\nresolution-markers=[\"\\u001b[31m\"]\nwheels=[{{url='https://alice:password@files.test/example.whl?token=secret',hash='{hash}'}}]\ndependencies=[{{name='example',marker=\"\\u001b[31m\"}}]"
+    );
+    std::fs::write(root.join("uv.lock"), lock).unwrap();
+    for format in ["text", "json"] {
+        let output = invoke(
+            root,
+            &root.join("cache"),
+            &["describe", "example", "--offline", "--format", format],
+        );
+        assert_eq!(output.status.code(), Some(2));
+        let stdout = String::from_utf8(output.stdout.clone()).unwrap();
+        for secret in ["alice", "password", "secret", "\u{1b}"] {
+            assert!(!stdout.contains(secret), "{stdout}");
+        }
+        if format == "json" {
+            assert_eq!(json(&output)["command"], "describe");
+        } else {
+            assert!(stdout.contains("marker:"));
+            assert!(stdout.contains("resolution markers"));
+        }
+    }
+}
+
+#[test]
+fn describe_cli_error_query_uses_python_name_normalization() {
+    let temp = tempfile::tempdir().unwrap();
+    describe_project(temp.path());
+    let output = invoke(
+        temp.path(),
+        &temp.path().join("cache"),
+        &["describe", "MISSING_Name", "--format", "json"],
+    );
+    assert_eq!(output.status.code(), Some(2));
+    assert_eq!(json(&output)["query"], "missing-name");
+}
+
+#[test]
+fn describe_cli_empty_project_and_multiple_source_versions_are_explicit() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path();
+    let cache = root.join("cache");
+    std::fs::write(
+        root.join("uv.lock"),
+        "version=1\nrevision=5\n[[package]]\nname='app'\nversion='1.0'\nsource={virtual='.'}",
+    )
+    .unwrap();
+    let output = invoke(
+        root,
+        &cache,
+        &["describe", "app", "--offline", "--format", "json"],
+    );
+    assert_eq!(output.status.code(), Some(0));
+    let report = json(&output);
+    assert_eq!(report["packages"], serde_json::json!([]));
+    assert_eq!(report["selection_mode"], "all_external");
+    let hash = taloon::model::ContentHash::digest(b"archive");
+    let lock = format!(
+        "version=1\nrevision=5\n[[package]]\nname='example'\nversion='1.0'\nsource={{registry='https://one.test/simple'}}\nwheels=[{{url='https://one.test/a.whl',hash='{hash}'}}]\n[[package]]\nname='example'\nversion='2.0'\nsource={{registry='https://two.test/simple'}}\nwheels=[{{url='https://two.test/a.whl',hash='{hash}'}}]"
+    );
+    std::fs::write(root.join("uv.lock"), lock).unwrap();
+    let output = invoke(
+        root,
+        &cache,
+        &["describe", "example", "--offline", "--format", "json"],
+    );
+    assert_eq!(output.status.code(), Some(2));
+    let report = json(&output);
+    assert_eq!(report["roots"].as_array().unwrap().len(), 2);
+    assert_eq!(report["packages"].as_array().unwrap().len(), 2);
+    assert_eq!(report["packages"][0]["version"], "1.0");
+    assert_eq!(report["packages"][1]["version"], "2.0");
+    assert_eq!(
+        report["packages"][0]["source"]["location"],
+        "https://one.test/simple"
+    );
+    assert_eq!(
+        report["packages"][1]["source"]["location"],
+        "https://two.test/simple"
+    );
+    assert_eq!(report["acquisition"]["network_requests"], 0);
+}

@@ -113,7 +113,7 @@ pub struct ArtifactReport {
     pub diagnostics: Vec<Diagnostic>,
 }
 /// Safe display context for a source; fetch/authentication details remain private.
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct SourceSummary {
     pub kind: SourceKind,
     pub location: String,

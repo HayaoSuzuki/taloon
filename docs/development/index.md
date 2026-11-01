@@ -29,7 +29,7 @@ cargo build --locked --workspace
 
 `rust-toolchain.toml` selects the same compiler for local development and CI.
 Commit `Cargo.lock` whenever dependencies change. The package provides a pure
-inspection library and `taloon check`; crates.io publishing is disabled. Follow the
+inspection/description library and the `check`, `describe` and `cache clear` commands; crates.io publishing is disabled. Follow the
 [user guide](../user/index.md) for installation, runtime options, and supported
 formats, or the [baseline](knowledge/project-baseline.md) for verification scope.
 

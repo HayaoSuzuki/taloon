@@ -1,5 +1,6 @@
 //! Runtime setup and rendering; inspection owns all verdict rules.
-use crate::acquisition::{Acquirer, AcquisitionOptions, EvidenceCache};
+use crate::acquisition::{Acquirer, AcquisitionBatch, AcquisitionOptions, EvidenceCache};
+mod describe;
 use clap::{Parser, Subcommand, ValueEnum};
 use serde::Serialize;
 use std::{
@@ -11,7 +12,7 @@ use std::{
 };
 use taloon::{
     inspection::Inspection,
-    model::{Code, Error, EvaluationDate},
+    model::{ArtifactRequest, Code, Error, EvaluationDate},
     report::{Diagnostic, Report, Status},
 };
 #[derive(Parser)]
@@ -22,6 +23,18 @@ struct Arguments {
 }
 #[derive(Subcommand)]
 enum Command {
+    /// Describe declared licenses of a locked package and its dependencies.
+    Describe {
+        package: String,
+        /// Select the exact directory containing uv.lock.
+        #[arg(long)]
+        project: Option<PathBuf>,
+        #[arg(long, value_enum, default_value = "text")]
+        format: Format,
+        /// Use local artifacts and sufficient cached evidence; never access the network.
+        #[arg(long)]
+        offline: bool,
+    },
     /// Manage taloon's persisted evidence cache.
     Cache {
         #[command(subcommand)]
@@ -60,6 +73,7 @@ struct Envelope<'a> {
 }
 pub(crate) fn run() -> u8 {
     let args: Vec<OsString> = std::env::args_os().collect();
+    let describing = args.get(1).is_some_and(|arg| arg == "describe");
     let format = if args.iter().any(|s| s == "--format=json")
         || args
             .windows(2)
@@ -70,6 +84,21 @@ pub(crate) fn run() -> u8 {
         Format::Text
     };
     match Arguments::try_parse_from(args) {
+        Ok(Arguments {
+            command:
+                Command::Describe {
+                    package,
+                    project,
+                    format,
+                    offline,
+                },
+        }) => {
+            let report =
+                describe::run(project.as_deref(), &package, offline).unwrap_or_else(|error| {
+                    taloon::description::DescriptionReport::from_input_error(&package, error)
+                });
+            describe::emit(&report, format)
+        }
         Ok(Arguments {
             command:
                 Command::Check {
@@ -95,6 +124,13 @@ pub(crate) fn run() -> u8 {
                 2
             }
         }
+        Err(_) if describing => describe::emit(
+            &taloon::description::DescriptionReport::from_input_error(
+                "",
+                input("invalid command line; run taloon describe --help"),
+            ),
+            format,
+        ),
         Err(_) => emit(
             &Report::from_input_error(Error::new(
                 Code::Configuration,
@@ -124,8 +160,7 @@ fn clear_cache() -> u8 {
     2
 }
 fn check(project: Option<&Path>, offline: bool) -> Result<Report, Error> {
-    let cwd = std::env::current_dir().map_err(|_| input("cannot determine current directory"))?;
-    let root = project.map_or_else(|| discover(&cwd), |p| Ok(cwd.join(p)))?;
+    let root = project_root(project)?;
     let lock = read_document(
         &root.join("uv.lock"),
         64 * 1024 * 1024,
@@ -138,6 +173,21 @@ fn check(project: Option<&Path>, offline: bool) -> Result<Report, Error> {
     )?;
     let date = EvaluationDate::parse(&time::OffsetDateTime::now_utc().date().to_string())?;
     let inspection = Inspection::from_documents(&lock, &config, date)?;
+    let batch = acquire(root, offline, inspection.requests())?;
+    Ok(inspection
+        .evaluate(batch.results)
+        .with_warnings(batch.warnings)
+        .with_acquisition_summary(batch.summary))
+}
+fn project_root(project: Option<&Path>) -> Result<PathBuf, Error> {
+    let cwd = std::env::current_dir().map_err(|_| input("cannot determine current directory"))?;
+    project.map_or_else(|| discover(&cwd), |p| Ok(cwd.join(p)))
+}
+fn acquire(
+    root: PathBuf,
+    offline: bool,
+    requests: &[ArtifactRequest],
+) -> Result<AcquisitionBatch, Error> {
     let home = std::env::var_os("HOME").map(PathBuf::from);
     let netrc = selected_netrc(
         std::env::var_os("NETRC").map(PathBuf::from),
@@ -153,7 +203,7 @@ fn check(project: Option<&Path>, offline: bool) -> Result<Report, Error> {
     let interactive = std::io::stderr().is_terminal();
     let started = Instant::now();
     let mut last_render = None;
-    let batch = acquirer.acquire_with_progress(inspection.requests(), |progress| {
+    let batch = acquirer.acquire_with_progress(requests, |progress| {
         if !interactive {
             return;
         }
@@ -176,10 +226,7 @@ fn check(project: Option<&Path>, offline: bool) -> Result<Report, Error> {
     if interactive {
         let _ = writeln!(std::io::stderr());
     }
-    Ok(inspection
-        .evaluate(batch.results)
-        .with_warnings(batch.warnings)
-        .with_acquisition_summary(batch.summary))
+    Ok(batch)
 }
 fn input(message: &str) -> Error {
     Error::new(Code::Configuration, message)

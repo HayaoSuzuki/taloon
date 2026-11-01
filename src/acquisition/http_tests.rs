@@ -1118,3 +1118,55 @@ fn two_distinct_sidecar_associations_survive_offline_warmup() {
     assert_eq!(batch.summary.cache_hits, 2);
     assert_eq!(i.evaluate(batch.results).exit_code(false), 0);
 }
+
+#[test]
+fn description_acquires_only_selected_remote_artifacts_and_reuses_evidence() {
+    use taloon::description::Description;
+    let temp = tempfile::tempdir().unwrap();
+    let fixture = Fixture::default();
+    let meta = crate::testfixtures::metadata("License-Expression: MIT");
+    let bytes = crate::testfixtures::wheel(&meta);
+    let hash = ContentHash::digest(&bytes);
+    let mh = ContentHash::digest(&meta)
+        .to_string()
+        .replace("sha256:", "");
+    let digest = hash.to_string().replace("sha256:", "");
+    let lock = format!(
+        "version=1\nrevision=5\n[[package]]\nname='example'\nversion='1.0'\nsource={{registry='https://index.test/simple'}}\nwheels=[{{url='https://files.test/selected.whl',hash='{hash}'}}]\n[[package]]\nname='unrelated'\nversion='1.0'\nsource={{registry='https://other.test/simple'}}\nwheels=[{{url='https://other.test/unrelated.whl',hash='{hash}'}}]"
+    );
+    fixture.add("https://index.test/simple/example/",200,format!("{{\"files\":[{{\"url\":\"https://files.test/selected.whl\",\"hashes\":{{\"sha256\":\"{digest}\"}},\"core-metadata\":{{\"sha256\":\"{mh}\"}}}}]}}").as_bytes());
+    fixture.add("https://files.test/selected.whl.metadata", 200, &meta);
+    let description = Description::from_uv_lock(&lock, "example").unwrap();
+    let acquirer = Acquirer::with_transport(
+        AcquisitionOptions::testing(temp.path(), false),
+        fixture.clone(),
+    )
+    .unwrap();
+    let batch = acquirer.acquire(description.requests());
+    assert_eq!(batch.summary.network_requests, 2);
+    assert_eq!(description.evaluate(batch.results).exit_code(), 0);
+    let urls: Vec<_> = fixture
+        .calls
+        .lock()
+        .unwrap()
+        .iter()
+        .map(|c| c.url.clone())
+        .collect();
+    assert_eq!(
+        urls,
+        [
+            "https://index.test/simple/example/",
+            "https://files.test/selected.whl.metadata"
+        ]
+    );
+    let offline = Acquirer::with_transport(
+        AcquisitionOptions::testing(temp.path(), true),
+        fixture.clone(),
+    )
+    .unwrap();
+    let batch = offline.acquire(description.requests());
+    assert_eq!(batch.summary.cache_hits, 1);
+    assert_eq!(batch.summary.network_requests, 0);
+    assert_eq!(description.evaluate(batch.results).exit_code(), 0);
+    assert_eq!(fixture.count(), 2);
+}

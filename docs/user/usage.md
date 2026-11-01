@@ -61,6 +61,67 @@ failed lookup falls back independently to archive verification. Index snapshots
 are kept only in memory for that check; the next check fetches afresh when
 cached artifact evidence is insufficient.
 
+## Describe package licenses
+
+```sh
+taloon describe requests
+taloon describe requests --offline
+taloon describe requests --project /path/to/project --format json
+```
+
+`describe` reads the selected `uv.lock` and displays the named package and its
+transitive dependency licenses. It uses the same upward lock discovery and
+exact `--project` directory selection as `check`. It does not require or read
+`pyproject.toml` or `[tool.taloon]`: allowlists, exceptions, clarifications,
+custom-license definitions and their expiry do not alter these observations.
+It reports declared licenses without granting permission.
+
+Names use Python normalization (case and runs of `-`, `_`, `.`). Every matching
+locked version/source is included and identified separately. For an external
+package, traversal includes normal dependencies and every recorded extra at
+every level, across all locked environment branches. Development edges are
+excluded in this mode. Extra names, requested extras, edge markers and package
+resolution markers remain annotations; the output describes locked alternatives,
+not just the current environment or simultaneously active dependencies.
+
+Naming a project or workspace member displays **all external records**, exactly
+the inventory used by `check`, including development, transitive, unsupported
+and unreachable records. Own/workspace license observations are excluded. If a
+name matches both workspace and external identities, this whole-inventory mode
+wins. Workspace nodes can still appear as dependency-routing context, with their
+own license explicitly excluded. Missing package names fail; no index search or
+dependency re-resolution is performed.
+
+Each selected package is listed once, with its version, redacted source,
+license groups and annotated dependency relationships. Cycles/shared dependencies
+retain their edges without recursive expansion. Every recorded wheel/sdist is
+an evidence target. Equal validated expression text is grouped with artifact
+counts; different declarations are listed separately and never joined into an
+invented AND/OR expression. Unknown/invalid declarations and unsupported targets
+remain visible, alongside available observations. A syntactically valid
+LicenseRef is displayed as declared without supplying its definition or permission.
+
+Evidence verification, provenance, acquisition limits, credentials, progress and
+the persisted evidence cache are shared with `check`. Only selected artifacts
+are acquired. `--offline` prohibits network access; missing or insufficient
+cached evidence can make a description incomplete. A record acquired by either
+command can be reused by the other when its identity and proof are sufficient.
+
+Exit 0 means complete valid declarations for all selected external targets;
+exit 2 means an input error or incomplete description. Different valid licenses
+alone are not an error, and there is no permission-violation exit 1. Warnings
+remain warnings when declarations are usable. Partial observations are printed
+with an incomplete result. An empty project inventory can complete successfully.
+
+`--format json` emits one schema-version-1 describe object, including startup
+errors, with `command: "describe"`, `query`, `roots`, `selection_mode`,
+`status` (`complete`/`incomplete`), `packages`, annotated `graph`, `diagnostics`,
+`acquisition` and `exit_code`. Each license group contains its exact expression
+and artifact IDs; every artifact retains its observed metadata/proof and
+failure diagnostics. This schema is separate from check's permission report.
+Progress is confined to interactive stderr. `describe` does not accept
+`--deny-warnings`, version/source filters or extra/environment selectors.
+
 ## Cache and offline mode
 
 Set `TALOON_CACHE_DIR` to isolate or relocate the evidence cache. Defaults use
@@ -91,7 +152,7 @@ matching existing cache writes; prefer an explicit dedicated directory.
 The cache stores observed declarations and provenance, never permission verdicts.
 The first online check may take substantially longer than a cached check because
 it acquires evidence for every recorded artifact across all locked environments.
-Policy is re-evaluated each run. Corrupt/incompatible records are misses; cache
+`check` re-evaluates policy each run. Corrupt/incompatible records are misses; cache
 read/write failures warn while available evidence remains usable. Offline mode
 makes no network calls and retains the full target scope. Missing or insufficient
 cached proof yields exit 2. A new clarification can require archive acquisition

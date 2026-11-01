@@ -4,6 +4,14 @@ title: Pure core and acquisition boundary
 description: Approved deep modules and request/result API for license inspection without core I/O.
 status: accepted
 sources:
+- id: describe-review
+  resource: ../work/describe-licenses/implementation-review.md
+  working_tree: modified
+  sha256: da2011db34cf05805f633424b8c977d54a204f09fed2befa5a664eafa3d2bc34
+- id: describe-design
+  resource: ../work/describe-licenses/design.md
+  working_tree: modified
+  sha256: 739306eecb05253fec189602923098bd44db6416c2288ca57ef126b12f4b2458
 - id: acquisition-measurements
   resource: ../work/index-acquisition/measurements.md
   working_tree: modified
@@ -256,3 +264,21 @@ may vary during a single call; either would invalidate the sealed-scope
 premise.[^acquisition-measurements]
 
 [^acquisition-measurements]: [Measured acquisition and stage reviews](../work/index-acquisition/measurements.md).
+
+# Description boundary
+
+The implemented describe boundary keeps selection/conditional-edge knowledge in resolution,
+original declarations and completeness in a policy-free description surface,
+and request fulfillment/cache in the existing acquisition runtime. It does not
+run a full check and filter after acquisition, or add display flags throughout
+permission evaluation. The public Description surface accepts lock text/name, returns selected artifact
+requests and evaluates observations into a typed description report. Runtime
+acquisition/progress is shared with check; resolution retains private graph
+selection knowledge. No policy/date/I/O enters Description.[^describe-design]
+
+[^describe-design]: [Proposed description ownership and alternatives](../work/describe-licenses/design.md).
+
+Implementation evidence and staged review limits are recorded separately from
+the approved design.[^describe-review]
+
+[^describe-review]: [Staged implementation and validation](../work/describe-licenses/implementation-review.md).

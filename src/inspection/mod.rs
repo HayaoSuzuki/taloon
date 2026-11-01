@@ -13,6 +13,10 @@ pub struct AcquisitionResult {
     result: Result<Evidence, Error>,
 }
 impl AcquisitionResult {
+    pub(crate) fn into_parts(self) -> (RequestId, Result<Evidence, Error>) {
+        (self.id, self.result)
+    }
+
     #[must_use]
     pub fn observed(id: RequestId, evidence: Evidence) -> Self {
         Self {
@@ -166,7 +170,7 @@ impl Inspection {
         let evaluation = (|| {
             // Rebind observations through the evidence owner: caller-supplied result IDs are not proof.
             let evidence = result?;
-            let evidence = Evidence::from_record(request, evidence.to_record())?;
+            let evidence = evidence.rebind(request)?;
             report.evidence = Some(evidence.summary());
             report.diagnostics.extend(
                 evidence

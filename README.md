@@ -20,8 +20,16 @@ taloon check
 taloon check --format json
 ```
 
-Exit codes are `0` for compliance, `1` for a policy violation or escalated warning,
-and `2` for invalid input or incomplete inspection.
+To display a locked package's licenses and its transitive dependencies without
+configuring a permission policy:
+
+```sh
+taloon describe requests
+```
+
+For `check`, exit codes are `0` for compliance, `1` for a policy violation or escalated warning,
+and `2` for invalid input or incomplete inspection. `describe` uses `0` for a
+complete description and `2` for invalid input or incomplete license information.
 
 ## Documentation
 
