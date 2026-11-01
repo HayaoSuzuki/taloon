@@ -4,6 +4,10 @@ title: License inspection specification
 description: Approved design for uv.lock coverage, Python license policy, evidence, and command behavior.
 status: accepted
 sources:
+- id: interactive-progress
+  resource: ../work/interactive-progress/review.md
+  working_tree: untracked
+  sha256: c205dcc8ebdabb6a0e22ef34daae56ebef6a342fa4ccdb8208fa96f068c93b8d
 - id: owner
   resource: ../work/initial-design/specification-inputs.md
   working_tree: untracked
@@ -252,6 +256,13 @@ for one versioned JSON report and send incidental diagnostics to stderr. Text
 mode summarizes successful checks and groups failures by package and artifact.
 Schema versioning and rendering are implementer choices under Q28.[^owner]
 
+Interactive stderr displays acquisition progress as processed/total artifact
+counts and elapsed time, including during network waits. Counts include terminal
+failures and do not decide compliance. The progress stream contains no package
+or source details. Redirected stderr suppresses progress; JSON stdout remains
+one final report. This presentation is owned by the binary, with no I/O added
+to the pure inspection library.[^interactive-progress]
+
 | Exit | Meaning |
 | --- | --- |
 | `0` | Complete check, all targets comply, no escalated warnings. |
@@ -300,3 +311,5 @@ prerequisites.[^owner]
 [^expressions]: [Python License Expression specification](https://packaging.python.org/en/latest/specifications/license-expression/).
 [^simple-api]: [Simple Repository API](https://packaging.python.org/en/latest/specifications/simple-repository-api/).
 [^uv-roots]: [uv lock implementation at the inspected revision](https://github.com/astral-sh/uv/blob/d041e5700a7bb39bff687ebbba4f6f6f2bda5cc8/crates/uv-lock/src/lock/mod.rs).
+
+[^interactive-progress]: [Interactive progress tests and review](../work/interactive-progress/review.md).

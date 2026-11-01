@@ -66,7 +66,7 @@ mod http;
 #[cfg(test)]
 mod http_tests;
 mod index;
-use std::{collections::BTreeMap, path::PathBuf};
+use std::{collections::BTreeMap, path::PathBuf, sync::mpsc, time::Duration};
 use taloon::{inspection::AcquisitionResult, model::EvidenceRequirement};
 pub(crate) struct AcquisitionOptions {
     pub project_dir: PathBuf,
@@ -90,6 +90,13 @@ pub(crate) struct AcquisitionBatch {
     pub results: Vec<AcquisitionResult>,
     pub warnings: Vec<Diagnostic>,
     pub summary: AcquisitionSummary,
+}
+/// Terminal outcomes accounted for, including failures. No package details leave
+/// acquisition through this channel; the caller owns display and timing policy.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct AcquisitionProgress {
+    pub completed: usize,
+    pub total: usize,
 }
 pub(crate) struct Acquirer {
     options: AcquisitionOptions,
@@ -118,7 +125,20 @@ impl Acquirer {
             http: http::Http::new(transport, auth),
         })
     }
-    pub(crate) fn acquire(&self, requests: &[ArtifactRequest]) -> AcquisitionBatch {
+    #[cfg(test)]
+    fn acquire(&self, requests: &[ArtifactRequest]) -> AcquisitionBatch {
+        self.acquire_with_progress(requests, |_| {})
+    }
+    pub(crate) fn acquire_with_progress(
+        &self,
+        requests: &[ArtifactRequest],
+        mut observe: impl FnMut(AcquisitionProgress),
+    ) -> AcquisitionBatch {
+        let mut progress = AcquisitionProgress {
+            completed: 0,
+            total: requests.len(),
+        };
+        observe(progress);
         // Keep shared-content jobs in one worker. Requests still receive distinct results.
         let mut grouped: BTreeMap<String, Vec<&ArtifactRequest>> = BTreeMap::new();
         for request in requests {
@@ -134,9 +154,11 @@ impl Acquirer {
             partitions[n % workers].extend(group);
         }
         std::thread::scope(|scope| {
+            let (completed_tx, completed_rx) = mpsc::channel();
             let jobs: Vec<_> = partitions
                 .iter()
                 .map(|partition| {
+                    let completed_tx = completed_tx.clone();
                     (
                         partition,
                         scope.spawn(move || {
@@ -160,12 +182,24 @@ impl Acquirer {
                                     Ok(e) => AcquisitionResult::observed(request.id(), e),
                                     Err(e) => AcquisitionResult::failed(request.id(), e),
                                 });
+                                let _ = completed_tx.send(());
                             }
                             batch
                         }),
                     )
                 })
                 .collect();
+            drop(completed_tx);
+            // Keep reporting while a worker is awaiting network I/O. Joining
+            // the workers first would hide both completions and stalled requests.
+            loop {
+                match completed_rx.recv_timeout(Duration::from_secs(1)) {
+                    Ok(()) => progress.completed += 1,
+                    Err(mpsc::RecvTimeoutError::Timeout) => {}
+                    Err(mpsc::RecvTimeoutError::Disconnected) => break,
+                }
+                observe(progress);
+            }
             let mut batch = AcquisitionBatch::default();
             for (partition, job) in jobs {
                 match job.join() {
@@ -186,6 +220,11 @@ impl Acquirer {
                         }));
                     }
                 }
+            }
+            if progress.completed != batch.results.len() {
+                // Panicked workers become terminal failures when joined.
+                progress.completed = batch.results.len();
+                observe(progress);
             }
             batch
         })

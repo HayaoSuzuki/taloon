@@ -80,6 +80,121 @@ impl Transport for Fixture {
         })
     }
 }
+
+#[test]
+fn acquisition_progress_starts_and_ticks_while_transport_is_blocked() {
+    use std::{sync::mpsc, time::Duration};
+    struct Held {
+        fixture: Fixture,
+        entered: mpsc::Sender<()>,
+        release: Mutex<mpsc::Receiver<()>>,
+        started: std::sync::atomic::AtomicBool,
+    }
+    impl Transport for Held {
+        fn send(
+            &self,
+            url: &url::Url,
+            auth: Option<&Credentials>,
+            accept: &str,
+            limit: u64,
+            stats: &mut AcquisitionSummary,
+        ) -> Result<Response, Error> {
+            if !self.started.swap(true, std::sync::atomic::Ordering::SeqCst) {
+                self.entered.send(()).unwrap();
+                self.release.lock().unwrap().recv().unwrap();
+            }
+            self.fixture.send(url, auth, accept, limit, stats)
+        }
+    }
+    let temp = tempfile::tempdir().unwrap();
+    let bytes =
+        crate::testfixtures::wheel(&crate::testfixtures::metadata("License-Expression: MIT"));
+    let fixture = Fixture::default();
+    fixture.add("https://files.test/a.whl", 200, &bytes);
+    fixture.add("https://files.test/b.whl", 200, &bytes);
+    let requests = fixture_inspection(&bytes, false).requests().to_vec();
+    let total = requests.len();
+    let (entered_tx, entered_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    let acquirer = Acquirer::with_transport(
+        AcquisitionOptions::testing(temp.path(), false),
+        Held {
+            fixture,
+            entered: entered_tx,
+            release: Mutex::new(release_rx),
+            started: std::sync::atomic::AtomicBool::new(false),
+        },
+    )
+    .unwrap();
+    let (progress_tx, progress_rx) = mpsc::channel();
+    let worker = std::thread::spawn(move || {
+        acquirer.acquire_with_progress(&requests, |progress| {
+            let _ = progress_tx.send(progress);
+        })
+    });
+    let first = progress_rx.recv_timeout(Duration::from_secs(3)).unwrap();
+    assert_eq!((first.completed, first.total), (0, total));
+    entered_rx.recv_timeout(Duration::from_secs(3)).unwrap();
+    let waiting = progress_rx.recv_timeout(Duration::from_secs(3)).unwrap();
+    assert_eq!((waiting.completed, waiting.total), (0, total));
+    release_tx.send(()).unwrap();
+    let batch = worker.join().unwrap();
+    assert_eq!(batch.results.len(), total);
+    let remaining: Vec<_> = progress_rx.try_iter().collect();
+    assert_eq!(remaining.last().unwrap().completed, total);
+    assert!(
+        remaining
+            .iter()
+            .all(|p| p.completed <= p.total && p.total == total)
+    );
+    assert!(
+        remaining
+            .windows(2)
+            .all(|p| p[0].completed <= p[1].completed)
+    );
+}
+
+#[test]
+fn acquisition_progress_accounts_for_panicked_workers_and_empty_scope() {
+    struct Panicking;
+    impl Transport for Panicking {
+        fn send(
+            &self,
+            _url: &url::Url,
+            _auth: Option<&Credentials>,
+            _accept: &str,
+            _limit: u64,
+            _stats: &mut AcquisitionSummary,
+        ) -> Result<Response, Error> {
+            panic!("synthetic transport panic");
+        }
+    }
+    let temp = tempfile::tempdir().unwrap();
+    let bytes =
+        crate::testfixtures::wheel(&crate::testfixtures::metadata("License-Expression: MIT"));
+    let inspection = fixture_inspection(&bytes, false);
+    let acquirer =
+        Acquirer::with_transport(AcquisitionOptions::testing(temp.path(), false), Panicking)
+            .unwrap();
+    let mut progress = Vec::new();
+    let batch = acquirer.acquire_with_progress(inspection.requests(), |p| progress.push(p));
+    assert_eq!(batch.results.len(), inspection.requests().len());
+    assert_eq!(
+        progress.last().unwrap().completed,
+        inspection.requests().len()
+    );
+    assert_eq!(inspection.evaluate(batch.results).exit_code(false), 2);
+    progress.clear();
+    let batch = acquirer.acquire_with_progress(&[], |p| progress.push(p));
+    assert!(batch.results.is_empty());
+    assert_eq!(
+        progress,
+        vec![AcquisitionProgress {
+            completed: 0,
+            total: 0
+        }]
+    );
+}
 fn fixture_inspection(bytes: &[u8], required: bool) -> Inspection {
     let hash = ContentHash::digest(bytes);
     let lock = format!(
