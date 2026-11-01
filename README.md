@@ -5,7 +5,7 @@ and transitive dependencies. Implemented in Rust.
 
 ## Usage
 
-Add a license policy to the `pyproject.toml` next to your `uv.lock`:
+Add a license policy to the `pyproject.toml` in the same directory as `uv.lock`:
 
 ```toml
 [tool.taloon]
