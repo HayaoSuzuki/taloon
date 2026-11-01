@@ -6,7 +6,7 @@ use super::{
 use html5ever::{
     tendril::StrTendril,
     tokenizer::{
-        BufferQueue, TagKind, Token, TokenSink, TokenSinkResult, Tokenizer, TokenizerOpts,
+        BufferQueue, Tag, TagKind, Token, TokenSink, TokenSinkResult, Tokenizer, TokenizerOpts,
     },
 };
 use std::{
@@ -21,11 +21,20 @@ use taloon::{
     report::AcquisitionSummary,
 };
 use url::Url;
-#[derive(Default)]
-struct Links {
-    tags: RefCell<Vec<(String, BTreeMap<String, String>)>>,
+mod json;
+// Interpret links as tokens arrive; historical tags never become a second
+// document representation. A terminal error invalidates even earlier matches.
+struct HtmlSink<'a> {
+    state: RefCell<Result<HtmlIndex<'a>, Error>>,
 }
-impl TokenSink for Links {
+struct HtmlIndex<'a> {
+    response_url: &'a Url,
+    targets: &'a BTreeSet<Url>,
+    // None means no base with href has been encountered yet.
+    base: Option<Url>,
+    found: BTreeMap<Url, Binding>,
+}
+impl TokenSink for HtmlSink<'_> {
     type Handle = ();
     fn process_token(&self, token: Token, _line: u64) -> TokenSinkResult<()> {
         if let Token::TagToken(tag) = token
@@ -43,20 +52,69 @@ impl TokenSink for Links {
             if matches!(tag.name.as_ref(), "textarea" | "title") {
                 return TokenSinkResult::RawData(html5ever::tokenizer::states::RawKind::Rcdata);
             }
-            if !matches!(tag.name.as_ref(), "a" | "base" | "meta") {
-                return TokenSinkResult::Continue;
+            if matches!(tag.name.as_ref(), "a" | "base" | "meta") {
+                let mut state = self.state.borrow_mut();
+                if let Ok(index) = state.as_mut()
+                    && let Err(error) = index.record_tag(&tag)
+                {
+                    *state = Err(error);
+                }
             }
-            self.tags.borrow_mut().push((
-                tag.name.to_string(),
-                tag.attrs
-                    .into_iter()
-                    .map(|a| (a.name.local.to_string(), a.value.to_string()))
-                    .collect(),
-            ));
         }
         TokenSinkResult::Continue
     }
 }
+impl HtmlIndex<'_> {
+    fn record_tag(&mut self, tag: &Tag) -> Result<(), Error> {
+        let name = tag.name.as_ref();
+        // Borrow tokenizer-owned values. Reverse lookup preserves the old map's
+        // last-local-name rule without allocating another attribute map.
+        let attr = |name: &str| {
+            tag.attrs
+                .iter()
+                .rev()
+                .find(|a| a.name.local.as_ref() == name)
+                .map(|a| a.value.as_ref())
+        };
+        if name == "base" && self.base.is_none() {
+            if let Some(href) = attr("href") {
+                self.base = Some(self.response_url.join(href).map_err(|_| invalid())?);
+            }
+            return Ok(());
+        }
+        if name == "meta"
+            && attr("name").is_some_and(|s| s == "pypi:repository-version")
+            && attr("content").is_some_and(|s| s.split('.').next() != Some("1"))
+        {
+            return Err(invalid());
+        }
+        if name != "a" {
+            return Ok(());
+        }
+        let base = self.base.as_ref().unwrap_or(self.response_url);
+        let Some(url) = attr("href").and_then(|s| base.join(s).ok()) else {
+            return Ok(());
+        };
+        if !self.targets.contains(&normalized(url.clone())) {
+            return Ok(());
+        }
+        let archive = url
+            .fragment()
+            .and_then(|s| s.strip_prefix("sha256="))
+            .and_then(digest);
+        let metadata = attr("data-core-metadata")
+            .or_else(|| attr("data-dist-info-metadata"))
+            .and_then(|s| s.strip_prefix("sha256="))
+            .and_then(digest);
+        record(
+            &mut self.found,
+            normalized(url),
+            Binding::from_hashes(archive, metadata),
+        );
+        Ok(())
+    }
+}
+
 fn digest(hex: &str) -> Option<ContentHash> {
     ContentHash::parse(&format!("sha256:{hex}")).ok()
 }
@@ -218,7 +276,7 @@ impl PackageIndex {
     fn parse(response: &Response, targets: &BTreeSet<Url>) -> Result<Self, Error> {
         let links =
             if response.content_type.contains("json") || response.body.first() == Some(&b'{') {
-                json_links(response, targets)?
+                json::links(response, targets)?
             } else {
                 html_links(response, targets)?
             };
@@ -254,53 +312,6 @@ pub(super) fn sidecar(
         .sidecar(artifact, locked)
 }
 
-fn json_links(
-    response: &Response,
-    targets: &BTreeSet<Url>,
-) -> Result<BTreeMap<Url, Binding>, Error> {
-    let doc: serde_json::Value = serde_json::from_slice(&response.body).map_err(|_| invalid())?;
-    let version = doc
-        .pointer("/meta/api-version")
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or("1.0");
-    if version.split('.').next() != Some("1") {
-        return Err(invalid());
-    }
-    let files = doc
-        .get("files")
-        .and_then(serde_json::Value::as_array)
-        .ok_or_else(invalid)?;
-    let mut found = BTreeMap::new();
-    for file in files {
-        let Some(url) = file
-            .get("url")
-            .and_then(serde_json::Value::as_str)
-            .and_then(|s| response.url.join(s).ok())
-        else {
-            continue;
-        };
-        let url = normalized(url);
-        if !targets.contains(&url) {
-            continue;
-        }
-        let archive = file
-            .pointer("/hashes/sha256")
-            .and_then(serde_json::Value::as_str)
-            .and_then(digest);
-        let metadata = file
-            .get("core-metadata")
-            .or_else(|| file.get("dist-info-metadata"))
-            .and_then(|v| v.get("sha256"))
-            .and_then(serde_json::Value::as_str)
-            .and_then(digest);
-        record(
-            &mut found,
-            normalized(url),
-            Binding::from_hashes(archive, metadata),
-        );
-    }
-    Ok(found)
-}
 fn html_links(
     response: &Response,
     targets: &BTreeSet<Url>,
@@ -308,56 +319,18 @@ fn html_links(
     let text = std::str::from_utf8(&response.body).map_err(|_| invalid())?;
     let input = BufferQueue::default();
     input.push_back(StrTendril::from(text));
-    let tokenizer = Tokenizer::new(Links::default(), TokenizerOpts::default());
+    let sink = HtmlSink {
+        state: RefCell::new(Ok(HtmlIndex {
+            response_url: &response.url,
+            targets,
+            base: None,
+            found: BTreeMap::new(),
+        })),
+    };
+    let tokenizer = Tokenizer::new(sink, TokenizerOpts::default());
     let _ = tokenizer.feed(&input);
     tokenizer.end();
-    let tags = tokenizer.sink.tags.into_inner();
-    let mut base = response.url.clone();
-    let mut base_seen = false;
-    let mut found = BTreeMap::new();
-    for (name, attrs) in tags {
-        if name == "base" && !base_seen {
-            if let Some(href) = attrs.get("href") {
-                base = response.url.join(href).map_err(|_| invalid())?;
-                base_seen = true;
-            }
-            continue;
-        }
-        if name == "meta"
-            && attrs
-                .get("name")
-                .is_some_and(|s| s == "pypi:repository-version")
-            && attrs
-                .get("content")
-                .is_some_and(|s| s.split('.').next() != Some("1"))
-        {
-            return Err(invalid());
-        }
-        if name != "a" {
-            continue;
-        }
-        let Some(url) = attrs.get("href").and_then(|s| base.join(s).ok()) else {
-            continue;
-        };
-        if !targets.contains(&normalized(url.clone())) {
-            continue;
-        }
-        let archive = url
-            .fragment()
-            .and_then(|s| s.strip_prefix("sha256="))
-            .and_then(digest);
-        let metadata = attrs
-            .get("data-core-metadata")
-            .or_else(|| attrs.get("data-dist-info-metadata"))
-            .and_then(|s| s.strip_prefix("sha256="))
-            .and_then(digest);
-        record(
-            &mut found,
-            normalized(url),
-            Binding::from_hashes(archive, metadata),
-        );
-    }
-    Ok(found)
+    tokenizer.sink.state.into_inner().map(|index| index.found)
 }
 
 #[cfg(test)]
@@ -571,3 +544,9 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod html_tests;
+
+#[cfg(test)]
+mod json_tests;

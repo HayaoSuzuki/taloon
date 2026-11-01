@@ -4,6 +4,34 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: typed-acquisition-review
+  resource: ../work/typed-acquisition/review.md
+  working_tree: modified
+  sha256: 00daddabad915d492d1583acaff483a254849c01dccbf3ddb26de235cdc30605
+- id: terminal-text-review
+  resource: ../work/terminal-text/review.md
+  working_tree: untracked
+  sha256: cb3282d33446737e80e3432c30dd0710a7624ef4f306b61aa64d91127ada745e
+- id: html-index-filtering-review
+  resource: ../work/html-index-filtering/review.md
+  working_tree: untracked
+  sha256: f040c5b2244aa4d8e5dcaa5c6762316c0a59a1d85e193b32269d1983154b3f55
+- id: evidence-ownership-review
+  resource: ../work/evidence-ownership/review.md
+  working_tree: untracked
+  sha256: 9da1686b4f85fe2e04ea4f700aea467fd9ca15b8678e4459b53699adb5a33d78
+- id: permission-unit-review
+  resource: ../work/permission-units/review.md
+  working_tree: untracked
+  sha256: 38137e298604b7ba9efc0d82deda8f5ca649d9106e7005866847968929f08eca
+- id: policy-evaluation-review
+  resource: ../work/policy-evaluation/review.md
+  working_tree: untracked
+  sha256: fb1ab90f04a90894c3876baf58456f31b3e08be6661077e217065f1d91037ef7
+- id: core-design-review
+  resource: ../work/core-accounting-and-resolution/review.md
+  working_tree: untracked
+  sha256: 9dbaff1fe9d2990398de44ec0ee376a531b48e8ae67bf9826a424d62cb870434
 - id: describe-model
   resource: ../../../formal/TaloonOracle/README.md
   working_tree: modified
@@ -185,3 +213,114 @@ for sensitivity witnesses, finite bounds and observed results.[^describe-model]
 
 [^random-order-reference]: [Inspected hoimin nightly shuffle job](https://github.com/HayaoSuzuki/hoimin/blob/39d35f3980c428ab15258b519a233b86f1551ffa/.github/workflows/ci.yml).
 [^random-order-review]: [Randomized test-order verification and review](../work/randomized-tests-and-python-checks/review.md).
+
+
+# Core observation and graph refactoring evidence
+
+The shared observation ledger is checked through both public command surfaces,
+using independent cardinalities, arrival permutations and failed duplicates.
+Existing Lean completeness expectations remain unchanged and the strict Rust
+adapter still exercises Inspection::evaluate. Enum storage and performance are
+outside the Lean claim. Generated DFS enumeration supplies an independent
+shortest-path oracle; fixed regressions cover cyclic extras, tie order and marker
+provenance. Debug redaction has fixed and generated cases plus a persisted
+minimal witness. The [stage record](../work/core-accounting-and-resolution/review.md)
+separates model proofs, exercised correspondence, red/green regression evidence,
+fuzz bounds and measured timings.[^core-design-review]
+
+[^core-design-review]: [Core assessment and staged reviews](../work/core-accounting-and-resolution/review.md).
+
+
+# Scoped policy follow-up evidence
+
+Public fixed/generated tests check the indexed policy against integer
+identity/hash selectors: additive Boolean permissions, original exception IDs
+and order, normalized identities, custom proof requirements, hashless observed
+content, all-OR-unit usage and clarification warnings. The unchanged Lean corpus
+and strict adapter retain their original scope; no model theorem about the new
+private map is asserted. Synthetic timing samples and limits are in the
+[policy measurement record](../work/policy-evaluation/performance.md).[^policy-evaluation-review]
+
+[^policy-evaluation-review]: [Policy evaluation assessment and staged review](../work/policy-evaluation/review.md).
+
+
+# Permission unit invariants
+
+Public constructor regressions and 256-case generated checks cover atomic
+validation, custom WITH scope/proof requirements and canonical Eq/Ord/Borrow
+coherence. Positive catalogue sampling follows the existing strict parser's
+supported subset; fixed negatives retain rejected GNU-plus spellings. These
+checks do not establish independent parser correctness or expand the existing
+Lean model. The [measurement record](../work/permission-units/performance.md)
+separates the type guarantee from timing observations.[^permission-unit-review]
+
+[^permission-unit-review]: [Validated permission unit assessment and reviews](../work/permission-units/review.md).
+
+
+# Immutable payload correspondence
+
+Named archive/sidecar/hashless cases preserve exact rebinding outcomes and error
+codes. A 256-case generated cloning property preserves declarations, future-minor
+warnings and proof strength. Existing cache corruption, bounded expansion and
+concurrent-publication tests retain wire/validation coverage. Stable and shuffled
+suites, metadata/inspection fuzz and unchanged Lean corpus adapters provide
+separate finite evidence. Arc allocation, serde implementation and performance
+are outside the Lean theorem claims; the staged record identifies those limits
+and the fresh whole-PR reviewer.[^evidence-ownership-review]
+
+[^evidence-ownership-review]: [Immutable payload staged review](../work/evidence-ownership/review.md).
+
+
+# HTML streaming preservation
+
+Named HTML cases preserve base encounter order, raw-text/RCDATA suppression,
+late version errors, duplicate target rejection and attribute precedence. A
+256-case generated property derives expected absolute URLs independently from
+base encounter order and irrelevant history. The unchanged index model adapter
+still exercises both representation parsers; it does not prove html5ever or
+arbitrary browser semantics. Existing metadata/inspection fuzz remains separate
+core regression evidence and does not reach the binary-private HTML sink. The
+staged report records those boundaries and measured synthetic parser costs.
+[^html-index-filtering-review]
+
+[^html-index-filtering-review]: [HTML index staged review](../work/html-index-filtering/review.md).
+
+
+# Terminal text ownership and output
+
+Named fixed cases and a 256-case Unicode property compare terminal output with
+an independent numeric-scalar escape oracle. Separate Cow::Borrowed cases pin
+unchanged-text ownership; they initially rejected the previous String type.
+That type-level RED is an allocation-interface claim, not a previous wrong-output
+claim. Existing process tests check rendered report behavior. Stable/shuffled
+suites retain core/model correspondence; Lean and metadata/inspection fuzz do
+not prove or exercise this binary-private helper. The stage record separates
+executor results, fresh reviewer scope and synthetic timing limits.
+[^terminal-text-review]
+
+[^terminal-text-review]: [Terminal text staged review](../work/terminal-text/review.md).
+
+
+# Typed acquisition regression evidence
+
+Integer-label properties independently check worker coverage/affinity/bounds and
+modern/legacy digest selection (256 cases each). Runtime RED/GREEN covers empty
+scope and malformed/duplicate known fields. Independent whole-PR review found
+one Important positional-array acceptance gap; six object-boundary cases and
+one valid-digest-array HTTP case failed before the map-only fix and passed after.
+The complete stable/generated/seeded suites passed 305 local tests afterward.
+No second independent approval of the fix is claimed. Existing Lean adapters and
+core fuzz retain their original scope; they do not prove serde wire shape,
+worker load balance, cryptographic collision freedom or allocation performance.
+The staged record separates the reviewer finding, executor fix pass, final
+measurements and subsequent CI observation.[^typed-acquisition-review]
+
+[^typed-acquisition-review]: [Typed acquisition staged review](../work/typed-acquisition/review.md).
+
+
+The completion audit adds two named public hash-only lookup cases: the old
+signature rejected them with E0061, and the simplified API passes. Full stable,
+generated-shuffle and seed-12345 suites each pass 307 local tests. A separate
+fresh completion reviewer confirms current ownership boundaries and identifies
+no further required implementation refactor; it does not certify unobserved
+executor or CI results.[^typed-acquisition-review]

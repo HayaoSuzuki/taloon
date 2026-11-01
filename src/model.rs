@@ -53,8 +53,9 @@ pub type AcquisitionFailure = Error;
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct EvaluationDate(time::Date);
 impl EvaluationDate {
+    /// Parse a calendar day supplied by the caller; this never reads the clock.
     /// # Errors
-    /// Returns a typed diagnostic if input validation fails.
+    /// Rejects nonexistent days and spellings other than YYYY-MM-DD.
     pub fn parse(value: &str) -> Result<Self, Error> {
         let format = time::format_description::parse_borrowed::<2>("[year]-[month]-[day]")
             .map_err(|_| Error::new(Code::Configuration, "invalid date format"))?;
@@ -72,8 +73,9 @@ impl ContentHash {
     pub fn digest(bytes: &[u8]) -> Self {
         Self(Sha256::digest(bytes).into())
     }
+    /// Parse a sha256-prefixed digest; hexadecimal letter case does not affect identity.
     /// # Errors
-    /// Returns a typed diagnostic if input validation fails.
+    /// Rejects other algorithms and digests other than exactly 64 hexadecimal digits.
     pub fn parse(value: &str) -> Result<Self, Error> {
         let hex = value
             .strip_prefix("sha256:")
@@ -122,8 +124,9 @@ pub enum SourceKind {
     Virtual,
 }
 impl SourceKind {
+    /// Interpret the supported lowercase uv.lock source tags without guessing.
     /// # Errors
-    /// Returns a typed diagnostic if input validation fails.
+    /// Rejects unrecognized source tags.
     pub fn parse(s: &str) -> Result<Self, Error> {
         match s {
             "registry" => Ok(Self::Registry),
@@ -141,15 +144,21 @@ impl SourceKind {
     }
 }
 
-/// Canonical source identity. Authentication userinfo does not change package identity.
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+/// Source identity with kind-specific normalization. Registry/direct URL userinfo
+/// does not change identity; other kinds preserve their opaque location data.
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct SourceId {
     kind: SourceKind,
     location: String,
 }
 impl SourceId {
+    /// Canonicalize `Registry`/`Url` locations, removing credentials and fragments.
+    /// Registry paths ignore trailing slashes; query parameters remain significant.
+    /// Other kinds preserve nonempty locations verbatim, including URL-like data,
+    /// without URL validation or filesystem resolution.
     /// # Errors
-    /// Returns a typed diagnostic if input validation fails.
+    /// Rejects unknown kinds and empty locations. For `Registry`/`Url`, also rejects
+    /// invalid URLs and schemes other than HTTP(S).
     pub fn parse(kind: &str, location: &str) -> Result<Self, Error> {
         let kind = SourceKind::parse(kind)?;
         if location.is_empty() {
@@ -175,12 +184,22 @@ impl SourceId {
         self.kind
     }
     #[must_use]
+    /// Identity data may contain secrets. Use Display or Debug for diagnostic output.
     pub fn location(&self) -> &str {
         &self.location
     }
     #[must_use]
+    /// Deterministic opaque identity including source kind and canonical location.
     pub fn fingerprint(&self) -> ContentHash {
         ContentHash::digest(format!("{:?}:{}", self.kind, self.location).as_bytes())
+    }
+}
+impl fmt::Debug for SourceId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SourceId")
+            .field("kind", &self.kind)
+            .field("location", &safe_locator(&self.location))
+            .finish()
     }
 }
 impl fmt::Display for SourceId {
@@ -197,8 +216,10 @@ pub struct PackageId {
     source: SourceId,
 }
 impl PackageId {
+    /// Bind a normalized Python name and PEP 440 version to one canonical source.
+    /// Equality includes local version segments and source identity.
     /// # Errors
-    /// Returns a typed diagnostic if input validation fails.
+    /// Rejects invalid Python distribution names and versions.
     pub fn parse(name: &str, version: &str, source: SourceId) -> Result<Self, Error> {
         let name = normalize_name(name)?;
         let version = pep440_rs::Version::from_str(version)
@@ -227,6 +248,8 @@ impl PackageId {
         &self.source
     }
     #[must_use]
+    /// Report identity: normalized name/version plus the opaque source fingerprint.
+    /// Fetch locations and credentials are never emitted here.
     pub fn key(&self) -> String {
         format!(
             "{}@{}:{}",
@@ -242,8 +265,9 @@ impl fmt::Display for PackageId {
     }
 }
 
+/// Apply Python name normalization: lowercase and collapse each run of -_. to -.
 /// # Errors
-/// Returns a typed diagnostic if input validation fails.
+/// Rejects empty/non-ASCII names and names without alphanumeric endpoints.
 pub fn normalize_name(name: &str) -> Result<String, Error> {
     if name.is_empty()
         || !name
@@ -302,7 +326,8 @@ pub fn safe_locator(value: &str) -> String {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+/// Artifact container type; ordering is for deterministic keys, not proof preference.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ArtifactFormat {
     Wheel,
@@ -316,30 +341,46 @@ pub enum EvidenceRequirement {
 }
 
 /// Fetch locations are private data. They are never serialized into reports or cache records.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub enum ArtifactLocator {
     Remote { index: Option<String>, url: String },
     Local(String),
 }
+impl fmt::Debug for ArtifactLocator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Remote { index, url } => f
+                .debug_struct("Remote")
+                .field("index", &index.as_deref().map(safe_locator))
+                .field("url", &safe_locator(url))
+                .finish(),
+            Self::Local(path) => f.debug_tuple("Local").field(path).finish(),
+        }
+    }
+}
 impl ArtifactLocator {
+    /// Validate registry/artifact fetch URLs without granting a metadata association.
+    /// Raw fetching credentials remain private data; use `display()` for diagnostics.
     /// # Errors
-    /// Returns a typed diagnostic if input validation fails.
+    /// Rejects invalid URLs and schemes other than HTTP(S).
     pub fn registry(index: &str, url: &str) -> Result<Self, Error> {
         Ok(Self::Remote {
             index: Some(parse_url(index)?.to_string()),
             url: parse_url(url)?.to_string(),
         })
     }
+    /// Validate a direct HTTP(S) artifact URL, without an associated registry.
     /// # Errors
-    /// Returns a typed diagnostic if input validation fails.
+    /// Rejects invalid URLs and unsupported schemes.
     pub fn url(url: &str) -> Result<Self, Error> {
         Ok(Self::Remote {
             index: None,
             url: parse_url(url)?.to_string(),
         })
     }
+    /// Preserve a local path as data; acquisition owns opening and resolving it.
     /// # Errors
-    /// Returns a typed diagnostic if input validation fails.
+    /// Rejects empty paths.
     pub fn local(path: &str) -> Result<Self, Error> {
         if path.is_empty() {
             Err(Error::new(Code::Configuration, "empty local artifact path"))
@@ -380,8 +421,12 @@ pub struct ArtifactRequest {
     requirement: EvidenceRequirement,
 }
 impl ArtifactRequest {
+    /// Bind package, locator, format and optional locked content to one opaque ID.
+    /// Revalidates directly constructed locator variants. Remote artifacts require
+    /// a digest; hashless local requests still retain their exact association.
+    /// The initial proof requirement is `IndexAssociated`, independently of the ID.
     /// # Errors
-    /// Returns a typed diagnostic if input validation fails.
+    /// Rejects malformed/unsupported URLs, empty local paths and unhashed remotes.
     pub fn new(
         package: PackageId,
         locator: ArtifactLocator,
@@ -422,6 +467,7 @@ impl ArtifactRequest {
         })
     }
     #[must_use]
+    /// Select required proof strength without changing the artifact association ID.
     pub fn requiring(mut self, requirement: EvidenceRequirement) -> Self {
         self.requirement = requirement;
         self

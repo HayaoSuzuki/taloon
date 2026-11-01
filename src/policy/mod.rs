@@ -6,6 +6,9 @@ use crate::model::{
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
+mod unit;
+pub use unit::PermissionUnit;
+
 /// The SPDX identifier database compiled into this version.
 pub const SPDX_LIST_VERSION: &str = spdx::identifiers::VERSION;
 
@@ -68,6 +71,8 @@ impl LicenseExpression {
         &self.text
     }
     #[must_use]
+    /// Cached canonical string view for reporting and existing consumers.
+    /// Policy permission storage uses validated `PermissionUnit` values.
     pub fn units(&self) -> &BTreeSet<String> {
         &self.units
     }
@@ -146,15 +151,10 @@ struct RawClarification {
 }
 #[derive(Debug, Clone)]
 struct Exception {
-    package: PackageId,
+    ordinal: usize,
     hash: Option<ContentHash>,
-    allow: BTreeSet<String>,
+    allow: BTreeSet<PermissionUnit>,
     reason: String,
-}
-impl Exception {
-    fn matches(&self, request: &ArtifactRequest, hash: ContentHash) -> bool {
-        self.package == *request.package() && self.hash.is_none_or(|h| h == hash)
-    }
 }
 #[derive(Debug, Clone)]
 pub struct Clarification {
@@ -175,8 +175,8 @@ impl Clarification {
 /// One immutable workspace policy; validation includes all entries, even unmatched ones.
 #[derive(Debug, Clone)]
 pub struct Policy {
-    allow: BTreeSet<String>,
-    exceptions: Vec<Exception>,
+    allow: BTreeSet<PermissionUnit>,
+    exceptions: BTreeMap<PackageId, Vec<Exception>>,
     clarifications: BTreeMap<ContentHash, Clarification>,
 }
 fn check_entry(reason: &str, expires: Option<&str>, date: EvaluationDate) -> Result<(), Error> {
@@ -196,28 +196,17 @@ fn check_entry(reason: &str, expires: Option<&str>, date: EvaluationDate) -> Res
     }
     Ok(())
 }
-fn permission_unit(text: &str, custom: bool) -> Result<String, Error> {
-    let expr = LicenseExpression::parse(text)
-        .map_err(|_| Error::new(Code::Configuration, "invalid permission unit"))?;
-    if expr.ast.iter().count() != 1 {
-        return Err(Error::new(
-            Code::Configuration,
-            "permission entries must be single license/WITH units",
-        ));
-    }
-    let unit = expr
-        .units
-        .iter()
-        .next()
-        .ok_or_else(|| Error::new(Code::Configuration, "empty permission"))?;
-    if !custom && unit.contains("LicenseRef-") {
+fn permission_unit(text: &str, custom: bool) -> Result<PermissionUnit, Error> {
+    let unit = PermissionUnit::parse(text)?;
+    if !custom && unit.is_custom() {
         return Err(Error::new(
             Code::Configuration,
             "custom permissions require a hash-scoped exception",
         ));
     }
-    Ok(unit.clone())
+    Ok(unit)
 }
+
 impl Policy {
     /// Parse one workspace policy and validate all overrides on the supplied UTC day.
     /// Other pyproject tables are outside this policy's schema.
@@ -246,8 +235,8 @@ impl Policy {
             .iter()
             .map(|a| permission_unit(a, false))
             .collect::<Result<_, _>>()?;
-        let mut exceptions = Vec::new();
-        for e in raw.exceptions {
+        let mut exceptions: BTreeMap<PackageId, Vec<Exception>> = BTreeMap::new();
+        for (position, e) in raw.exceptions.into_iter().enumerate() {
             check_entry(&e.reason, e.expires.as_deref(), date)?;
             let source = SourceId::parse(&e.source.kind, &e.source.location)?;
             let package = PackageId::parse(&e.name, &e.version, source)?;
@@ -256,8 +245,8 @@ impl Policy {
                 .iter()
                 .map(|a| permission_unit(a, e.artifact_hash.is_some()))
                 .collect::<Result<_, _>>()?;
-            exceptions.push(Exception {
-                package,
+            exceptions.entry(package).or_default().push(Exception {
+                ordinal: position + 1,
                 hash: e.artifact_hash,
                 allow,
                 reason: e.reason,
@@ -295,9 +284,9 @@ impl Policy {
     pub fn minimum_evidence(&self, request: &ArtifactRequest) -> EvidenceRequirement {
         if let Some(hash) = request.hash()
             && (self.clarifications.contains_key(&hash)
-                || self.exceptions.iter().any(|e| {
-                    e.matches(request, hash) && e.allow.iter().any(|a| a.contains("LicenseRef-"))
-                }))
+                || self
+                    .matching_exceptions(request, hash)
+                    .any(|e| e.allow.iter().any(PermissionUnit::is_custom)))
         {
             return EvidenceRequirement::ArchiveVerified;
         }
@@ -305,11 +294,7 @@ impl Policy {
     }
     #[must_use]
     /// Lookup a content-bound replacement declaration; this does not grant permission.
-    pub fn clarification(
-        &self,
-        _request: &ArtifactRequest,
-        hash: ContentHash,
-    ) -> Option<&Clarification> {
+    pub fn clarification(&self, hash: ContentHash) -> Option<&Clarification> {
         self.clarifications.get(&hash)
     }
     #[must_use]
@@ -321,21 +306,20 @@ impl Policy {
         hash: ContentHash,
         expression: &LicenseExpression,
     ) -> PolicyDecision {
-        let mut allowed = self.allow.clone();
-        let mut overrides = Vec::new();
-        for (index, e) in self.exceptions.iter().enumerate() {
-            if e.matches(request, hash) {
-                allowed.extend(e.allow.iter().cloned());
-                overrides.push(AppliedOverride {
-                    id: format!("exception[{}]", index + 1),
-                    kind: OverrideKind::Exception,
-                    reason: e.reason.clone(),
-                });
-            }
-        }
-        let permitted = expression
-            .ast
-            .evaluate(|req| allowed.contains(&req.to_string()));
+        // Global units are immutable; only scoped matches need a per-call view.
+        let matching: Vec<_> = self.matching_exceptions(request, hash).collect();
+        let permits = |unit: &str| {
+            self.allow.contains(unit) || matching.iter().any(|entry| entry.allow.contains(unit))
+        };
+        let overrides = matching
+            .iter()
+            .map(|entry| AppliedOverride {
+                id: format!("exception[{}]", entry.ordinal),
+                kind: OverrideKind::Exception,
+                reason: entry.reason.clone(),
+            })
+            .collect();
+        let permitted = expression.ast.evaluate(|req| permits(&req.to_string()));
         PolicyDecision {
             outcome: if permitted {
                 PermissionOutcome::Permitted
@@ -347,48 +331,88 @@ impl Policy {
                 .iter()
                 .map(|unit| UnitDecision {
                     unit: unit.clone(),
-                    permitted: allowed.contains(unit),
+                    permitted: permits(unit),
                 })
                 .collect(),
             overrides,
         }
+    }
+    /// Package identity is owned by the map; ordered entries retain their file IDs.
+    fn matching_exceptions<'a>(
+        &'a self,
+        request: &ArtifactRequest,
+        hash: ContentHash,
+    ) -> impl Iterator<Item = &'a Exception> {
+        self.exceptions
+            .get(request.package())
+            .into_iter()
+            .flatten()
+            .filter(move |entry| entry.hash.is_none_or(|expected| expected == hash))
     }
     /// Called only after a complete run; all OR terms count as observed units.
     pub(crate) fn unused(
         &self,
         observations: &[(&ArtifactRequest, ContentHash, LicenseExpression)],
     ) -> Vec<Error> {
-        let mut warnings = Vec::new();
-        for unit in &self.allow {
-            if !observations
-                .iter()
-                .any(|(_, _, expression)| expression.units().contains(unit))
+        // Retain only configured usage. A common all-used global-only policy
+        // stops early, while exception/clarification checks share one input pass.
+        let mut unused_units: BTreeSet<_> = self.allow.iter().map(PermissionUnit::as_str).collect();
+        let mut used_packages: BTreeMap<&PackageId, BTreeSet<ContentHash>> = BTreeMap::new();
+        let mut unused_clarifications: BTreeSet<_> = self.clarifications.keys().copied().collect();
+        for (request, hash, expression) in observations {
+            if !unused_units.is_empty() {
+                for unit in expression.units() {
+                    unused_units.remove(unit.as_str());
+                }
+            }
+            if !self.exceptions.is_empty() && self.exceptions.contains_key(request.package()) {
+                used_packages
+                    .entry(request.package())
+                    .or_default()
+                    .insert(*hash);
+            }
+            unused_clarifications.remove(hash);
+            if unused_units.is_empty()
+                && self.exceptions.is_empty()
+                && unused_clarifications.is_empty()
             {
-                warnings.push(Error::new(
+                break;
+            }
+        }
+        let mut warnings: Vec<_> = unused_units
+            .into_iter()
+            .map(|unit| {
+                Error::new(
                     Code::UnusedPermission,
                     format!("unused global permission: {unit}"),
-                ));
+                )
+            })
+            .collect();
+        let mut unused_exceptions = Vec::new();
+        for (package, entries) in &self.exceptions {
+            for entry in entries {
+                if !used_packages
+                    .get(package)
+                    .is_some_and(|hashes| entry.hash.is_none_or(|hash| hashes.contains(&hash)))
+                {
+                    unused_exceptions.push(entry.ordinal);
+                }
             }
         }
-        for (index, exception) in self.exceptions.iter().enumerate() {
-            if !observations
-                .iter()
-                .any(|(request, hash, _)| exception.matches(request, *hash))
-            {
-                warnings.push(Error::new(
-                    Code::UnusedPermission,
-                    format!("unused exception entry: {}", index + 1),
-                ));
-            }
-        }
-        for hash in self.clarifications.keys() {
-            if !observations.iter().any(|(_, observed, _)| observed == hash) {
-                warnings.push(Error::new(
-                    Code::UnusedPermission,
-                    format!("unused clarification: {hash}"),
-                ));
-            }
-        }
+        // Map iteration groups by package; diagnostics retain original file order.
+        unused_exceptions.sort_unstable();
+        warnings.extend(unused_exceptions.into_iter().map(|ordinal| {
+            Error::new(
+                Code::UnusedPermission,
+                format!("unused exception entry: {ordinal}"),
+            )
+        }));
+        warnings.extend(unused_clarifications.into_iter().map(|hash| {
+            Error::new(
+                Code::UnusedPermission,
+                format!("unused clarification: {hash}"),
+            )
+        }));
         warnings
     }
 }

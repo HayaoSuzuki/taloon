@@ -1170,3 +1170,54 @@ fn description_acquires_only_selected_remote_artifacts_and_reuses_evidence() {
     assert_eq!(description.evaluate(batch.results).exit_code(), 0);
     assert_eq!(fixture.count(), 2);
 }
+
+#[rstest::rstest]
+#[case::null(serde_json::Value::Null)]
+#[case::number(serde_json::json!(17))]
+#[case::array(serde_json::json!([]))]
+#[case::hash_array(serde_json::json!(["valid metadata hash"]))]
+fn malformed_json_index_does_not_reduce_coverage(#[case] advertisement: serde_json::Value) {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let (fixture, inspection, _) = many_artifact_fixture(2);
+    mutate_fixture_index(&fixture, |document| {
+        let value = if advertisement
+            .as_array()
+            .is_some_and(|values| !values.is_empty())
+        {
+            serde_json::json!([document["files"][0]["core-metadata"]["sha256"].clone()])
+        } else {
+            advertisement
+        };
+        document["files"][0]["core-metadata"] = value;
+    });
+    let acquirer =
+        Acquirer::with_transport(AcquisitionOptions::testing(temp.path(), false), fixture).unwrap();
+
+    // Act
+    let batch = acquirer.acquire(inspection.requests());
+    let report = inspection
+        .evaluate(batch.results)
+        .with_warnings(batch.warnings);
+
+    // Assert
+    assert_eq!(report.exit_code(false), 0);
+    assert_eq!(report.packages()[0].artifacts.len(), 2);
+    assert!(
+        report.packages()[0]
+            .artifacts
+            .iter()
+            .all(|a| a.evidence.as_ref().unwrap().strength == EvidenceRequirement::ArchiveVerified)
+    );
+    assert_eq!(batch.summary.http.index.requests, 1);
+    assert_eq!(batch.summary.http.metadata.requests, 0);
+    assert_eq!(batch.summary.http.archive.requests, 2);
+    assert_eq!(
+        report
+            .diagnostics()
+            .iter()
+            .filter(|d| d.error.code == Code::InvalidMetadata)
+            .count(),
+        2
+    );
+}

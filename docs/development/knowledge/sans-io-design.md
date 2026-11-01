@@ -4,6 +4,34 @@ title: Pure core and acquisition boundary
 description: Approved deep modules and request/result API for license inspection without core I/O.
 status: accepted
 sources:
+- id: typed-acquisition-review
+  resource: ../work/typed-acquisition/review.md
+  working_tree: modified
+  sha256: 00daddabad915d492d1583acaff483a254849c01dccbf3ddb26de235cdc30605
+- id: terminal-text-review
+  resource: ../work/terminal-text/review.md
+  working_tree: untracked
+  sha256: cb3282d33446737e80e3432c30dd0710a7624ef4f306b61aa64d91127ada745e
+- id: html-index-filtering-review
+  resource: ../work/html-index-filtering/review.md
+  working_tree: untracked
+  sha256: f040c5b2244aa4d8e5dcaa5c6762316c0a59a1d85e193b32269d1983154b3f55
+- id: evidence-ownership-review
+  resource: ../work/evidence-ownership/review.md
+  working_tree: untracked
+  sha256: 9da1686b4f85fe2e04ea4f700aea467fd9ca15b8678e4459b53699adb5a33d78
+- id: permission-unit-review
+  resource: ../work/permission-units/review.md
+  working_tree: untracked
+  sha256: 38137e298604b7ba9efc0d82deda8f5ca649d9106e7005866847968929f08eca
+- id: policy-evaluation-review
+  resource: ../work/policy-evaluation/review.md
+  working_tree: untracked
+  sha256: fb1ab90f04a90894c3876baf58456f31b3e08be6661077e217065f1d91037ef7
+- id: core-design-review
+  resource: ../work/core-accounting-and-resolution/review.md
+  working_tree: untracked
+  sha256: 9dbaff1fe9d2990398de44ec0ee376a531b48e8ae67bf9826a424d62cb870434
 - id: describe-review
   resource: ../work/describe-licenses/implementation-review.md
   working_tree: modified
@@ -195,13 +223,13 @@ warm evidence cache. The target is two seconds from process start through report
 completion. Record the build profile, revision, hardware, OS/filesystem, cache
 state, fixture characteristics, and timing method. Check zero network requests,
 archive downloads, and archive re-extractions. This is a performance goal, not a
-wall-clock gate in normal CI; no result exists yet. Record cold-run duration and
+wall-clock gate in normal CI; the [baseline](project-baseline.md) links measured results. Record cold-run duration and
 bytes separately because artifact sizes and network conditions differ.[^owner]
 
 Run the repository's existing [development checks](../index.md#local-checks)
 and [documentation checks](../documentation.md#validate-and-preview) for the
 implemented change. Update the user guide only with behavior and prerequisites
-that implementation tests establish. Publishing remains deferred.[^owner]
+that implementation tests establish. Distribution follows the [current distribution decision](python-distribution.md).
 
 # Design review criteria
 
@@ -282,3 +310,144 @@ Implementation evidence and staged review limits are recorded separately from
 the approved design.[^describe-review]
 
 [^describe-review]: [Staged implementation and validation](../work/describe-licenses/implementation-review.md).
+
+
+# Shared observations and graph internals
+
+Inspection and description share a private ResultLedger. Its Single/Duplicate
+Enum owns cardinality, missing observations, request rebinding and remaining
+foreign IDs; Evidence still validates proof and each command still owns its
+semantics and required strength. A duplicate slot retains no observation payload,
+and cannot later become Single. The public inspection::AcquisitionResult path is
+preserved through a re-export. This removes shared protocol knowledge from the
+two evaluators without combining permission and display semantics.[^core-design-review]
+
+Resolution owns a borrowed per-document name index and a predecessor arena for
+shortest paths. Candidate ordering/validation and `(package, activated extras)`
+visited states remain unchanged. Parent links borrow immutable edges and point
+only backward in one search arena; annotations are materialized for the chosen
+path. The public interface and deterministic tie order stay unchanged.
+Performance observations belong in the [measurement record](../work/core-accounting-and-resolution/performance.md).[^core-design-review]
+
+Domain Debug rendering uses the same remote-location redaction owner as display.
+Registry/Url identity normalization and opaque locations for other source kinds
+are unchanged. In particular, Debug formatting does not construct source or
+request identities. Reconsider the private layout only if new consumers need a
+different observation protocol or measured workloads justify more indexing.
+Do not remove binding validation merely to save copying.[^core-design-review]
+
+[^core-design-review]: [Core assessment and staged reviews](../work/core-accounting-and-resolution/review.md).
+
+
+# Indexed policy evaluation
+
+Policy owns a PackageId-keyed map of ordered exception entries. The validated
+key retains normalized name/version/source semantics, while each entry retains
+its original file ordinal and optional content hash. One private matcher serves
+proof-requirement and permission queries; unrelated package entries are not
+scanned. Evaluation borrows global/scoped permission sets rather than cloning
+their union. Usage accounting scans observations once, retaining configured
+package/content usage and pending global/clarification entries; diagnostics
+retain original ordinals and final report ordering. This implements the earlier
+policy-scan follow-up without adding a cache or public API.[^policy-evaluation-review]
+
+Construction still validates every input entry in file order. Hashless local
+requests match overrides against observed content, and all OR units count for
+unused-permission reporting. Reconsider the layout if measured same-package
+fork/hash workloads justify a further index; current measurements isolate lookup
+and evaluation, not setup or whole-CLI costs.[^policy-evaluation-review]
+
+[^policy-evaluation-review]: [Policy evaluation assessment and staged review](../work/policy-evaluation/review.md).
+
+
+# Atomic permission values
+
+Policy stores validated PermissionUnit values, with private canonical text and
+Standard/CustomReference classification. Construction reuses the expression
+owner and requires one atomic license/WITH term. Scope remains a policy rule:
+custom references require hash-bound exceptions. Equality, ordering and borrowed
+lookup use canonical spelling; native requirement comparison does not implicitly
+change the application's GNU/plus distinctions. No duplicate SPDX catalogue or
+AST is introduced. The existing expression units() API is a cached canonical
+reporting view, independent of typed permission storage.[^permission-unit-review]
+
+[^permission-unit-review]: [Validated permission unit assessment and reviews](../work/permission-units/review.md).
+
+
+# Immutable record payloads
+
+EvidenceRecord shares its private immutable payload across clones. Acquisition
+and evaluation keep their existing APIs and revalidate each requested binding;
+sharing does not confer additional provenance or bypass checks. Parsed metadata
+and transient request identity remain in Evidence. The persisted JSON/schema
+and checksum inputs stay unchanged. This hides ownership optimization inside
+the evidence module instead of introducing consuming/borrowing protocols into
+callers. serde's rc support adds no new package, but adds reference-count costs
+and a retained allocation (plus a transient Box on deserialization). Reconsider
+for measured short-record regressions or new mutation requirements. The staged
+record and its linked measurements distinguish avoided payload copies from
+unproven overall speed/RSS improvements.[^evidence-ownership-review]
+
+[^evidence-ownership-review]: [Immutable payload staged review](../work/evidence-ownership/review.md).
+
+
+# HTML index retention
+
+HTML tokenization interprets base/meta/anchor tokens immediately inside the
+private index parser. It borrows tokenizer attributes and retains only locked
+URL bindings, one optional explicit base and an absorbing Result. This removes
+the historical tag vector and duplicate attribute maps while keeping exact
+association/hash checks and all-document version rejection. JSON, HTTP body
+bounds and tokenizer allocation remain unchanged. Reconsider if new HTML
+semantics require a tree builder or measured inputs show a different tradeoff;
+no generic parser event API is warranted by the present consumer. The staged
+record links complete synthetic timing samples and preservation limits.
+[^html-index-filtering-review]
+
+[^html-index-filtering-review]: [HTML index staged review](../work/html-index-filtering/review.md).
+
+
+# Borrowed terminal rendering
+
+The CLI's private escaping helper returns Cow<str>: unchanged text borrows its
+input, while escaped output owns a growable String. Both command renderers keep
+their existing Display-based calls and exact control/bidi policy; the pure core
+and serialized reports gain no output-lifetime constraint. A private predicate
+owns the escape decision once. This removes per-character Vec construction and
+ordinary-text duplication without a bespoke type/public abstraction. Reconsider
+if actual workloads favor always-owned output or escape policy changes; escaped
+text still scans a prefix twice and can grow its output allocation. Measurements
+are helper-only and do not establish whole-command speed or RSS improvements.
+[^terminal-text-review]
+
+[^terminal-text-review]: [Terminal text staged review](../work/terminal-text/review.md).
+
+
+# Typed acquisition protocol and scheduling
+
+The owner removed taloon backward compatibility as a constraint for this audit.
+Private scheduling keys use Pinned(content, format) or Unpinned(request), with
+binary domain ordering and no formatting dependency. Empty scope starts no
+workers. The new order can change worker assignment and warning order; it does
+not rank evidence strength or remove per-request observations.
+
+JSON indexes decode only consumed records and boolean/hash advertisements.
+A private Object<T> enforces actual object input at every consumed record;
+serde struct derivation alone also accepts positional arrays. Explicit modern
+presence takes priority over the legacy protocol alias, with null advertisements
+rejected. Unknown extensions are ignored. Typed records still retain a file
+vector and consumed Strings; this is not streaming JSON. These internal owners
+replace permissive Value traversal without compatibility adapters. Reconsider
+when a real protocol field or measured resource limit requires a different
+representation; preserve exact association/integrity and complete fallback.
+[^typed-acquisition-review]
+
+[^typed-acquisition-review]: [Typed acquisition staged review](../work/typed-acquisition/review.md).
+
+
+Content-bound clarification lookup accepts only ContentHash. The unused request
+argument is removed, so callers no longer construct/pass unrelated identity data
+or infer a nonexistent package-specific lookup. Inspection still supplies the
+observed hash and enforces archive proof before applying the replacement. This
+intentional public signature change follows the same no-compatibility decision.
+[^typed-acquisition-review]

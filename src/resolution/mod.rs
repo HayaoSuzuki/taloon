@@ -153,7 +153,7 @@ fn local_source(kind: SourceKind) -> bool {
 }
 fn edges(
     raw: &[RawDependency],
-    packages: &[PackageId],
+    packages: &BTreeMap<&str, Vec<&PackageId>>,
     context: Option<&str>,
 ) -> Result<Vec<Edge>, Error> {
     let mut result = Vec::new();
@@ -161,8 +161,8 @@ fn edges(
         let name = normalize_name(&dep.name)?;
         let selected_source = dep.source.as_ref().map(source).transpose()?;
         let mut matches = Vec::new();
-        for p in packages {
-            if p.name() != name || selected_source.as_ref().is_some_and(|s| s != p.source()) {
+        for &p in packages.get(name.as_str()).into_iter().flatten() {
+            if selected_source.as_ref().is_some_and(|s| s != p.source()) {
                 continue;
             }
             if let Some(version) = &dep.version
@@ -364,7 +364,8 @@ fn records(raw: RawLock) -> Result<Records, Error> {
 
 impl Resolution {
     /// # Errors
-    /// Rejects unsupported or invalid lock records.
+    /// Rejects unsupported schemas, duplicate identities and unresolved/ambiguous
+    /// dependency edges. Unsupported external evidence remains an explicit target.
     pub fn from_uv_lock(text: &str) -> Result<Self, Error> {
         let raw: RawLock = toml::from_str(text)
             .map_err(|_| Error::new(Code::LockFormat, "invalid uv.lock fields"))?;
@@ -373,7 +374,12 @@ impl Resolution {
             roots,
             groups,
         } = records(raw)?;
-        let packages = records.keys().cloned().collect::<Vec<_>>();
+        // Resolve only same-name forks. Preserve validation order within those
+        // candidates; invalid selectors must not change unrelated target scope.
+        let mut packages: BTreeMap<&str, Vec<&PackageId>> = BTreeMap::new();
+        for id in records.keys() {
+            packages.entry(id.name()).or_default().push(id);
+        }
         let mut graph = BTreeMap::new();
         let mut entries = Vec::new();
         for (name, requirements) in groups {
@@ -388,11 +394,11 @@ impl Resolution {
             }
         }
         let mut targets = Vec::new();
-        for (id, p) in records {
+        for (id, p) in &records {
             let node_edges = edges(&p.dependencies, &packages, None)?;
             let mut extras = BTreeMap::new();
             let mut development = BTreeMap::new();
-            if roots.contains(&id) {
+            if roots.contains(id) {
                 entries.push(Entry {
                     label: id.name().to_owned(),
                     edges: node_edges.clone(),
@@ -405,7 +411,7 @@ impl Resolution {
                 for (name, deps) in groups {
                     let context = format!("{}:{name}", prefix.label());
                     let group_edges = edges(deps, &packages, Some(&context))?;
-                    if roots.contains(&id) {
+                    if roots.contains(id) {
                         entries.push(Entry {
                             label: format!("{} [{context}]", id.name()),
                             edges: group_edges.clone(),
@@ -430,10 +436,10 @@ impl Resolution {
                     extras,
                 },
             );
-            if roots.contains(&id) {
+            if roots.contains(id) {
                 continue;
             }
-            targets.push(target(id, &p));
+            targets.push(target(id.clone(), p));
         }
         entries.sort_by(|a, b| a.label.cmp(&b.label));
         Ok(Self {
@@ -451,31 +457,30 @@ impl Resolution {
     #[must_use]
     /// One shortest annotated path per known entry point. Empty means no path can
     /// be reconstructed; it never removes the package from target coverage.
+    /// Ties follow the canonical locked edge order. Activated extras are distinct
+    /// traversal states; markers are annotations, not host-environment filters.
     pub fn paths(&self, package: &PackageId) -> Vec<DependencyPath> {
         let mut paths = Vec::new();
         for entry in &self.entries {
             let mut seen = BTreeSet::new();
             let mut queue = VecDeque::new();
+            // Borrow immutable edges and remember their predecessors. Only the
+            // winning path needs owned, formatted steps; queued branches never
+            // clone complete prefixes. Marking seen on pop preserves BFS ties.
+            let mut links = Vec::new();
             for edge in &entry.edges {
-                queue.push_back((edge.clone(), Vec::new()));
+                queue.push_back(links.len());
+                links.push(PathLink { edge, parent: None });
             }
-            while let Some((edge, mut steps)) = queue.pop_front() {
-                if !seen.insert((edge.to.clone(), edge.extras.clone())) {
+            while let Some(cursor) = queue.pop_front() {
+                let edge = links[cursor].edge;
+                if !seen.insert((&edge.to, edge.extras.as_slice())) {
                     continue;
                 }
-                steps.push(PathStep {
-                    package: edge.to.to_string(),
-                    marker: edge.marker,
-                    via: edge.via,
-                    package_markers: self
-                        .graph
-                        .get(&edge.to)
-                        .map_or_else(Vec::new, |n| n.markers.clone()),
-                });
                 if edge.to == *package {
                     paths.push(DependencyPath {
                         entry: entry.label.clone(),
-                        steps,
+                        steps: self.path_steps(&links, cursor),
                     });
                     break;
                 }
@@ -486,8 +491,12 @@ impl Resolution {
                             .filter_map(|name| next.extras.get(name))
                             .flatten(),
                     ) {
-                        if !seen.contains(&(edge.to.clone(), edge.extras.clone())) {
-                            queue.push_back((edge.clone(), steps.clone()));
+                        if !seen.contains(&(&edge.to, edge.extras.as_slice())) {
+                            queue.push_back(links.len());
+                            links.push(PathLink {
+                                edge,
+                                parent: Some(cursor),
+                            });
                         }
                     }
                 }
@@ -495,6 +504,33 @@ impl Resolution {
         }
         paths
     }
+
+    fn path_steps(&self, links: &[PathLink<'_>], end: usize) -> Vec<PathStep> {
+        let mut steps = Vec::new();
+        let mut cursor = Some(end);
+        while let Some(index) = cursor {
+            let link = &links[index];
+            let edge = link.edge;
+            steps.push(PathStep {
+                package: edge.to.to_string(),
+                marker: edge.marker.clone(),
+                via: edge.via.clone(),
+                package_markers: self
+                    .graph
+                    .get(&edge.to)
+                    .map_or_else(Vec::new, |n| n.markers.clone()),
+            });
+            cursor = link.parent;
+        }
+        steps.reverse();
+        steps
+    }
+}
+
+/// Parent indices always point to an earlier slot in the same search arena.
+struct PathLink<'a> {
+    edge: &'a Edge,
+    parent: Option<usize>,
 }
 
 mod selection;

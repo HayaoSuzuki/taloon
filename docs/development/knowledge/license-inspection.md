@@ -4,6 +4,10 @@ title: License inspection specification
 description: Approved design for uv.lock coverage, Python license policy, evidence, and command behavior.
 status: accepted
 sources:
+- id: typed-acquisition-review
+  resource: ../work/typed-acquisition/review.md
+  working_tree: modified
+  sha256: 00daddabad915d492d1583acaff483a254849c01dccbf3ddb26de235cdc30605
 - id: describe-review
   resource: ../work/describe-licenses/implementation-review.md
   working_tree: modified
@@ -400,3 +404,19 @@ Implementation evidence and staged review limits are recorded separately from
 the approved design.[^describe-review]
 
 [^describe-review]: [Staged implementation and validation](../work/describe-licenses/implementation-review.md).
+
+
+# Consumed JSON index validation
+
+JSON acquisition rejects malformed consumed field shapes, duplicate consumed
+keys and positional arrays where object records are required. Explicit null
+metadata advertisements invalidate the index rather than selecting the legacy
+field. Unknown extensions remain ignored; this decoder does not validate every
+Simple API schema field. Index failure causes each locked artifact to fall back
+to archive verification with its diagnostic retained. Typed availability hints
+supply no metadata digest and cannot upgrade evidence. These stricter rules and
+changed scheduling order are intentional under the owner's removal of taloon
+backward compatibility, while valid external metadata spellings remain supported.
+[^typed-acquisition-review]
+
+[^typed-acquisition-review]: [Typed acquisition staged review](../work/typed-acquisition/review.md).
