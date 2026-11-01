@@ -1,6 +1,6 @@
 # Measured per-run index reuse
 
-Status: approach approved; detailed design proposed and builder-reviewed.
+Status: approved for inline implementation after builder review, 2026-11-01.
 Source baseline: `4242995`.
 The owner requested request/byte/wait measurements and reduced duplicate index
 acquisition, selected per-run sharing before persistent index caching, and
