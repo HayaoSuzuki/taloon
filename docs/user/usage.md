@@ -30,6 +30,10 @@ invented. Conditions describe locked alternatives, not environment evaluation.
 
 JSON stdout contains exactly one schema-version-1 object, including startup
 errors. Help/version requests print normal CLI help/version text.
+When stderr is an interactive terminal, taloon shows processed/total artifact
+counts and elapsed time during acquisition, including while waiting for a
+response. Processed counts include failures; the final report determines the
+result. Progress is omitted when stderr is redirected and never enters stdout.
 `schema_version`, `status`, `exit_code`, `packages`, `diagnostics`, and
 `acquisition` describe the run. Package records include the source kind and redacted location.
 Artifact records include identity associations,
@@ -46,6 +50,8 @@ on Unix, and `LOCALAPPDATA/taloon` on Windows. Windows paths are implemented but
 have not been tested locally.
 
 The cache stores observed declarations and provenance, never permission verdicts.
+The first online check may take substantially longer than a cached check because
+it acquires evidence for every recorded artifact across all locked environments.
 Policy is re-evaluated each run. Corrupt/incompatible records are misses; cache
 read/write failures warn while available evidence remains usable. Offline mode
 makes no network calls and retains the full target scope. Missing or insufficient

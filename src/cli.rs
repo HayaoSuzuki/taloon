@@ -5,8 +5,9 @@ use serde::Serialize;
 use std::{
     ffi::OsString,
     fmt::Write as _,
-    io::{Read, Write as _},
+    io::{IsTerminal as _, Read, Write as _},
     path::{Path, PathBuf},
+    time::{Duration, Instant},
 };
 use taloon::{
     inspection::Inspection,
@@ -116,7 +117,32 @@ fn check(project: Option<&Path>, offline: bool) -> Result<Report, Error> {
         offline,
         netrc,
     })?;
-    let batch = acquirer.acquire(inspection.requests());
+    let interactive = std::io::stderr().is_terminal();
+    let started = Instant::now();
+    let mut last_render = None;
+    let batch = acquirer.acquire_with_progress(inspection.requests(), |progress| {
+        if !interactive {
+            return;
+        }
+        let elapsed = started.elapsed();
+        if progress.completed == progress.total
+            || last_render.is_none_or(|last| elapsed.saturating_sub(last) >= Duration::from_secs(1))
+        {
+            let mut stderr = std::io::stderr().lock();
+            let _ = write!(
+                stderr,
+                "\rtaloon: license evidence {}/{} artifacts ({}s)",
+                progress.completed,
+                progress.total,
+                elapsed.as_secs()
+            );
+            let _ = stderr.flush();
+            last_render = Some(elapsed);
+        }
+    });
+    if interactive {
+        let _ = writeln!(std::io::stderr());
+    }
     Ok(inspection
         .evaluate(batch.results)
         .with_warnings(batch.warnings)

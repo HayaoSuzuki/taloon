@@ -74,6 +74,10 @@ fn cli_json_reports_complete_and_incomplete_runs() {
         let output = invoke(root, &cache, &["check", "--offline", "--format", "json"]);
         assert_eq!(output.status.code(), Some(expected));
         json(&output);
+        assert!(
+            output.stderr.is_empty(),
+            "piped reports must not emit terminal progress"
+        );
     }
     std::fs::remove_file(root.join("example.whl")).unwrap();
     let output = invoke(root, &cache, &["check", "--offline", "--format", "json"]);
