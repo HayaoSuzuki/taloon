@@ -264,3 +264,136 @@ fn text_failures_explain_every_relevant_license_unit() {
     assert!(text.contains("denied unit: Apache-2.0"));
     assert!(text.contains("denied unit: ISC"));
 }
+
+#[test]
+fn cache_clear_removes_only_taloon_records_without_project_discovery() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path();
+    project(root, "License-Expression: MIT");
+    let cache = root.join("shared");
+    let first = invoke(root, &cache, &["check", "--format", "json"]);
+    assert_eq!(first.status.code(), Some(0));
+    assert_eq!(json(&first)["acquisition"]["archive_extractions"], 1);
+    let damaged = format!(
+        "v1-index-sha256-{}-sdist-sha256-{}.json",
+        "a".repeat(64),
+        "b".repeat(64)
+    );
+    std::fs::write(cache.join(&damaged), b"damaged").unwrap();
+    for name in [
+        "notes.json",
+        "v1-archive-wheel-sha256-invalid.json",
+        ".evidence-unfinished",
+        "v2-archive-wheel-sha256-unknown.json",
+    ] {
+        std::fs::write(cache.join(name), b"keep").unwrap();
+    }
+    let directory = cache.join(format!("v1-archive-sdist-sha256-{}.json", "c".repeat(64)));
+    std::fs::create_dir(&directory).unwrap();
+    std::fs::write(directory.join("keep"), b"keep").unwrap();
+    let outside = tempfile::tempdir().unwrap();
+    let output = invoke(outside.path(), &cache, &["cache", "clear"]);
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    assert_eq!(output.stdout, b"Removed 2 taloon cache entries.\n");
+    assert_eq!(output.stderr, b"");
+    assert!(cache.is_dir());
+    assert!(!cache.join(damaged).exists());
+    for name in [
+        "notes.json",
+        "v1-archive-wheel-sha256-invalid.json",
+        ".evidence-unfinished",
+        "v2-archive-wheel-sha256-unknown.json",
+    ] {
+        assert_eq!(std::fs::read(cache.join(name)).unwrap(), b"keep");
+    }
+    assert_eq!(std::fs::read(directory.join("keep")).unwrap(), b"keep");
+    let second = invoke(outside.path(), &cache, &["cache", "clear"]);
+    assert_eq!(second.status.code(), Some(0));
+    assert_eq!(second.stdout, b"Removed 0 taloon cache entries.\n");
+    let check = invoke(root, &cache, &["check", "--format", "json"]);
+    assert_eq!(check.status.code(), Some(0));
+    assert_eq!(json(&check)["acquisition"]["archive_extractions"], 1);
+    assert_eq!(json(&check)["acquisition"]["cache_hits"], 0);
+}
+
+#[test]
+fn cache_clear_handles_missing_cache_and_invalid_root() {
+    let temp = tempfile::tempdir().unwrap();
+    let cache = temp.path().join("missing");
+    let output = invoke(temp.path(), &cache, &["cache", "clear"]);
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    assert_eq!(output.stdout, b"Removed 0 taloon cache entries.\n");
+    assert!(!cache.exists());
+    std::fs::write(&cache, b"keep").unwrap();
+    let output = invoke(temp.path(), &cache, &["cache", "clear"]);
+    assert_eq!(output.status.code(), Some(2));
+    assert_eq!(output.stdout, b"");
+    assert_eq!(output.stderr, b"cannot clear taloon cache\n");
+    assert_eq!(std::fs::read(&cache).unwrap(), b"keep");
+}
+
+#[cfg(unix)]
+#[test]
+fn cache_clear_preserves_symlinks_and_rejects_symlink_root() {
+    use std::os::unix::fs::symlink;
+    let temp = tempfile::tempdir().unwrap();
+    let cache = temp.path().join("cache");
+    std::fs::create_dir(&cache).unwrap();
+    let name = format!("v1-archive-wheel-sha256-{}.json", "d".repeat(64));
+    let target = temp.path().join("keep");
+    std::fs::write(&target, b"keep").unwrap();
+    symlink(&target, cache.join(&name)).unwrap();
+    let output = invoke(temp.path(), &cache, &["cache", "clear"]);
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    assert_eq!(output.stdout, b"Removed 0 taloon cache entries.\n");
+    assert!(cache.join(&name).is_symlink());
+    assert_eq!(std::fs::read(&target).unwrap(), b"keep");
+    let root_link = temp.path().join("linked-cache");
+    symlink(&cache, &root_link).unwrap();
+    let output = invoke(temp.path(), &root_link, &["cache", "clear"]);
+    assert_eq!(output.status.code(), Some(2));
+    assert_eq!(output.stderr, b"cannot clear taloon cache\n");
+    assert!(root_link.is_symlink());
+    assert_eq!(std::fs::read(&target).unwrap(), b"keep");
+}
+
+#[test]
+fn cache_clear_uses_default_location_and_ignores_project_and_credentials() {
+    let temp = tempfile::tempdir().unwrap();
+    let base = temp.path().join("base");
+    let cache = if cfg!(target_os = "macos") {
+        temp.path().join("Library/Caches/taloon")
+    } else {
+        base.join("taloon")
+    };
+    std::fs::create_dir_all(&cache).unwrap();
+    let record = cache.join(format!("v1-archive-wheel-sha256-{}.json", "0".repeat(64)));
+    std::fs::write(&record, b"damaged").unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_taloon"))
+        .current_dir(temp.path())
+        .env_remove("TALOON_CACHE_DIR")
+        .env("HOME", temp.path())
+        .env("XDG_CACHE_HOME", &base)
+        .env("LOCALAPPDATA", &base)
+        .env("NETRC", temp.path().join("missing-credentials"))
+        .args(["cache", "clear"])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    assert_eq!(output.stdout, b"Removed 1 taloon cache entries.\n");
+    assert!(!record.exists());
+}
+
+#[test]
+fn cache_clear_empty_override_matches_existing_cache_writes() {
+    let temp = tempfile::tempdir().unwrap();
+    project(temp.path(), "License-Expression: MIT");
+    let first = invoke(temp.path(), Path::new(""), &["check", "--format", "json"]);
+    assert_eq!(first.status.code(), Some(0));
+    assert_eq!(json(&first)["acquisition"]["cache_hits"], 0);
+    let output = invoke(temp.path(), Path::new(""), &["cache", "clear"]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(output.stdout, b"Removed 1 taloon cache entries.\n");
+    assert!(temp.path().join("uv.lock").is_file());
+    assert!(temp.path().join("pyproject.toml").is_file());
+}

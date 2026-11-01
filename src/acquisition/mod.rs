@@ -2,7 +2,7 @@
 mod cache;
 #[cfg(test)]
 mod tests;
-use cache::EvidenceCache;
+pub(crate) use cache::EvidenceCache;
 use std::{io::Read, path::Path};
 use taloon::{
     evidence::{Evidence, MAX_METADATA_BYTES},

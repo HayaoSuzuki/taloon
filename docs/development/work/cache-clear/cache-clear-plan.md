@@ -35,17 +35,17 @@ cache unit properties and work review.
 EvidenceCache::clear(&self) -> Result<u64, Error>. CLI Command::Cache contains
 CacheCommand::Clear. Existing cache_directory resolves the location unchanged.
 
-- [ ] Add process tests: produce real archive and index records, add damaged
+- [x] Add process tests: produce real archive records, add damaged
   matching records and unrelated files/directories, clear from outside a project;
   assert count, preservation, zero network and subsequent cache miss.
-- [ ] Add missing/idempotent/root-file tests and Unix root/entry symlink tests.
+- [x] Add missing/idempotent/root-file tests and Unix root/entry symlink tests.
   Observe the new command fail before implementation (expected exit 2, wanted 0).
-- [ ] Implement complete lowercase 64-hex filename recognition and immediate
+- [x] Implement complete lowercase 64-hex filename recognition and immediate
   regular-file deletion in cache.rs. Missing entries do not count; other errors
   fail safely. Wire nested CLI command without check initialization.
-- [ ] Add bounded generated filename/preservation coverage; verify old archive
-  and index producers yield recognized paths. Keep corrupt records removable.
-- [ ] Update user guidance and the owning OKF contract. Perform five actual
+- [x] Add bounded generated filename/preservation coverage; verify real archive
+  and index producers yield recognized paths through the binary cache adapter. Keep corrupt records removable.
+- [x] Update user guidance and the owning OKF contract. Perform five actual
   self-reviews: scope, identity, symlinks, errors/concurrency and architecture.
 - [ ] Run cargo test --offline --locked --workspace --all-features, fmt, strict
   Clippy/rustdoc and docs validation; commit. Request one fresh whole-branch

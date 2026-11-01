@@ -18,7 +18,8 @@ would require migration and does not help clear current records.
 `taloon cache clear` resolves the same cache directory as check, without lock,
 policy, credentials or network access. Delete only immediate regular files
 whose complete canonical filename matches the current v1 archive/index,
-wheel/sdist, SHA-256 cache-key grammar. Content need not parse: damaged cache
+wheel/sdist, SHA-256 cache-key grammar. An empty directory override resolves to the current directory, matching existing
+cache writes. Content need not parse: damaged cache
 records must also be clearable. Keep the root directory, unrelated/unknown
 filenames, temporary files, directories and symlinks. Reject a root that is a
 file or symlink; missing root and repeated clear succeed. Parent-directory
@@ -37,3 +38,5 @@ Keep cache naming/deletion inside the binary-owned cache module, CLI wiring
 and location resolution in CLI, with no I/O in the library and no new dependency.
 The small filesystem operation needs actual process/symlink/preservation tests
 and bounded filename properties, rather than an unrelated formal model.
+
+See the [verification and review record](review.md) for implementation evidence.

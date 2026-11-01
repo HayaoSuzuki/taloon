@@ -1,5 +1,5 @@
 //! Runtime setup and rendering; inspection owns all verdict rules.
-use crate::acquisition::{Acquirer, AcquisitionOptions};
+use crate::acquisition::{Acquirer, AcquisitionOptions, EvidenceCache};
 use clap::{Parser, Subcommand, ValueEnum};
 use serde::Serialize;
 use std::{
@@ -22,6 +22,11 @@ struct Arguments {
 }
 #[derive(Subcommand)]
 enum Command {
+    /// Manage taloon's persisted evidence cache.
+    Cache {
+        #[command(subcommand)]
+        command: CacheCommand,
+    },
     /// Check every external package and recorded artifact in uv.lock.
     Check {
         /// Read uv.lock and pyproject.toml in this exact directory.
@@ -36,6 +41,11 @@ enum Command {
         #[arg(long)]
         deny_warnings: bool,
     },
+}
+#[derive(Subcommand)]
+enum CacheCommand {
+    /// Remove taloon cache records, retaining unrelated files and directories.
+    Clear,
 }
 #[derive(Clone, Copy, ValueEnum)]
 enum Format {
@@ -73,6 +83,11 @@ pub(crate) fn run() -> u8 {
                 check(project.as_deref(), offline).unwrap_or_else(Report::from_input_error);
             emit(&report, format, deny_warnings)
         }
+        Ok(Arguments {
+            command: Command::Cache {
+                command: CacheCommand::Clear,
+            },
+        }) => clear_cache(),
         Err(error) if !error.use_stderr() => {
             if error.print().is_ok() {
                 0
@@ -89,6 +104,24 @@ pub(crate) fn run() -> u8 {
             false,
         ),
     }
+}
+fn clear_cache() -> u8 {
+    let home = std::env::var_os("HOME").map(PathBuf::from);
+    let result = cache_directory(home.as_deref()).and_then(|root| EvidenceCache::new(root).clear());
+    if let Ok(removed) = result {
+        if writeln!(
+            std::io::stdout().lock(),
+            "Removed {removed} taloon cache entries."
+        )
+        .is_ok()
+        {
+            return 0;
+        }
+        let _ = writeln!(std::io::stderr().lock(), "cannot write cache clear result");
+    } else {
+        let _ = writeln!(std::io::stderr().lock(), "cannot clear taloon cache");
+    }
+    2
 }
 fn check(project: Option<&Path>, offline: bool) -> Result<Report, Error> {
     let cwd = std::env::current_dir().map_err(|_| input("cannot determine current directory"))?;
@@ -179,7 +212,13 @@ fn selected_netrc(explicit: Option<PathBuf>, home: Option<&Path>) -> Option<Path
 }
 fn cache_directory(home: Option<&Path>) -> Result<PathBuf, Error> {
     if let Some(path) = std::env::var_os("TALOON_CACHE_DIR") {
-        return Ok(PathBuf::from(path));
+        // An empty root already writes records in the current directory via
+        // Path::join. Resolve it explicitly so directory operations agree.
+        return Ok(if path.is_empty() {
+            PathBuf::from(".")
+        } else {
+            PathBuf::from(path)
+        });
     }
     let base = if cfg!(target_os = "macos") {
         home.map(|p| p.join("Library/Caches"))
