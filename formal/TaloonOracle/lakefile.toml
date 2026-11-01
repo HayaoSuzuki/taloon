@@ -12,3 +12,7 @@ root = "Main"
 [[lean_exe]]
 name = "generate_index"
 root = "IndexMain"
+
+[[lean_exe]]
+name = "generate_selection"
+root = "SelectionMain"

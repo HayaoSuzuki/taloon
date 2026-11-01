@@ -64,12 +64,14 @@ and extended proof builds took 4.936 and 3.522 seconds under the same deadline.
 ## Reproduction from the repository root
 
 ```sh
-python3 -c "import subprocess; subprocess.run(['lake','build','TaloonOracle','generate_corpus','generate_index'], cwd='formal/TaloonOracle', timeout=20, check=True)"
+python3 -c "import subprocess; subprocess.run(['lake','build','TaloonOracle','generate_corpus','generate_index','generate_selection'], cwd='formal/TaloonOracle', timeout=20, check=True)"
 formal/TaloonOracle/.lake/build/bin/generate_corpus --stats
 formal/TaloonOracle/.lake/build/bin/generate_corpus --check tests/fixtures/oracle/policy.jsonl
 cargo test --locked --test oracle
 formal/TaloonOracle/.lake/build/bin/generate_index --check tests/fixtures/oracle/index.jsonl
 cargo test --locked --bin taloon lean_index_corpus_matches_both_representation_lookups
+formal/TaloonOracle/.lake/build/bin/generate_selection --check tests/fixtures/oracle/selection.jsonl
+cargo test --locked --test description
 ```
 
 After a model change, regenerate with `--output` instead of `--check`, inspect
@@ -103,3 +105,29 @@ Both corpus freshness checks and the Rust adapter passed. Separate concurrent
 transport tests exercise initialization, panic recovery, retries and fallback;
 256-case properties cover filtered association identity and malformed input.
 These tests supplement, rather than extend, the kernel proofs.
+
+## Description selection model
+
+[Selection.lean](TaloonOracle/Selection.lean) uses canonical natural-number
+identities and typed normal/extra/development edges. Proofs establish root
+retention through arbitrary finite expansion, external-root selection under
+inventory/workspace premises, exclusion of workspace/noninventory observations,
+and exact external inventory in all mode. They do not prove the Rust queue,
+lock parsing, unbounded reachability completeness or metadata/I/O behavior.
+
+[SelectionMain.lean](SelectionMain.lean) computes 50 cases over ten graph profiles
+and five root sets, with four nodes including one workspace node. Four expansion
+rounds form this finite oracle; no general exploration bound is raised. Cases
+cover chains, cycles, shared descendants, extra/development separation, workspace
+routing, multiple matched roots, collisions and missing queries. Sensitivity
+witnesses reject extra omission, development inclusion, narrowed all mode and
+single-root selection. The strict [public adapter](../../tests/description.rs)
+constructs real uv.lock records with canonical names/versions/sources and checks
+Description request inventories, or missing-query errors. Expected inventories
+come only from Lean; SHA-256 and declarations are not modeled in these cases.
+An independent Floyd-Warshall proptest covers additional bounded graph
+permutations and result-order invariance (256 cases).
+
+Initial model/generator build completed in about five seconds under the existing
+20-second per-command deadline; no peak-memory measurement was available.
+All 50 correspondence cases and three corpus freshness checks passed locally.

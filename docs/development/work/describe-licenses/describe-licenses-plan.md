@@ -45,19 +45,19 @@ DescriptionReport has typed complete/incomplete status, getters, from_input_erro
 with_warnings, with_acquisition_summary and exit_code() -> u8. Graph selection
 is crate-private; public serializable enums describe scope and dependency kind.
 
-- [ ] Write and observe failing tests for normalized/all-identity selection,
+- [x] Write and observe failing tests for normalized/all-identity selection,
   all-external equivalence/collision, all extras/markers/no-dev, workspace routing,
   unsupported targets, graph cycles and exact request subset.
-- [ ] Implement selected graph with roots retained, deterministic context and
+- [x] Implement selected graph with roots retained, deterministic context and
   request slices; add policy-free per-artifact identity/result accounting,
   exact-text grouping and explicit unknowns. Keep check evaluation unchanged.
-- [ ] Test differing licenses, malformed/unknown/custom declarations, missing/
+- [x] Test differing licenses, malformed/unknown/custom declarations, missing/
   duplicate/foreign/substituted observations and order invariance. Add bounded
   generated graph cases against an independent reachability algorithm.
-- [ ] Add small Lean selection model/proofs plus generated finite graph cases,
+- [x] Add small Lean selection model/proofs plus generated finite graph cases,
   sensitivity witnesses and strict public Description adapter. State canonical
   identity/graph premises; do not claim general Rust/HTTP correctness.
-- [ ] Run full Rust suite, strict formatting/Clippy/rustdoc and formal freshness;
+- [x] Run full Rust suite, strict formatting/Clippy/rustdoc and formal freshness;
   review scope/graph, evidence, errors, ownership and oracle correspondence five
   times; record results and commit.
 

@@ -6,6 +6,7 @@ use crate::model::{
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 /// One external locked package, including unsupported/missing-evidence outcomes.
+#[derive(Clone)]
 pub struct Target {
     package: PackageId,
     requests: Vec<ArtifactRequest>,
@@ -49,6 +50,7 @@ struct Entry {
     edges: Vec<Edge>,
 }
 struct Node {
+    development: BTreeMap<String, Vec<Edge>>,
     edges: Vec<Edge>,
     markers: Vec<String>,
     extras: BTreeMap<String, Vec<Edge>>,
@@ -71,6 +73,7 @@ pub struct Resolution {
     targets: Vec<Target>,
     graph: BTreeMap<PackageId, Node>,
     entries: Vec<Entry>,
+    roots: BTreeSet<PackageId>,
 }
 
 #[derive(Deserialize)]
@@ -388,6 +391,7 @@ impl Resolution {
         for (id, p) in records {
             let node_edges = edges(&p.dependencies, &packages, None)?;
             let mut extras = BTreeMap::new();
+            let mut development = BTreeMap::new();
             if roots.contains(&id) {
                 entries.push(Entry {
                     label: id.name().to_owned(),
@@ -407,6 +411,9 @@ impl Resolution {
                             edges: group_edges.clone(),
                         });
                     }
+                    if matches!(prefix, GroupKind::Development) {
+                        development.insert(name.clone(), group_edges.clone());
+                    }
                     if matches!(prefix, GroupKind::Extra)
                         && extras.insert(normalize_name(name)?, group_edges).is_some()
                     {
@@ -417,6 +424,7 @@ impl Resolution {
             graph.insert(
                 id.clone(),
                 Node {
+                    development,
                     edges: node_edges,
                     markers: p.resolution_markers.clone(),
                     extras,
@@ -432,6 +440,7 @@ impl Resolution {
             targets,
             graph,
             entries,
+            roots,
         })
     }
     #[must_use]
@@ -487,3 +496,6 @@ impl Resolution {
         paths
     }
 }
+
+mod selection;
+pub use selection::{DependencyGraph, DependencyKind, PackageIdentity, SelectionMode};

@@ -81,12 +81,13 @@ jobs:
           echo "$RUNNER_TEMP/taloon-lean/bin" >> "$GITHUB_PATH"
       - name: Build proofs within the recorded command deadline
         working-directory: formal/TaloonOracle
-        run: timeout 20s lake build TaloonOracle generate_corpus generate_index
+        run: timeout 20s lake build TaloonOracle generate_corpus generate_index generate_selection
       - name: Check generated expectations and sensitivity witnesses
         run: |
           formal/TaloonOracle/.lake/build/bin/generate_corpus --stats
           formal/TaloonOracle/.lake/build/bin/generate_corpus --check tests/fixtures/oracle/policy.jsonl
           formal/TaloonOracle/.lake/build/bin/generate_index --check tests/fixtures/oracle/index.jsonl
+          formal/TaloonOracle/.lake/build/bin/generate_selection --check tests/fixtures/oracle/selection.jsonl
 
   fuzz:
     name: Bounded parser and inspection fuzz smoke

@@ -4,6 +4,10 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: describe-model
+  resource: ../../../formal/TaloonOracle/README.md
+  working_tree: modified
+  sha256: 52fd4b66dbd99ceecf8e8eae2419fb72467a12b99a9ebb1473effc18cec04f4a
 - id: acquisition-measurements
   resource: ../work/index-acquisition/measurements.md
   working_tree: modified
@@ -125,3 +129,17 @@ cover those separate implementation risks. CI builds the model and checks both
 corpora for freshness.[^acquisition-measurements]
 
 [^acquisition-measurements]: [Measured acquisition and stage reviews](../work/index-acquisition/measurements.md).
+
+# Description selection correspondence
+
+The description model proves external inventory filtering, root retention and
+selection under explicit canonical-identity/workspace premises. Its separate
+50-case corpus crosses ten four-node graph profiles with five root sets; the
+public Description adapter checks actual request inventories. A 256-case
+independent transitive-closure property supplements those profiles. The model
+does not prove general queue correctness, unbounded reachability completeness,
+lock parsing, HTTP, hashes or license truth. See the [formal worksheet and
+reproduction commands](../../../formal/TaloonOracle/README.md#description-selection-model)
+for sensitivity witnesses, finite bounds and observed results.[^describe-model]
+
+[^describe-model]: [Description model correspondence and reproduction](../../../formal/TaloonOracle/README.md).

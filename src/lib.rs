@@ -8,3 +8,5 @@ pub mod model;
 pub mod policy;
 pub mod report;
 pub mod resolution;
+
+pub mod description;
