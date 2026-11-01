@@ -104,16 +104,17 @@ existing release's assets to repair a verification failure.
 
 ## External configuration
 
-PyPI and TestPyPI each require a normal or pending Trusted Publisher for project
-`taloon`, owner `HayaoSuzuki`, repository `taloon`, workflow `release.yml`, and
-environment `pypi` or `testpypi`, respectively. Check project-name availability;
+PyPI and TestPyPI each require a Trusted Publisher matching the release workflow
+and its corresponding GitHub environment. Check project-name availability;
 do not claim registration merely because the public JSON endpoint is absent.
 Both public project endpoints returned HTTP 404 during read-only investigation
 on 2026-10-31; this does not establish ownership or registrability.
 GitHub environments must allow main's release jobs without mandatory human
-approval if fully automatic publication is desired. Document exact setup and
-verification commands. Use gh for all GitHub inspection and changes. PyPI
-account-side configuration requires the owner's authenticated session.
+approval if fully automatic publication is desired. Document operational
+prerequisites and verification commands. Keep one-time account registration
+instructions in the introducing PR, following the owner's documentation feedback.
+Use gh for all GitHub inspection and changes. PyPI account-side configuration
+requires the owner's authenticated session.
 
 ## Implementation and acceptance
 

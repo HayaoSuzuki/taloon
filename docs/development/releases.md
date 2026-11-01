@@ -7,31 +7,13 @@ Supported installers use Python 3.14 or 3.15. Each platform wheel is built once
 and exercised by both versions. Linux owns exhaustive Rust/property/Lean/fuzz
 suites; platform smoke checks own uv startup, exits, paths, and cache integration.
 
-## One-time publisher configuration
+## Publication prerequisites
 
-Before merging the first release workflow, register a pending publisher for
-`taloon` on both [PyPI](https://pypi.org/manage/account/publishing/) and
-[TestPyPI](https://test.pypi.org/manage/account/publishing/):
-
-| Field | Value |
-| --- | --- |
-| PyPI project name | `taloon` |
-| Owner | `HayaoSuzuki` |
-| Repository | `taloon` |
-| Workflow filename | `release.yml` |
-| Environment | `pypi` on PyPI; `testpypi` on TestPyPI |
-
-If the project already exists under your account, add the same publisher to
-that project instead. Public JSON HTTP 404 does not reserve a name or establish
-that registration is available. This account-side step cannot be completed with
-GitHub credentials. Follow [PyPI's setup procedure](https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/).
-
-Create GitHub environments `pypi` and `testpypi`, allowing deployment only from
-branch `main`. Do not require a reviewer if publication must run automatically.
-No PyPI API token or secret is needed. Keep the repository's default workflow
-token read-only; only individual reservation/signing/upload jobs request writes.
-Required main checks also need to remain enabled. Branch protection and approval
-policies for merging are separate repository administration.
+PyPI and TestPyPI must trust the release workflow through OIDC. GitHub environments
+`pypi` and `testpypi` allow deployment only from `main`; automatic publication
+requires no manual approval on those environments. Required main checks must
+remain enabled. The workflow uses no stored PyPI API token, and only individual
+reservation/signing/upload jobs request write permissions.
 
 ## Normal publication
 
@@ -76,7 +58,7 @@ release inventory. crates.io publishing remains disabled.
 
 ## Recovery and provenance verification
 
-Fix the external cause (for example a pending publisher registration), then
+Resolve the failed prerequisite or transient service error, then
 dispatch from main with the reserved stable tag:
 
 ```sh

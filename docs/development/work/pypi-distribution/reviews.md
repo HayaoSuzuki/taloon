@@ -78,7 +78,7 @@ Five self-review passes:
    invalid publications/signatures fail without retrying away the disagreement.
 5. Checked scope and user guidance: three platform wheels, two supported Python
    versions per wheel, Linux exhaustive suites, crates.io disabled, current
-   publisher fields and recovery commands. No production-upload claim is made.
+   publisher prerequisites and recovery commands. No production-upload claim is made.
 
 Actionlint and standalone ShellCheck passed all 45 run blocks; offline zizmor
 1.30.1 reported no findings. The added action commit SHAs were resolved through
@@ -87,3 +87,15 @@ gh. Local docs checks and strict MkDocs passed. All 95 Python tooling tests and
 audits and documentation passed at `8be75b9`. The fresh independent reviewer
 reported no code findings. See the [final acceptance review](final-review.md)
 for exact runs, scope, external prerequisites and recorded rulings.
+
+## Documentation follow-up: account setup ownership
+
+The owner requested that initial account registration not live in the maintained
+release guide. Registration links and field values were removed; the introducing
+PR retains them. The guide keeps operational prerequisites and recovery behavior.
+
+Five review passes checked removal of account form instructions, preservation of
+OIDC/main-only environment prerequisites, agreement with the distribution decision
+and plan, completeness of the PR-only registration information, and document
+links/source snapshots. Documentation validation, strict MkDocs and whitespace
+checks passed. Runtime code and workflows are unchanged.

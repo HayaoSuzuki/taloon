@@ -47,7 +47,7 @@ sources:
 - id: distribution
   resource: python-distribution.md
   working_tree: modified
-  sha256: bcca310a7377e0ca0bc1e7f9dd4234ee77638fa2be73037bb9de8125f81a1ea6
+  sha256: 71e918f0333a14dbbdf592d91b1c1e41c289f4de11a26225774bfed15ce92b17
 ---
 # Current baseline
 

@@ -6,7 +6,8 @@ status: accepted
 sources:
 - id: design
   resource: ../work/pypi-distribution/design.md
-  revision: 8be75b9
+  working_tree: modified
+  sha256: ec99b1b3c238989e1d2852cf76d9668ad163284075493152c36cbc91a244996f
 - id: reference
   resource: https://github.com/HayaoSuzuki/hoimin/blob/39d35f3980c428ab15258b519a233b86f1551ffa/.github/workflows/release.yml
 - id: workflow
@@ -15,7 +16,7 @@ sources:
 - id: evidence
   resource: ../work/pypi-distribution/reviews.md
   working_tree: modified
-  sha256: 97fc3ef0237450a85bd1d582039ab8a24a1cbf801a21ca737019e08fbc9309e3
+  sha256: 1fd65bd6c6451ac58b93c0189eecedecfec83b4ad685cb5946fa1289597a3d63
 ---
 # Decision
 
@@ -50,8 +51,10 @@ not a claim that GitHub Release assets are immutable.[^workflow][^reference]
 
 # Operations, evidence and reconsideration
 
-The [release procedure](../releases.md) owns setup commands and account-side
-PyPI/TestPyPI publisher prerequisites. [Stage evidence](../work/pypi-distribution/reviews.md)
+The [release procedure](../releases.md) owns build, publication and recovery
+procedures and their operational prerequisites. One-time account registration
+instructions belong to the introducing PR, not the maintained developer guide.
+[Stage evidence](../work/pypi-distribution/reviews.md)
 distinguishes observed local/hosted checks from production publication. Configured
 automation is not evidence that an upload or account registration occurred.[^evidence]
 
