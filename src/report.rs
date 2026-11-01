@@ -34,7 +34,6 @@ impl Diagnostic {
         }
     }
 }
-pub use taloon_decisions::status::Status;
 #[derive(Clone, Debug, Default, Serialize)]
 pub struct TransferSummary {
     pub requests: u64,
@@ -95,6 +94,7 @@ impl AcquisitionSummary {
         self.http.archive.merge(&other.http.archive);
     }
 }
+pub use taloon_decisions::status::Status;
 #[derive(Debug, Serialize)]
 pub struct ArtifactReport {
     pub request_id: RequestId,
@@ -120,16 +120,14 @@ impl From<&SourceId> for SourceSummary {
         }
     }
 }
-#[derive(Debug, Serialize)]
-pub struct PackageReport {
-    pub package: String,
-    pub source: SourceSummary,
-    pub status: Status,
-    pub artifacts: Vec<ArtifactReport>,
-    pub diagnostics: Vec<Diagnostic>,
-    pub paths: Vec<DependencyPath>,
-    pub origin_note: Option<String>,
-}
+pub type PackageReport = taloon_decisions::status::PackageOutcome<
+    String,
+    SourceSummary,
+    Vec<ArtifactReport>,
+    Vec<Diagnostic>,
+    Vec<DependencyPath>,
+    Option<String>,
+>;
 #[derive(Debug, Serialize)]
 pub struct Report {
     schema_version: u32,
@@ -140,17 +138,8 @@ pub struct Report {
 }
 impl Report {
     pub(crate) fn new(packages: Vec<PackageReport>, diagnostics: Vec<Diagnostic>) -> Self {
-        let mut status = Status::Compliant;
-        if diagnostics.iter().any(|d| d.severity == Severity::Error) {
-            status = Status::Incomplete;
-        } else {
-            for package in &packages {
-                status = status.combine(package.status);
-                if status == Status::Incomplete {
-                    break;
-                }
-            }
-        }
+        let input_error = diagnostics.iter().any(|d| d.severity == Severity::Error);
+        let status = taloon_decisions::status::aggregate(&packages, input_error);
         Self {
             schema_version: 1,
             status,
@@ -233,6 +222,25 @@ mod tests {
             paths: Vec::new(),
             origin_note: None,
         }
+    }
+
+    #[test]
+    fn package_report_preserves_named_field_serialization() {
+        // Arrange
+        let package = package(Status::Violation);
+        let expected = serde_json::json!({
+            "package": "fixture",
+            "source": { "kind": "registry", "location": "https://example.test/simple" },
+            "status": "violation",
+            "artifacts": [],
+            "diagnostics": [],
+            "paths": [],
+            "origin_note": null,
+        });
+        // Act
+        let actual = serde_json::to_value(package).unwrap();
+        // Assert
+        assert_eq!(actual, expected);
     }
 
     #[rstest]
