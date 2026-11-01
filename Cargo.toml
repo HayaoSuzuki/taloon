@@ -30,7 +30,7 @@ publish = false
 workspace = true
 
 [dependencies]
-taloon-decisions = { path = "crates/taloon-decisions" }
+taloon-decisions = { path = "crates/taloon-decisions", features = ["serde"] }
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
 toml = "1.1.2"

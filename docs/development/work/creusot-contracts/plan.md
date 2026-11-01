@@ -15,18 +15,18 @@ witnesses. Review allocation changes and dependency/license scope explicitly.
 
 ## Stage 1: Result accounting (first commit)
 
-- [ ] Add fixed slot scenarios and a sequence property before implementation.
-- [ ] Implement Missing/Single/Duplicate with exact payload/consumption contracts.
-- [ ] Delegate production ResultLedger slot transitions; keep BTreeMap ownership.
-- [ ] Establish pinned proof environment and fresh obligation checks; prove slots.
-- [ ] Exercise compiling duplicate/consumption mutations and restore clean source.
-- [ ] Run Rust regression/oracle checks and five self-reviews; update evidence and commit.
+- [x] Add fixed slot scenarios and a sequence property before implementation.
+- [x] Implement Missing/Single/Duplicate with exact payload/consumption contracts.
+- [x] Delegate production ResultLedger slot transitions; keep BTreeMap ownership.
+- [x] Establish pinned proof environment and fresh obligation checks; prove slots.
+- [x] Exercise compiling duplicate/consumption mutations and restore clean source.
+- [x] Run Rust regression/oracle checks and five self-reviews; update evidence and commit.
 
 ## Stage 2: Verdict and exit precedence (second commit)
 
-- [ ] Add parameterized verdict/exit cases and an independent precedence property.
-- [ ] Move Status and decision bodies to the same verified crate; delegate reports.
-- [ ] Prove exact precedence and bounded exit codes; reject compiling mutations.
-- [ ] Run all relevant checks, five self-reviews and independent final review.
-- [ ] Update current verification contract, developer procedure and evidence; commit.
-- [ ] Push and open a reviewable PR after final checks.
+- [x] Add parameterized verdict/exit cases and an independent precedence property.
+- [x] Move Status and decision bodies to the same verified crate; delegate reports.
+- [x] Prove exact precedence and bounded exit codes; reject compiling mutations.
+- [x] Run all relevant checks, five self-reviews and independent final review.
+- [x] Update current verification contract, developer procedure and evidence; commit.
+- [x] Push and open [PR #12](https://github.com/HayaoSuzuki/taloon/pull/12) after final checks.

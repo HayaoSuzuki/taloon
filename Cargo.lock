@@ -1863,6 +1863,7 @@ dependencies = [
  "creusot-std",
  "proptest",
  "rstest",
+ "serde",
 ]
 
 [[package]]

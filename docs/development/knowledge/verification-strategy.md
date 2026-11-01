@@ -7,7 +7,7 @@ sources:
 - id: creusot-contracts
   resource: ../work/creusot-contracts/review.md
   working_tree: modified
-  sha256: 683954a4f68f9be8093cfaa6bb144ab94ec2e2d5a187310809c9b98d4994d8b7
+  sha256: ff933df572ba1c9e7a8b88d53a0d7c5e3db628a83eccf7c8fec9bab79c44a0c2
 - id: typed-acquisition-review
   resource: ../work/typed-acquisition/review.md
   working_tree: modified
@@ -332,17 +332,26 @@ executor or CI results.[^typed-acquisition-review]
 
 # Direct Rust decision contracts
 
-Creusot 0.14.0 additionally verifies the production observation-slot transitions
-in `taloon-decisions`, using the same bodies called by ResultLedger. Exact
+Creusot 0.14.0 additionally verifies production observation-slot transitions
+and verdict/exit decisions in `taloon-decisions`, using the same bodies called
+by ResultLedger and Report. Exact
 payload preservation, duplicate absorption until consumption, typed cardinality
 errors and consumption to None have contracts over arbitrary payload types.
+Pairwise status combination proves Incomplete over Violation over Compliant;
+exit contracts prove exact 0/1/2 outcomes and warning escalation. Report uses
+one early-stopping package scan; traversal, warning discovery and serialization
+retain independent properties and fixed tests rather than a whole-report proof.
 BTreeMap association/removal and Evidence rebinding remain tested adapter
 boundaries; this is not a proof of the entire ledger or application. No custom
 trusted function or map axiom is introduced. The existing Lean proofs and finite
 correspondence remain unchanged.[^creusot-contracts]
 
 The separate pinned nightly/Why3/solver environment never becomes a runtime
-requirement. Fresh exact obligation inventories, explicit named goals, no-cache
+requirement. The existing required formal CI context builds the checksum-pinned
+environment and runs proofs plus five compiling rejected mutations. The internal
+crate has a fixed version independent of automatic root release numbering;
+regression tests cover the release/lock boundary. Fresh exact obligation
+inventories, explicit named goals, no-cache
 proofs, input snapshots and compiling rejected mutations guard the verification
 command. Revisit when the production decisions, compiler/contracts or upstream
 environment recipe changes. Commands and installation belong to the

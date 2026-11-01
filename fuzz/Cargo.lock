@@ -1673,6 +1673,7 @@ name = "taloon-decisions"
 version = "0.1.0"
 dependencies = [
  "creusot-std",
+ "serde",
 ]
 
 [[package]]

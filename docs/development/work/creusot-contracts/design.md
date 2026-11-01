@@ -20,9 +20,11 @@ semantics, without replacing BTreeMap with a slower proof-friendly container.
 
 ## Contracts and boundaries
 
-Observation slots distinguish Missing, Single(payload) and Duplicate. Recording
+Observation slots conceptually distinguish Missing, Single(payload) and Duplicate.
+Only Single/Duplicate are retained in the map; Missing is the map/Option absence,
+so a retained slot stays pointer-sized. Recording
 into Missing preserves the exact payload; recording into either occupied state
-makes Duplicate. Taking a slot empties it, returning exactly its sole payload
+makes Duplicate. Taking an optional slot leaves None, returning exactly its sole payload
 or the corresponding typed missing/duplicate failure. Duplicate input cannot
 become successful evidence. BTreeMap identity selection/removal and Evidence
 rebinding remain outside Creusot; tests exercise their connection through the

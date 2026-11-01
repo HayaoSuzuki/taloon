@@ -1,10 +1,16 @@
 # Production Rust contracts
 
 Creusot verifies `crates/taloon-decisions`, the same crate used by the production
-ledger. Ordinary stable builds do not compile its `cfg(creusot)` dependency.
-The current observation contracts concern slot cardinality and exact payload
-consumption. They do not prove BTreeMap key selection/removal, request identity,
-Evidence rebinding, parsing, allocation success or I/O.
+ledger and report evaluator. Ordinary stable builds do not compile its
+`cfg(creusot)` dependency. Observation contracts cover slot cardinality and exact
+payload consumption. Retained slots contain only Single/Duplicate; Option/map
+absence represents Missing, avoiding a second stored empty-state discriminant.
+Verdict contracts cover incomplete/violation precedence
+and warning-dependent exit codes. They do not prove BTreeMap selection/removal,
+request identity, Evidence rebinding, collection traversal, warning discovery,
+serialization, parsing, allocation success, arbitrary destructors or I/O.
+The internal crate keeps version 0.1.0 independently: automatic release preparation
+changes only the published root package and its locked entry.
 
 ## Pinned environment
 
@@ -67,8 +73,19 @@ docker run --rm -v "$PWD:/workspace" -w /workspace \
   timeout 900s formal/creusot/sensitivity.sh
 ```
 
-The duplicate and consumption mutations must generate successfully, then fail
-their own named contract goals. A compiler error, timeout, missing proof target
+The duplicate, consumption, precedence, incomplete-exit and warning-policy
+mutations must generate successfully, then fail their own named contract goals. A compiler error, timeout, missing proof target
 or unexpected successful proof fails the sensitivity check. The shipping source
 is never mutated. These witnesses test contract sensitivity, not complete bug
 coverage.
+
+## CI enforcement
+
+The existing required `Lean proofs and generated corpus freshness` context runs
+both the unchanged Lean checks and the Creusot build/proofs/sensitivity checks.
+Its 30-minute job deadline bounds the complete run; CI uses additional 1,200-second
+image-build, 600-second verification and 300-second sensitivity deadlines. A
+timeout fails the existing required context. The extra tooling is built from
+checksummed source on each fresh runner; cold setup can dominate job time. Proof
+reports are retained for seven days on success or failure. This task does not
+change GitHub rules or add an unenforced optional proof job.

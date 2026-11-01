@@ -34,13 +34,7 @@ impl Diagnostic {
         }
     }
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Status {
-    Compliant,
-    Violation,
-    Incomplete,
-}
+pub use taloon_decisions::status::Status;
 #[derive(Clone, Debug, Default, Serialize)]
 pub struct TransferSummary {
     pub requests: u64,
@@ -146,15 +140,17 @@ pub struct Report {
 }
 impl Report {
     pub(crate) fn new(packages: Vec<PackageReport>, diagnostics: Vec<Diagnostic>) -> Self {
-        let status = if diagnostics.iter().any(|d| d.severity == Severity::Error)
-            || packages.iter().any(|p| p.status == Status::Incomplete)
-        {
-            Status::Incomplete
-        } else if packages.iter().any(|p| p.status == Status::Violation) {
-            Status::Violation
+        let mut status = Status::Compliant;
+        if diagnostics.iter().any(|d| d.severity == Severity::Error) {
+            status = Status::Incomplete;
         } else {
-            Status::Compliant
-        };
+            for package in &packages {
+                status = status.combine(package.status);
+                if status == Status::Incomplete {
+                    break;
+                }
+            }
+        }
         Self {
             schema_version: 1,
             status,
@@ -185,11 +181,8 @@ impl Report {
     }
     #[must_use]
     pub fn exit_code(&self, deny_warnings: bool) -> u8 {
-        match self.status {
-            Status::Incomplete => 2,
-            Status::Violation => 1,
-            Status::Compliant => u8::from(deny_warnings && self.has_warnings()),
-        }
+        let has_warnings = self.status == Status::Compliant && deny_warnings && self.has_warnings();
+        self.status.exit_code(deny_warnings, has_warnings)
     }
     fn has_warnings(&self) -> bool {
         self.diagnostics
@@ -217,5 +210,72 @@ impl Report {
     pub fn with_acquisition_summary(mut self, summary: AcquisitionSummary) -> Self {
         self.acquisition = summary;
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::{Code, SourceKind};
+    use proptest::prelude::*;
+    use rstest::rstest;
+
+    fn package(status: Status) -> PackageReport {
+        PackageReport {
+            package: "fixture".into(),
+            source: SourceSummary {
+                kind: SourceKind::Registry,
+                location: "https://example.test/simple".into(),
+            },
+            status,
+            artifacts: Vec::new(),
+            diagnostics: Vec::new(),
+            paths: Vec::new(),
+            origin_note: None,
+        }
+    }
+
+    #[rstest]
+    #[case::compliant(Status::Compliant, "compliant")]
+    #[case::violation(Status::Violation, "violation")]
+    #[case::incomplete(Status::Incomplete, "incomplete")]
+    fn status_serialization_is_unchanged(#[case] status: Status, #[case] expected: &str) {
+        // Arrange: a public report status.
+        // Act
+        let actual = serde_json::to_value(status).unwrap();
+        // Assert
+        assert_eq!(actual, expected);
+    }
+
+    proptest! {
+        #[test]
+        fn report_aggregation_matches_independent_rank_oracle(
+            ranks in prop::collection::vec(0_u8..=2, 0..100),
+            input_error in any::<bool>(),
+            warning in any::<bool>(),
+            deny in any::<bool>(),
+        ) {
+            // Arrange
+            let packages = ranks.iter().map(|rank| package(match rank {
+                0 => Status::Compliant,
+                1 => Status::Violation,
+                _ => Status::Incomplete,
+            })).collect();
+            let mut diagnostics = Vec::new();
+            if input_error {
+                diagnostics.push(Diagnostic::error(Error::new(Code::Configuration, "fixture")));
+            }
+            if warning {
+                diagnostics.push(Diagnostic::warning(Error::new(Code::UnusedPermission, "fixture")));
+            }
+            let expected = ranks.into_iter().chain([
+                u8::from(input_error) * 2,
+                u8::from(deny && warning),
+            ]).max().unwrap();
+            // Act
+            let actual = Report::new(packages, diagnostics).exit_code(deny);
+            // Assert
+            prop_assert_eq!(actual, expected);
+        }
     }
 }

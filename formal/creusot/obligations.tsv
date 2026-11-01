@@ -1,3 +1,5 @@
 observation/impl_Observation_T/new.coma vc_new_T
 observation/impl_Observation_T/mark_duplicate.coma vc_mark_duplicate_T
 observation/impl_Observation_T/take.coma vc_take_Observation_T vc_elim_Some vc_elim_Single vc_take_T
+status/impl_Status/combine.coma vc_combine
+status/impl_Status/exit_code.coma vc_from_u8 vc_exit_code

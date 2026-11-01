@@ -8,8 +8,9 @@ cp "$root/Cargo.toml" "$root/Cargo.lock" "$root/why3find.json" "$work/"
 cp -R "$root/crates" "$root/src" "$work/"
 mkdir -p "$root/formal/creusot/reports/sensitivity"
 cd "$work"
-for mutation in duplicate consumption; do
+for mutation in duplicate consumption precedence exit warning; do
     cp "$root/crates/taloon-decisions/src/observation.rs" crates/taloon-decisions/src/observation.rs
+    cp "$root/crates/taloon-decisions/src/status.rs" crates/taloon-decisions/src/status.rs
     case "$mutation" in
         duplicate)
             file=crates/taloon-decisions/src/observation.rs
@@ -22,6 +23,24 @@ for mutation in duplicate consumption; do
             sed 's/match slot.take() {/match std::mem::replace(slot, Some(Self::Duplicate)) {/' "$file" > "$file.tmp"
             obligation=observation/impl_Observation_T/take.coma
             goal=vc_take_T
+            ;;
+        precedence)
+            file=crates/taloon-decisions/src/status.rs
+            sed 's/(Self::Incomplete, _) | (_, Self::Incomplete) => Self::Incomplete,/(Self::Incomplete, _) | (_, Self::Incomplete) => Self::Violation,/' "$file" > "$file.tmp"
+            obligation=status/impl_Status/combine.coma
+            goal=vc_combine
+            ;;
+        exit)
+            file=crates/taloon-decisions/src/status.rs
+            sed 's/Self::Incomplete => 2,/Self::Incomplete => 1,/' "$file" > "$file.tmp"
+            obligation=status/impl_Status/exit_code.coma
+            goal=vc_exit_code
+            ;;
+        warning)
+            file=crates/taloon-decisions/src/status.rs
+            sed 's/Self::Compliant => u8::from(deny_warnings \&\& has_warnings),/Self::Compliant => u8::from(deny_warnings || has_warnings),/' "$file" > "$file.tmp"
+            obligation=status/impl_Status/exit_code.coma
+            goal=vc_exit_code
             ;;
     esac
     cmp -s "$file" "$file.tmp" && { echo 'mutation did not change source' >&2; exit 1; }
