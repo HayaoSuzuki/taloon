@@ -4,6 +4,10 @@ title: Pure core and acquisition boundary
 description: Approved deep modules and request/result API for license inspection without core I/O.
 status: accepted
 sources:
+- id: acquisition-measurements
+  resource: ../work/index-acquisition/measurements.md
+  working_tree: modified
+  sha256: 6aaeeade6f9e0f1a495c5328501465ef1aa571660070ecd2957f3b71f4a2f67a
 - id: owner
   resource: ../work/initial-design/specification-inputs.md
   working_tree: untracked
@@ -237,3 +241,18 @@ owner decision.[^owner]
 [^approval]: [Design approval and stage review requirement](../work/initial-design/implementation-approval.md).
 [^package]: [Current Rust package](../../../Cargo.toml).
 [^uv-metadata]: [uv workspace metadata integration advice and preview schema](https://docs.astral.sh/uv/reference/internals/metadata/).
+
+# Per-run index ownership
+
+The runtime's private IndexCatalog owns endpoint construction, complete locked
+URL scope, bounded Simple JSON/HTML parsing and once initialization. Construction
+binds one immutable Http/authentication context; lookup returns an exact sidecar
+association or failure. The caller continues to own metadata download, artifact
+fallback and evidence-cache publication. An immutable precollected endpoint map
+avoids a global lock during transport. This hides index protocol/synchronization
+from acquisition orchestration without adding a public core API or runtime
+dependency. Reconsider if endpoints must be added dynamically or authentication
+may vary during a single call; either would invalidate the sealed-scope
+premise.[^acquisition-measurements]
+
+[^acquisition-measurements]: [Measured acquisition and stage reviews](../work/index-acquisition/measurements.md).

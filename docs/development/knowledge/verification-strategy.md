@@ -4,6 +4,10 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: acquisition-measurements
+  resource: ../work/index-acquisition/measurements.md
+  working_tree: modified
+  sha256: 6aaeeade6f9e0f1a495c5328501465ef1aa571660070ecd2957f3b71f4a2f67a
 - id: owner
   resource: ../work/initial-design/implementation-approval.md
   working_tree: untracked
@@ -105,3 +109,19 @@ environment when implementation exists.[^owner]
 [^owner]: [Owner approval and added verification requirements](../work/initial-design/implementation-approval.md).
 [^hoimin-model]: [Inspected hoimin mutation-score model](https://github.com/HayaoSuzuki/hoimin/blob/542ec59c002d72fdff0137aa90113ffa59d70844/formal/HoiminOracle/HoiminOracle/MutationScoreExitPolicyModel.lean).
 [^hoimin-generator]: [Inspected hoimin corpus generator and sensitivity checks](https://github.com/HayaoSuzuki/hoimin/blob/542ec59c002d72fdff0137aa90113ffa59d70844/formal/HoiminOracle/MutationScoreExitPolicyAuditMain.lean).
+
+# Exact index lookup correspondence
+
+The [index model and adapter worksheet](../../../formal/TaloonOracle/README.md#exact-index-lookup-model)
+extend verification to per-run index filtering. Kernel proofs cover lookup
+preservation for included canonical URL keys, wrong-hash rejection and duplicate
+rejection. The finite generator produces 216 typed cases with scope-loss,
+hash-bypass and duplicate-acceptance sensitivity witnesses. A private binary
+adapter exercises both real JSON/HTML parsers (432 observations), plus successful
+metadata evidence construction without sidecar promotion. It does not prove
+HTTP, URL normalization, cryptographic hashes or OnceLock synchronization.
+Concurrent transport/panic regressions and two bounded 256-case parser properties
+cover those separate implementation risks. CI builds the model and checks both
+corpora for freshness.[^acquisition-measurements]
+
+[^acquisition-measurements]: [Measured acquisition and stage reviews](../work/index-acquisition/measurements.md).

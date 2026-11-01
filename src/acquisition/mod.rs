@@ -67,7 +67,7 @@ mod http;
 mod http_tests;
 mod index;
 mod metrics;
-use metrics::{RequestPurpose, micros, timed};
+use metrics::{RequestPurpose, micros};
 use std::{
     collections::BTreeMap,
     path::PathBuf,
@@ -147,6 +147,7 @@ impl Acquirer {
             total: requests.len(),
         };
         observe(progress);
+        let indexes = index::IndexCatalog::new(requests, &self.http);
         let partitions = partition_requests(requests);
         let workers = partitions.len();
         // Summaries outlive worker return values, so an unwind cannot discard
@@ -161,6 +162,7 @@ impl Acquirer {
                 .zip(&summaries)
                 .map(|(partition, summary)| {
                     let completed_tx = completed_tx.clone();
+                    let indexes = &indexes;
                     (
                         partition,
                         summary,
@@ -180,6 +182,7 @@ impl Acquirer {
                                     ),
                                     ArtifactLocator::Remote { .. } => self.acquire_remote(
                                         request,
+                                        indexes,
                                         &mut stats,
                                         &mut batch.warnings,
                                     ),
@@ -240,6 +243,7 @@ impl Acquirer {
     fn acquire_remote(
         &self,
         request: &ArtifactRequest,
+        indexes: &index::IndexCatalog<'_>,
         stats: &mut AcquisitionSummary,
         warnings: &mut Vec<Diagnostic>,
     ) -> Result<Evidence, Error> {
@@ -258,14 +262,12 @@ impl Acquirer {
                 "offline cache lacks sufficient evidence for this artifact",
             ));
         }
-        let ArtifactLocator::Remote { index, url } = request.locator() else {
+        let ArtifactLocator::Remote { url, .. } = request.locator() else {
             return Err(http::failure());
         };
         let url = url::Url::parse(url).map_err(|_| http::failure())?;
-        if request.requirement() == EvidenceRequirement::IndexAssociated
-            && let Some(index) = index
-        {
-            match self.try_sidecar(request, index, &url, stats) {
+        if request.requirement() == EvidenceRequirement::IndexAssociated {
+            match self.try_sidecar(request, indexes, stats) {
                 Ok(Some(evidence)) => {
                     self.persist(request, &evidence, warnings);
                     return Ok(evidence);
@@ -296,30 +298,10 @@ impl Acquirer {
     fn try_sidecar(
         &self,
         request: &ArtifactRequest,
-        index: &str,
-        url: &url::Url,
+        indexes: &index::IndexCatalog<'_>,
         stats: &mut AcquisitionSummary,
     ) -> Result<Option<Evidence>, Error> {
-        let mut base = url::Url::parse(index).map_err(|_| http::failure())?;
-        let path = format!(
-            "{}/{}/",
-            base.path().trim_end_matches('/'),
-            request.package().name()
-        );
-        base.set_path(&path);
-        let response = self.http.get(
-            RequestPurpose::Index,
-            base,
-            "application/vnd.pypi.simple.v1+json, text/html;q=0.1",
-            16 * 1024 * 1024,
-            stats,
-        )?;
-        stats.index_parse_count = stats.index_parse_count.saturating_add(1);
-        let locked = request.hash().ok_or_else(http::failure)?;
-        let Some((url, binding)) = timed(&mut stats.index_parse_us, || {
-            index::sidecar(&response, url, locked)
-        })?
-        else {
+        let Some((url, binding)) = indexes.sidecar(request, stats)? else {
             return Ok(None);
         };
         let response = self.http.get(

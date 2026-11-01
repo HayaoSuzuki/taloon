@@ -61,21 +61,22 @@ Binary `RequestPurpose::{Index, Metadata, Archive}` selects classification;
 **Files:** `src/acquisition/index.rs`, `mod.rs`, `http_tests.rs`, owning OKF/user
 guidance, work measurements/reviews, and a small Lean lookup model if useful.
 
-**Interfaces:** `IndexCatalog::new(requests: &[ArtifactRequest]) -> Self` collects
-complete scope. `sidecar(&self, http: &Http, request: &ArtifactRequest,
+**Interfaces:** `IndexCatalog::new(requests: &[ArtifactRequest], http: &Http) -> Self` collects
+complete scope and binds one immutable HTTP/authentication context for its lifetime.
+`sidecar(&self, request: &ArtifactRequest,
 stats: &mut AcquisitionSummary) -> Result<Option<(Url, SidecarAssociation)>, Error>`
 hides HTTP endpoint/parsing/synchronization. Each endpoint contains a shared
 once-initialized parsed result; exact artifact URL/hash lookup remains separate.
 
-- [ ] Write failing concurrent fetch-once, complete-scope, per-URL ambiguity/hash,
+- [x] Write failing concurrent fetch-once, complete-scope, per-URL ambiguity/hash,
   source/query isolation, per-call freshness, failure/fallback and initializer
   panic/waiter tests. Add generated URL/permutation association invariants.
-- [ ] Implement per-run catalog and filtered parsed snapshots; do not hold the
-  entry-map lock during transport. Retain bounded terminal failures for this run.
-- [ ] Rerun the same ignored benchmark, three trials. Expected: 1 index fetch/parse,
+- [x] Implement per-run catalog and filtered parsed snapshots; do not hold the
+  entry-map lock during transport (the sealed immutable map needs no lock). Retain bounded terminal failures for this run.
+- [x] Rerun the same ignored benchmark, three trials. Expected: 1 index fetch/parse,
   48 metadata fetches, 47 index hits, identical 48 outcomes/decisions, and exactly
   47 index response bodies saved. Record timing instead of an internet threshold.
-- [ ] Check cached/offline zero-HTTP/parse behavior and warm 10,000-artifact
+- [x] Check cached/offline zero-HTTP/parse behavior and warm 10,000-artifact
   process regression. Run relevant normal tests, strict lints/docs and model checks.
 - [ ] Review five times and request one fresh whole-branch review. Fix reproduced
   important findings; commit/push/create PR and verify hosted checks. Record actual

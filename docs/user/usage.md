@@ -50,7 +50,16 @@ accumulate across workers and can overlap; they are not wall elapsed time.
 `elapsed_us` measures acquisition wall time, excluding input discovery and final
 policy/report rendering. `index_parse_count`/`index_parse_us` measure parsing;
 `index_cache_hits`/`index_wait_us` describe in-run reuse and coordination waiting.
-All timing values use integer microseconds and do not decide compliance.
+All timing values use integer microseconds and do not decide compliance. Ready
+index reuse adds no waiting time; initialization coordination excludes the
+initializing worker's own fetch and parse time.
+
+During one check, artifacts from the same package index endpoint share one
+fetched and parsed index, including a terminal fetch failure after bounded
+retries. Every artifact still checks its exact URL and locked archive hash. A
+failed lookup falls back independently to archive verification. Index snapshots
+are kept only in memory for that check; the next check fetches afresh when
+cached artifact evidence is insufficient.
 
 ## Cache and offline mode
 

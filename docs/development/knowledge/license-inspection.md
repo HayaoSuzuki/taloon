@@ -6,8 +6,8 @@ status: accepted
 sources:
 - id: acquisition-measurements
   resource: ../work/index-acquisition/measurements.md
-  working_tree: untracked
-  sha256: ca9efc2bedf8b2bcdbee6ff50e4126b975b5ed5fa27b7a3f318ec3ffe2238dbd
+  working_tree: modified
+  sha256: 6aaeeade6f9e0f1a495c5328501465ef1aa571660070ecd2957f3b71f4a2f67a
 - id: interactive-progress
   resource: ../work/interactive-progress/review.md
   working_tree: untracked
@@ -274,6 +274,15 @@ microseconds; overlapping worker durations are accumulated separately from wall
 time. Aggregation saturates sums and never adds worker wall times. Already
 observed traffic is retained after worker unwind. These observations do not
 choose policy results or disclose per-source identities.[^acquisition-measurements]
+
+Within each acquisition call, one immutable HTTP/authentication context owns a
+sealed catalog keyed by the constructed package endpoint before redirects
+(origin/path/query retained). All locked URLs are collected before workers
+initialize snapshots. One fetch/parse, or bounded terminal failure, is shared
+per endpoint; initialization panic permits retry. Only locked associations are
+retained, and exact URL/hash validation remains per request. Each failed lookup
+independently falls back to archive verification. Snapshots are never persisted
+and do not change evidence strength or target scope.[^acquisition-measurements]
 
 | Exit | Meaning |
 | --- | --- |
