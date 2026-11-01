@@ -6,8 +6,8 @@ status: accepted
 sources:
 - id: declaration-reporting
   resource: ../work/evidence-and-invariants/issue15.md
-  working_tree: untracked
-  sha256: a64063c9751e5f613c6f40a7fd8696a18ece4c7098040bbb5f42f815086189d4
+  working_tree: modified
+  sha256: 6460f0f6c7d69f9c97a6c594ba62c3750abf01b01d9438e03fea52ae1e230d98
 - id: typed-acquisition-review
   resource: ../work/typed-acquisition/review.md
   working_tree: modified

@@ -16,12 +16,21 @@ pub(crate) fn redact_urls(value: &str) -> String {
             .find(|(_, c)| !c.is_ascii_alphanumeric() && !matches!(c, '+' | '-' | '.'))
             .map_or(0, |(index, c)| index + c.len_utf8());
         let end = value[colon + 3..]
-            .find(|c: char| c.is_whitespace())
+            // URL parsing removes embedded tabs/newlines. Keep those inside
+            // the token so credentials cannot survive beyond a split boundary.
+            .find(|c: char| c.is_whitespace() && !c.is_control())
             .map_or(value.len(), |offset| colon + 3 + offset);
         let token = &value[start..end];
         let url = token.trim_end_matches(['.', ',', ';', '!', ')', '}', '>', '\'', '"', '`']);
         output.push_str(&value[copied..start]);
-        output.push_str(&safe_locator(url));
+        let redacted = safe_locator(url);
+        if redacted.match_indices("://").nth(1).is_some() {
+            // Adjacent URLs can otherwise hide credentials in the first URL's
+            // path. Query/fragment URLs have already been removed above.
+            output.push_str("[redacted URL token]");
+        } else {
+            output.push_str(&redacted);
+        }
         output.push_str(&token[url.len()..]);
         copied = end;
         search = end;
@@ -69,6 +78,26 @@ mod tests {
     #[case::multiple(
         "A https://alice:password@a.test/x B https://bob:password@b.test/y?secret=hidden",
         "A https://a.test/x B https://b.test/y?redacted"
+    )]
+    #[case::adjacent(
+        "See https://public.test/license;https://alice:password@private.test/license now",
+        "See [redacted URL token] now"
+    )]
+    #[case::parentheses(
+        "See (https://public.test/license)(https://alice:password@private.test/license) now",
+        "See ([redacted URL token]) now"
+    )]
+    #[case::tab_authority(
+        "See https://alice:pass\tword@private.test/license now",
+        "See https://private.test/license now"
+    )]
+    #[case::newline_authority(
+        "See https://alice:pass\r\nword@private.test/license now",
+        "See https://private.test/license now"
+    )]
+    #[case::nested_query(
+        "See https://public.test/license?redirect=https://alice:password@private.test now",
+        "See https://public.test/license?redacted now"
     )]
     fn prose_url_redaction(#[case] input: &str, #[case] expected: &str) {
         // Arrange: prose with one independently specified expected observation.

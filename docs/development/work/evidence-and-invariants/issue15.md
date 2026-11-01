@@ -6,7 +6,7 @@ question, URL-containing prose and folded metadata) failed with whole-declaratio
 placeholders. All four pass after the correction. Only public synthetic fixtures
 were used; no sample repositories were consulted.
 
-A private declaration owner scans whitespace-delimited URL tokens and reuses the
+A private declaration owner scans URL tokens and reuses the
 locator policy for those tokens. Prose/email remains text; malformed URL-like
 tokens fail closed individually. Trailing prose punctuation is retained. URL
 credentials containing punctuation, IPv6 hosts and multiple URLs have regressions.
@@ -35,3 +35,12 @@ Five review passes:
    entry points; user evidence guidance and the owning inspection contract are updated.
 
 This is rendering/test evidence, not a proof of URL parsing or legal completeness.
+
+Independent final review found two redaction gaps: adjacent URLs could put a
+second authority in the first path, and embedded tabs/newlines could split
+credentials before URL parsing. Four named regressions failed before correction.
+Controls now remain inside URL inspection; a sanitized token still containing
+multiple scheme markers is redacted as ambiguous. A nested query URL remains
+handled by normal query removal. All thirteen named token cases and two
+generated properties pass after the correction. These executor checks address
+the review findings; no second independent review approval is claimed.

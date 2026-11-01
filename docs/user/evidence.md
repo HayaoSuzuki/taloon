@@ -68,7 +68,9 @@ with a broader cache does not change the policy's meaning.
 The JSON output of `check` and `describe` retains declaration prose in
 `original_expression` and `original_license`, including ordinary email addresses
 and question marks. URL tokens embedded in that prose have credentials, query
-values and fragments removed; malformed URL tokens are individually redacted.
+values and fragments removed; malformed or ambiguous adjacent URL tokens are
+individually redacted. Embedded tabs and newlines remain part of URL inspection
+so they cannot hide credentials.
 This does not change which declarations count as valid SPDX permissions.
 Text output escapes terminal controls; JSON encodes disruptive control and bidi
 characters as escapes without changing the decoded declaration value.
