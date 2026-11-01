@@ -38,8 +38,9 @@ memory proportional to the response; no constant-memory or RSS claim is made.
 
 The inspected boundaries satisfy eight diagnostics (10/10), but formatted keys
 and generic JSON trees hide avoidable interpretation/allocation work. Retain no
-compatibility wrappers solely for old order/malformed inputs. No public API
-redesign is needed beyond the useful ArtifactFormat ordering trait.
+compatibility wrappers solely for old order/malformed inputs. The final completion audit also removes the unused ArtifactRequest argument
+from Policy::clarification: content identity is its only lookup input. No
+compatibility overload is retained. ArtifactFormat gains deterministic ordering.
 
 Measure ignored 1k/10k worker and JSON fixtures before/after. Use runtime RED for
 empty-scope worker count and malformed JSON rejection, named AAA cases, and

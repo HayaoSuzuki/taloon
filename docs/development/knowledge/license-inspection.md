@@ -6,8 +6,8 @@ status: accepted
 sources:
 - id: typed-acquisition-review
   resource: ../work/typed-acquisition/review.md
-  working_tree: untracked
-  sha256: ba606a797a03b4d1d983fd6ac7dd1b832961ce5411b1d892d15b4e59154f40f7
+  working_tree: modified
+  sha256: 00daddabad915d492d1583acaff483a254849c01dccbf3ddb26de235cdc30605
 - id: describe-review
   resource: ../work/describe-licenses/implementation-review.md
   working_tree: modified

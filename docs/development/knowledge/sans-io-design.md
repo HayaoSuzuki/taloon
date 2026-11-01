@@ -6,8 +6,8 @@ status: accepted
 sources:
 - id: typed-acquisition-review
   resource: ../work/typed-acquisition/review.md
-  working_tree: untracked
-  sha256: ba606a797a03b4d1d983fd6ac7dd1b832961ce5411b1d892d15b4e59154f40f7
+  working_tree: modified
+  sha256: 00daddabad915d492d1583acaff483a254849c01dccbf3ddb26de235cdc30605
 - id: terminal-text-review
   resource: ../work/terminal-text/review.md
   working_tree: untracked
@@ -443,3 +443,11 @@ representation; preserve exact association/integrity and complete fallback.
 [^typed-acquisition-review]
 
 [^typed-acquisition-review]: [Typed acquisition staged review](../work/typed-acquisition/review.md).
+
+
+Content-bound clarification lookup accepts only ContentHash. The unused request
+argument is removed, so callers no longer construct/pass unrelated identity data
+or infer a nonexistent package-specific lookup. Inspection still supplies the
+observed hash and enforces archive proof before applying the replacement. This
+intentional public signature change follows the same no-compatibility decision.
+[^typed-acquisition-review]

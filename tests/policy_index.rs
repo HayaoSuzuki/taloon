@@ -236,3 +236,29 @@ fn hashless_local_usage_is_matched_against_observed_content(#[case] matching: bo
     assert_eq!(report.exit_code(false), u8::from(!matching));
     assert_eq!(report.diagnostics().len(), usize::from(!matching));
 }
+
+#[rstest]
+#[case::matching_hash(true, Some("MIT"))]
+#[case::different_hash(false, None)]
+fn clarification_lookup_needs_only_content_identity(
+    #[case] matching: bool,
+    #[case] expected: Option<&str>,
+) {
+    // Arrange
+    let configured = ContentHash::digest(b"configured archive");
+    let lookup = if matching {
+        configured
+    } else {
+        ContentHash::digest(b"different archive")
+    };
+    let text = format!(
+        "[tool.taloon]\nschema-version=1\nallow=['MIT']\n[[tool.taloon.clarifications]]\nartifact-hash='{configured}'\nexpression='MIT'\nreason='content review'\n"
+    );
+    let policy = Policy::from_pyproject(&text, date()).unwrap();
+
+    // Act
+    let result = policy.clarification(lookup);
+
+    // Assert
+    assert_eq!(result.map(|entry| entry.expression().text()), expected);
+}

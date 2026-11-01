@@ -294,11 +294,7 @@ impl Policy {
     }
     #[must_use]
     /// Lookup a content-bound replacement declaration; this does not grant permission.
-    pub fn clarification(
-        &self,
-        _request: &ArtifactRequest,
-        hash: ContentHash,
-    ) -> Option<&Clarification> {
+    pub fn clarification(&self, hash: ContentHash) -> Option<&Clarification> {
         self.clarifications.get(&hash)
     }
     #[must_use]

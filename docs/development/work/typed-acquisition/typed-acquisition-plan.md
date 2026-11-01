@@ -35,5 +35,23 @@ Five self-reviews per stage; user docs explain stricter malformed-index fallback
   Existing exact URL/hash checks and per-target ambiguity remain unchanged.
 - [x] Measure identical fixture; review implementation five times. Run full stable,
   generated/seed12345 tests, Clippy/rustdoc, existing Lean/core fuzz/Python/docs.
-- [ ] Update contracts/user guidance with actual hashes, five final reviews and
+- [x] Update contracts/user guidance with actual hashes, five final reviews and
   fresh whole-PR assessment. Commit, push to still-open PR10, observe actual CI.
+
+
+## Completion audit: content-only clarification API
+
+The goal continuation revalidated clean `7416ba5`, open PR #10 and all 13
+executed checks succeeding. Task 2's last checkbox is now reconciled with those
+observed results. The audit found one unnecessary public coupling: clarification
+lookup accepted an unused ArtifactRequest despite being content-hash keyed.
+
+- [x] Add two named AAA cases calling clarification with only a ContentHash;
+  observe E0061 against the previous signature, then remove the unused argument
+  and update its sole inspection caller. No compatibility overload remains.
+- [x] Verify the complete stable/shuffled suites, Clippy/rustdoc, final design
+  audit and documentation/source attribution. Existing proof/evidence semantics
+  and unrelated tool/runtime prerequisites remain unchanged.
+External completion gate: commit/push this final API cleanup and inspect CI for
+that resulting SHA. The live PR and active goal status own that post-commit gate;
+this source document records evidence available before committing its own bytes.

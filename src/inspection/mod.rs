@@ -142,7 +142,7 @@ impl Inspection {
                 .extend(summary.warnings.iter().cloned().map(Diagnostic::warning));
             report.evidence = Some(summary);
             let hash = evidence.content_hash();
-            let clarification = self.policy.clarification(request, hash);
+            let clarification = self.policy.clarification(hash);
             let need = if clarification.is_some() {
                 EvidenceRequirement::ArchiveVerified
             } else {

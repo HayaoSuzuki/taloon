@@ -109,3 +109,56 @@ schema validation, private workloads, production/RSS/whole-CLI speed, pending
 executor/CI results or final OKF reconciliation. Those remain separate scoped
 executor evidence. The object wrapper is a local serde map adapter, not a
 streaming JSON framework or a compatibility decoder.
+
+
+## Goal completion audit and final API simplification
+
+Revalidated actual HEAD `7416ba5db9e3babf26e39908b41fab5d1b6991f3`, a clean worktree,
+open PR #10 and 13 successful executed checks (10 publication skips). That is
+progress/delivery evidence for the preceding implementation turn, not merely an
+intended plan. The final audit then removed Policy::clarification's unused
+ArtifactRequest parameter and updated its only product caller. Clarifications
+are keyed by observed content identity; no request-scoped lookup was performed
+by the old parameter. No compatibility overload remains.
+
+Five design passes: (1) verify the map's content-hash scope, (2) trace every
+caller, (3) locate request validation in the ledger/evidence owner, (4) retain
+archive strength before applying a replacement, (5) prefer the one-input API
+under the owner's no-compatibility instruction.
+
+Five implementation passes: (1) matching/missing named AAA cases first produced
+E0061 against the old signature, (2) remove the unused argument, (3) supply the
+observed evidence hash at the sole caller, (4) compare unchanged lookup/proof
+branches, (5) compile all consumers and preserve existing model/property coverage.
+These cases pin API dependency and behavior, not a new hash-map algorithm oracle.
+
+Five final passes: (1) stable 307 regular tests pass, (2) generated and seed-12345
+nightly runs each pass 307, (3) Clippy/rustdoc pass, (4) fresh independent audit
+and requirement/evidence reconciliation, (5) final source hashes, privacy,
+document links/local hooks and the separately observed current-head PR gate.
+Existing Python/tooling and proof files did not change in this API cleanup;
+their recorded results and subsequent CI retain their explicit revision scopes.
+
+Fresh reviewer `completion_design_audit` read `9a8e2a1..7416ba5` plus this API
+cleanup and sampled representative Python tooling ownership. It reported no
+Critical/Important/Minor implementation finding. It confirmed the observed-hash
+input and archive-strength gate, object-only JSON boundary and eight scoped
+design diagnostics. It explicitly recommended completing delivery rather than
+adding further speculative abstractions. It did not execute checks, certify
+universal optimality/RSS/private workloads, inspect every Python release path,
+or authorize merging/publishing. Those are not inferred from its review.
+
+| Goal requirement | Current evidence and outcome |
+| --- | --- |
+| Apply software-design-philosophy | Documented module ownership, alternatives, staged reviews and two independent assessments; current scoped diagnostics 8/8 (10/10), no failed row remains. |
+| Assess performance and improve worthwhile work | Complete before/after graph, policy, HTML, terminal and typed-acquisition samples in their owners; final typed-worker/JSON and CLI goal measurements are in performance.md. No universal or private-workload speed claim. |
+| Use types/Enums where they encode invariants | PermissionUnit construction/comparison; ledger Single/Duplicate; WorkKey identity domains; bool/hash advertisement and Object<T> wire validation; immutable evidence and borrowed terminal output. Current source/tests exercise these boundaries. |
+| Remove structural waste and unnecessary coupling | Shared accounting, indexed selectors/graphs, predecessor reconstruction, immutable payload sharing, filtered HTML, typed JSON, borrowed rendering, and content-only clarification API. |
+| Prioritize simplicity/performance without backward compatibility | No old key-order shim, permissive JSON decoder, or old clarification overload. Known malformed indexes may require more archive acquisition; owned protocol vectors remain an explicit tradeoff. |
+| Preserve actual license-check correctness | Strict existing model adapters plus request/hash/source/proof/coverage regressions, including positional-array rejection and full-archive fallback. No weakening of evidence or target inventory. |
+| Review/test/document/deliver | Five passes per recorded stage, matching/missing API RED/GREEN, complete 307-test suites, hashes/guide/contracts reconciled. Commit/push/current-head CI are live PR gates outside this pre-commit snapshot. |
+
+The plan's local checkboxes now match verified work. Current-head CI and commit
+identity are recorded in PR #10 after publication of this source snapshot; the
+active goal is completed only after that external gate passes. No merge or
+release is included in this task. No implementation finding is deferred.

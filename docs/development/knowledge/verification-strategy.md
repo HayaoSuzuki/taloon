@@ -6,8 +6,8 @@ status: accepted
 sources:
 - id: typed-acquisition-review
   resource: ../work/typed-acquisition/review.md
-  working_tree: untracked
-  sha256: ba606a797a03b4d1d983fd6ac7dd1b832961ce5411b1d892d15b4e59154f40f7
+  working_tree: modified
+  sha256: 00daddabad915d492d1583acaff483a254849c01dccbf3ddb26de235cdc30605
 - id: terminal-text-review
   resource: ../work/terminal-text/review.md
   working_tree: untracked
@@ -316,3 +316,11 @@ The staged record separates the reviewer finding, executor fix pass, final
 measurements and subsequent CI observation.[^typed-acquisition-review]
 
 [^typed-acquisition-review]: [Typed acquisition staged review](../work/typed-acquisition/review.md).
+
+
+The completion audit adds two named public hash-only lookup cases: the old
+signature rejected them with E0061, and the simplified API passes. Full stable,
+generated-shuffle and seed-12345 suites each pass 307 local tests. A separate
+fresh completion reviewer confirms current ownership boundaries and identifies
+no further required implementation refactor; it does not certify unobserved
+executor or CI results.[^typed-acquisition-review]
