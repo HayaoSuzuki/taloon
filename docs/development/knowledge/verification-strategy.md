@@ -20,6 +20,12 @@ sources:
   resource: https://github.com/HayaoSuzuki/hoimin/blob/542ec59c002d72fdff0137aa90113ffa59d70844/formal/HoiminOracle/HoiminOracle/MutationScoreExitPolicyModel.lean
 - id: hoimin-generator
   resource: https://github.com/HayaoSuzuki/hoimin/blob/542ec59c002d72fdff0137aa90113ffa59d70844/formal/HoiminOracle/MutationScoreExitPolicyAuditMain.lean
+- id: random-order-reference
+  resource: https://github.com/HayaoSuzuki/hoimin/blob/39d35f3980c428ab15258b519a233b86f1551ffa/.github/workflows/ci.yml
+- id: random-order-review
+  resource: ../work/randomized-tests-and-python-checks/review.md
+  working_tree: untracked
+  sha256: db9b9efe91527e984e0e7feb4332b827b8c834d56a0351a8697d4e24056f5f2f
 ---
 # Decision and current status
 
@@ -94,6 +100,39 @@ verification Boolean. Model remote hash requirements and unsupported sources
 as distinct states so omission does not become acceptance. Types narrow invalid
 states; behavioral tests and correspondence establish the remaining rules.[^owner]
 
+# Randomized test execution
+
+Retain the stable Rust suite and add a separate pinned nightly libtest shuffle
+job, following the inspected hoimin implementation. Shuffling applies within
+individual executables and preserves the usual ignored-test boundary. Native
+seed output and explicit seed replay enable order-dependent failure diagnosis;
+parallel scheduling and Cargo executable order remain outside that promise.
+Python tooling uses required pytest-randomly from the existing docs/test group,
+with frozen resolution and default collection/random-generator seeding. Neither
+tool becomes a runtime dependency.[^random-order-reference][^random-order-review]
+
+Keep invocation and reproduction commands in the [developer guide](../index.md#randomized-test-order).
+Revisit when the nightly harness options/toolchain or pytest plugin compatibility
+changes. Random order supplements behavioral/property/formal checks; it does not
+prove that every possible ordering is safe.[^random-order-review]
+
+# Test design and Python quality
+
+New and modified tests separate Arrange, Act and Assert, with one scenario or
+property per function. Use independently executed rstest/pytest cases for input
+variants and proptest/Hypothesis to generalize meaningful domains. Fixed examples
+remain readable regressions; generated checks require independent expected values
+or invariants. Existing Lean correspondence and fuzz smoke remain separate
+sources of evidence.[^random-order-review]
+
+Maintain Python tooling under Ruff ALL and ty all-error strict checks, including
+tests. The formatter owns two conflicting lint rules; narrow test conventions
+and reasoned boundary exceptions remain explicit. No blanket annotation or type
+ignore bypass is enabled. These development gates do not add Python runtime
+dependencies. Revisit exceptions on tool upgrades and when the maintained Python
+surface changes. Commands and test review rules belong in the
+[developer guide](../index.md#python-quality).[^random-order-review]
+
 # Resource limits and reconsideration
 
 Pin Lean to the inspected hoimin version, v4.32.2. Start suspect individual Lean
@@ -143,3 +182,6 @@ reproduction commands](../../../formal/TaloonOracle/README.md#description-select
 for sensitivity witnesses, finite bounds and observed results.[^describe-model]
 
 [^describe-model]: [Description model correspondence and reproduction](../../../formal/TaloonOracle/README.md).
+
+[^random-order-reference]: [Inspected hoimin nightly shuffle job](https://github.com/HayaoSuzuki/hoimin/blob/39d35f3980c428ab15258b519a233b86f1551ffa/.github/workflows/ci.yml).
+[^random-order-review]: [Randomized test-order verification and review](../work/randomized-tests-and-python-checks/review.md).

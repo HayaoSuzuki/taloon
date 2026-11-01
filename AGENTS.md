@@ -39,3 +39,11 @@ Python binary distribution and publishing follow the
 [distribution decision](docs/development/knowledge/python-distribution.md) and
 [release procedure](docs/development/releases.md). crates.io publication remains
 disabled; do not treat configured workflows as evidence of an actual upload.
+
+## Test design
+
+For Rust and Python tests, use Arrange/Act/Assert and one scenario or property
+per test function. Parameterize input variants with rstest/pytest, then extend
+appropriate domains with proptest/Hypothesis and independent expectations.
+Follow the [test design guidance](docs/development/index.md#test-design) for
+case isolation and review. Run the Python quality gates when changing tooling.

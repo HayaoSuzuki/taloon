@@ -38,8 +38,57 @@ docs = [
     "mkdocs-material==9.7.7",
     "PyYAML==6.0.3",
     "pytest>=9,<10",
+    "pytest-randomly>=5,<6",
+    "ruff>=0.17,<0.18",
+    "ty>=0.0.80,<0.1",
 ]
 
 [tool.pytest.ini_options]
+minversion = "9.0"
+strict = true
+empty_parameter_set_mark = "fail_at_collect"
+required_plugins = ["pytest-randomly"]
 testpaths = ["tests"]
 pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 88
+force-exclude = true
+extend-exclude = ["target", "fuzz/target", "tests/fixtures", ".worktrees", ".superpowers"]
+
+[tool.ruff.lint]
+select = ["ALL"]
+# The formatter owns trailing commas and implicit-string layout.
+ignore = ["COM812", "ISC001"]
+
+[tool.ruff.lint.flake8-copyright]
+# Enforce the declared license without inventing copyright ownership.
+notice-rgx = 'SPDX-License-Identifier: Elastic-2\.0'
+min-file-size = 0
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+# Test names/fixtures document assertions; literals are expected outcomes.
+"tests/test_*.py" = ["D103", "INP001", "PLR2004", "S101"]
+
+[tool.ty.environment]
+python-version = "3.14"
+python-platform = "all"
+
+[tool.ty.src]
+include = ["tools", "tests"]
+exclude = ["tests/fixtures"]
+
+[tool.ty.rules]
+all = "error"
+
+[tool.ty.analysis]
+respect-type-ignore-comments = false
+strict-equality-semantics = true
+strict-generic-narrowing = true
+
+[tool.ty.terminal]
+error-on-warning = true

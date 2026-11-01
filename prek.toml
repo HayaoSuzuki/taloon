@@ -1,4 +1,4 @@
-# Keep local Rust checks aligned with CI.
+# Keep local checks aligned with CI.
 default_stages = ["pre-commit"]
 
 [[repos]]
@@ -24,7 +24,7 @@ files = '(\.rs$|(^|/)Cargo\.(toml|lock)$|(^|/)\.?rustfmt\.toml$|(^|/)\.?clippy\.
 id = "documentation"
 name = "Documentation links and OKF"
 language = "system"
-entry = "uv run --frozen --only-group docs python -m tools.check_docs"
+entry = "uv run --frozen --only-group docs --only-group release python -m tools.check_docs"
 pass_filenames = false
 files = '(\.md$|^tools/.*\.py$|^tests/.*\.py$|^pyproject\.toml$|^uv\.lock$|^\.python-version$|^mkdocs\.yml$|^prek\.toml$)'
 
@@ -32,6 +32,30 @@ files = '(\.md$|^tools/.*\.py$|^tests/.*\.py$|^pyproject\.toml$|^uv\.lock$|^\.py
 id = "user-docs"
 name = "User documentation (strict build)"
 language = "system"
-entry = "uv run --frozen --only-group docs mkdocs build --strict"
+entry = "uv run --frozen --only-group docs --only-group release mkdocs build --strict"
 pass_filenames = false
 files = '(^docs/user/|^mkdocs\.yml$|^pyproject\.toml$|^uv\.lock$|^\.python-version$|^prek\.toml$)'
+
+[[repos.hooks]]
+id = "ruff-format"
+name = "Python formatting"
+language = "system"
+entry = "uv run --frozen --only-group docs --only-group release ruff format --check ."
+pass_filenames = false
+files = '(\.py$|^pyproject\.toml$|^uv\.lock$|^\.python-version$|^prek\.toml$)'
+
+[[repos.hooks]]
+id = "ruff-lint"
+name = "Python lint"
+language = "system"
+entry = "uv run --frozen --only-group docs --only-group release ruff check --no-fix ."
+pass_filenames = false
+files = '(\.py$|^pyproject\.toml$|^uv\.lock$|^\.python-version$|^prek\.toml$)'
+
+[[repos.hooks]]
+id = "ty"
+name = "Python type checking"
+language = "system"
+entry = "uv run --frozen --only-group docs --only-group release ty check"
+pass_filenames = false
+files = '(\.py$|^pyproject\.toml$|^uv\.lock$|^\.python-version$|^prek\.toml$)'

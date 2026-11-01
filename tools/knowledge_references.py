@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Elastic-2.0
 """Inventory knowledge Markdown/source references and root navigation, read-only.
 
 Requires the PyYAML used by the OKF workflow. Handles inline links and reference
@@ -5,31 +6,38 @@ link definitions outside fenced code; it does not validate heading fragments,
 HTML links, external availability, or arbitrary Markdown extensions.
 
 Adapted from HayaoSuzuki/hoimin at 542ec59c002d72fdff0137aa90113ffa59d70844,
-tools/knowledge_references.py (Elastic-2.0). Only the default root differs.
+tools/knowledge_references.py (Elastic-2.0). taloon adjusts the default root
+and adds strict annotations and documentation.
 """
 
 import argparse
 import json
 import re
 import sys
-from collections.abc import Iterator
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import TypedDict
 from urllib.parse import unquote, urlsplit
 
 import yaml
 
 
 class Inventory(TypedDict):
+    """Report references and navigation without claiming full Markdown validation."""
+
     page_count: int
-    markdown: list[dict[str, Any]]
-    sources: list[dict[str, Any]]
-    missing_markdown: list[dict[str, Any]]
-    missing_sources: list[dict[str, Any]]
+    markdown: list[dict[str, object]]
+    sources: list[dict[str, object]]
+    missing_markdown: list[dict[str, object]]
+    missing_sources: list[dict[str, object]]
     unreachable_pages: list[str]
 
 
 def local_target(page: Path, target: str, root: Path) -> Path | None:
+    """Resolve a local Markdown target without treating remote URLs as files."""
     parsed = urlsplit(target)
     if parsed.scheme or parsed.netloc:
         return None
@@ -42,6 +50,7 @@ def local_target(page: Path, target: str, root: Path) -> Path | None:
 
 
 def unfenced_lines(body: str) -> Iterator[str]:
+    """Yield Markdown lines outside fenced code blocks."""
     fence: str | None = None
     for line in body.splitlines():
         marker = re.match(r"^\s{0,3}(`{3,}|~{3,})", line)
@@ -57,12 +66,14 @@ def unfenced_lines(body: str) -> Iterator[str]:
 
 
 def reference_label(label: str) -> str:
+    """Normalize reference labels using Markdown whitespace and case rules."""
     return " ".join(label.split()).casefold()
 
 
 def reference_definitions(
     all_lines: list[str],
 ) -> tuple[dict[str, str], dict[str, list[str]], list[str]]:
+    """Separate reference definitions, footnotes and ordinary Markdown lines."""
     definitions: dict[str, str] = {}
     footnotes: dict[str, list[str]] = {}
     ordinary: list[str] = []
@@ -93,6 +104,7 @@ def reachable_footnote_lines(
     ordinary: list[str], footnotes: dict[str, list[str]]
 ) -> list[str]:
     # Expand reachable footnotes, including notes referenced by another note.
+    """Expand only referenced footnotes, including nested references."""
     pending = ordinary.copy()
     used_notes: set[str] = set()
     lines: list[str] = []
@@ -140,13 +152,14 @@ def markdown_targets(body: str, *, navigation: bool = False) -> Iterator[str]:
 
 
 def inventory(root: Path) -> Inventory:
+    """Collect references and compute pages reachable from the knowledge index."""
     root = Path(root).resolve()
     if not (root / "index.md").is_file():
         message = f"Knowledge entry point missing: {root / 'index.md'}"
         raise FileNotFoundError(message)
     pages = sorted(root.rglob("*.md"))
-    links: list[dict[str, Any]] = []
-    sources: list[dict[str, Any]] = []
+    links: list[dict[str, object]] = []
+    sources: list[dict[str, object]] = []
     graph: dict[Path, set[Path]] = {}
     for page in pages:
         text = page.read_text(encoding="utf-8")
@@ -202,6 +215,7 @@ def inventory(root: Path) -> Inventory:
 
 
 def main() -> int:
+    """Emit a reference inventory and fail when local targets are missing."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path("docs/development/knowledge"))
     args = parser.parse_args()

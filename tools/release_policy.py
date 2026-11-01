@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Elastic-2.0
 # Adapted from HayaoSuzuki/hoimin at 39d35f3980c428ab15258b519a233b86f1551ffa.
 # Copyright the hoimin contributors; Elastic-2.0, see LICENSE.
 """Supported release targets and version syntax, without tooling dependencies."""
@@ -8,6 +9,8 @@ SEMVER = r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
 
 
 class ReleasePlatform(NamedTuple):
+    """Pin the platform identifiers shared by build and publication checks."""
+
     name: str
     rust_target: str
     release_wheel_pattern: str

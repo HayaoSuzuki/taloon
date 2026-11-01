@@ -1,4 +1,5 @@
 use proptest::prelude::*;
+use rstest::rstest;
 use taloon::model::{
     ArtifactFormat, ArtifactLocator, ArtifactRequest, ContentHash, EvaluationDate, PackageId,
     SourceId,
@@ -30,92 +31,106 @@ fn policy(allow: &str) -> Policy {
     .unwrap()
 }
 
+#[rstest]
+#[case::or_accepts_allowed_alternative("MIT OR Apache-2.0", true)]
+#[case::and_requires_both_units("MIT AND Apache-2.0", false)]
+#[case::with_is_a_distinct_unit("MIT WITH LLVM-exception", false)]
+#[case::nested_alternative("MIT AND (Apache-2.0 OR MIT)", true)]
+fn nested_expression_respects_explicit_units(#[case] expression: &str, #[case] expected: bool) {
+    // Arrange
+    let policy = policy("'MIT'");
+    let request = request("1.2.3", "https://pypi.org/simple");
+    let expression = LicenseExpression::parse(expression).unwrap();
+
+    // Act
+    let observed = policy.evaluate(&request, ContentHash::digest(b"example"), &expression);
+
+    // Assert
+    assert_eq!(observed.is_permitted(), expected);
+}
+
 #[test]
-fn nested_expression_respects_explicit_units() {
-    let p = policy("'MIT'");
-    let req = request("1.2.3", "https://pypi.org/simple");
-    for (expression, expected) in [
-        ("MIT OR Apache-2.0", true),
-        ("MIT AND Apache-2.0", false),
-        ("MIT WITH LLVM-exception", false),
-        ("MIT AND (Apache-2.0 OR MIT)", true),
-    ] {
-        assert_eq!(
-            p.evaluate(
-                &req,
-                ContentHash::digest(b"example"),
-                &LicenseExpression::parse(expression).unwrap()
-            )
-            .is_permitted(),
-            expected,
-            "{expression}"
-        );
-    }
-    let gpl = policy("'GPL-2.0-only'");
-    assert!(
-        !gpl.evaluate(
-            &req,
-            ContentHash::digest(b"example"),
-            &LicenseExpression::parse("GPL-2.0-or-later").unwrap()
-        )
-        .is_permitted()
+fn gpl_only_permission_does_not_grant_or_later() {
+    // Arrange
+    let policy = policy("'GPL-2.0-only'");
+    let request = request("1.2.3", "https://pypi.org/simple");
+    let expression = LicenseExpression::parse("GPL-2.0-or-later").unwrap();
+
+    // Act
+    let observed = policy.evaluate(&request, ContentHash::digest(b"example"), &expression);
+
+    // Assert
+    assert!(!observed.is_permitted());
+}
+
+#[rstest]
+#[case::exact("1.2.3", "https://pypi.org/simple", true)]
+#[case::other_version("1.2.4", "https://pypi.org/simple", false)]
+#[case::local_version("1.2.3+local", "https://pypi.org/simple", false)]
+#[case::other_source("1.2.3", "https://other.test/simple", false)]
+fn policy_requires_exact_scoped_overrides(
+    #[case] version: &str,
+    #[case] source: &str,
+    #[case] expected: bool,
+) {
+    // Arrange
+    let policy = Policy::from_pyproject("[tool.taloon]\nschema-version=1\nallow=[]\n[[tool.taloon.exceptions]]\nname='example-pkg'\nversion='1.2.3'\nsource={kind='registry',location='https://pypi.org/simple'}\nallow=['MIT']\nreason='reviewed'",date()).unwrap();
+    let expression = LicenseExpression::parse("MIT").unwrap();
+    let request = request(version, source);
+
+    // Act
+    let observed = policy.evaluate(&request, ContentHash::digest(b"example"), &expression);
+
+    // Assert
+    assert_eq!(observed.is_permitted(), expected);
+}
+
+#[rstest]
+#[case::missing_policy("")]
+#[case::missing_schema("[tool.taloon]\nallow=[]")]
+#[case::missing_allow("[tool.taloon]\nschema-version=1")]
+#[case::compound_permission("[tool.taloon]\nschema-version=1\nallow=['MIT OR Apache-2.0']")]
+#[case::unscoped_reference("[tool.taloon]\nschema-version=1\nallow=['LicenseRef-Vendor']")]
+#[case::unknown_field("[tool.taloon]\nschema-version=1\nallow=[]\nalllow=['MIT']")]
+fn policy_rejects_unknown_or_unscoped_permissions(#[case] text: &str) {
+    // Arrange
+    let today = date();
+
+    // Act
+    let observed = Policy::from_pyproject(text, today);
+
+    // Assert
+    assert!(observed.is_err(), "{text}");
+}
+
+#[rstest]
+#[case::on_expiry("2026-10-30", true)]
+#[case::after_expiry("2026-10-29", false)]
+fn expiry_is_inclusive_and_applies_to_unmatched_entries(#[case] expiry: &str, #[case] valid: bool) {
+    // Arrange
+    let text = format!(
+        "[tool.taloon]\nschema-version=1\nallow=[]\n[[tool.taloon.exceptions]]\nname='not-used'\nversion='1.0'\nsource={{kind='registry',location='https://pypi.org/simple'}}\nallow=['MIT']\nreason='reviewed'\nexpires='{expiry}'"
     );
-}
 
-#[test]
-fn policy_requires_exact_scoped_overrides() {
-    let p = Policy::from_pyproject("[tool.taloon]\nschema-version=1\nallow=[]\n[[tool.taloon.exceptions]]\nname='example-pkg'\nversion='1.2.3'\nsource={kind='registry',location='https://pypi.org/simple'}\nallow=['MIT']\nreason='reviewed'",date()).unwrap();
-    let expr = LicenseExpression::parse("MIT").unwrap();
-    for (version, source, expected) in [
-        ("1.2.3", "https://pypi.org/simple", true),
-        ("1.2.4", "https://pypi.org/simple", false),
-        ("1.2.3+local", "https://pypi.org/simple", false),
-        ("1.2.3", "https://other.test/simple", false),
-    ] {
-        assert_eq!(
-            p.evaluate(
-                &request(version, source),
-                ContentHash::digest(b"example"),
-                &expr
-            )
-            .is_permitted(),
-            expected
-        );
-    }
-}
+    // Act
+    let observed = Policy::from_pyproject(&text, date());
 
-#[test]
-fn policy_rejects_unknown_or_unscoped_permissions() {
-    for text in [
-        "",
-        "[tool.taloon]\nallow=[]",
-        "[tool.taloon]\nschema-version=1",
-        "[tool.taloon]\nschema-version=1\nallow=['MIT OR Apache-2.0']",
-        "[tool.taloon]\nschema-version=1\nallow=['LicenseRef-Vendor']",
-        "[tool.taloon]\nschema-version=1\nallow=[]\nalllow=['MIT']",
-    ] {
-        assert!(Policy::from_pyproject(text, date()).is_err(), "{text}");
-    }
-}
-
-#[test]
-fn expiry_is_inclusive_and_applies_to_unmatched_entries() {
-    for (expiry, valid) in [("2026-10-30", true), ("2026-10-29", false)] {
-        let text = format!(
-            "[tool.taloon]\nschema-version=1\nallow=[]\n[[tool.taloon.exceptions]]\nname='not-used'\nversion='1.0'\nsource={{kind='registry',location='https://pypi.org/simple'}}\nallow=['MIT']\nreason='reviewed'\nexpires='{expiry}'"
-        );
-        assert_eq!(Policy::from_pyproject(&text, date()).is_ok(), valid);
-    }
+    // Assert
+    assert_eq!(observed.is_ok(), valid);
 }
 
 #[test]
 fn source_display_redacts_userinfo_and_all_query_values() {
+    // Arrange
     let s = SourceId::parse(
         "url",
         "https://user:password@example.test/a%20b.whl?token=secret&download=1",
     )
     .unwrap();
+    // Act
     let visible = s.to_string();
+
+    // Assert
     assert!(
         !visible.contains("password") && !visible.contains("secret") && !visible.contains("user:")
     );
@@ -124,12 +139,19 @@ fn source_display_redacts_userinfo_and_all_query_values() {
 
 #[test]
 fn malformed_locator_cannot_leak_credentials_in_diagnostics() {
-    let visible = taloon::model::safe_locator("https://alice:password@/bad?token=secret");
+    // Arrange
+    let locator = "https://alice:password@/bad?token=secret";
+
+    // Act
+    let visible = taloon::model::safe_locator(locator);
+
+    // Assert
     assert!(!visible.contains("password") && !visible.contains("secret"));
 }
 
 #[test]
 fn request_constructor_rejects_unvalidated_locator_variants() {
+    // Arrange
     let package = PackageId::parse(
         "example",
         "1.0",
@@ -140,42 +162,68 @@ fn request_constructor_rejects_unvalidated_locator_variants() {
         index: None,
         url: "not-a-url".into(),
     };
-    assert!(
-        ArtifactRequest::new(
-            package,
-            locator,
-            ArtifactFormat::Wheel,
-            Some(ContentHash::digest(b"test"))
-        )
-        .is_err()
+    // Act
+    let observed = ArtifactRequest::new(
+        package,
+        locator,
+        ArtifactFormat::Wheel,
+        Some(ContentHash::digest(b"test")),
     );
+
+    // Assert
+    assert!(observed.is_err());
+}
+
+fn custom_permission_config() -> String {
+    let hash = ContentHash::digest(b"example");
+    format!(
+        "[tool.taloon]\nschema-version=1\nallow=[]\n[[tool.taloon.exceptions]]\nname='example-pkg'\nversion='1.2.3'\nsource={{kind='registry',location='https://pypi.org/simple'}}\nartifact-hash='{hash}'\nallow=['LicenseRef-Vendor']\nreason='reviewed'"
+    )
 }
 
 #[test]
-fn custom_permissions_require_exact_content_and_strong_evidence() {
-    let hash = ContentHash::digest(b"example");
-    let text = format!(
-        "[tool.taloon]\nschema-version=1\nallow=[]\n[[tool.taloon.exceptions]]\nname='example-pkg'\nversion='1.2.3'\nsource={{kind='registry',location='https://pypi.org/simple'}}\nartifact-hash='{hash}'\nallow=['LicenseRef-Vendor']\nreason='reviewed'"
-    );
-    let p = Policy::from_pyproject(&text, date()).unwrap();
-    let req = request("1.2.3", "https://pypi.org/simple");
+fn custom_permission_requires_archive_verified_evidence() {
+    // Arrange
+    let policy = Policy::from_pyproject(&custom_permission_config(), date()).unwrap();
+    let request = request("1.2.3", "https://pypi.org/simple");
+
+    // Act
+    let observed = policy.minimum_evidence(&request);
+
+    // Assert
     assert_eq!(
-        p.minimum_evidence(&req),
+        observed,
         taloon::model::EvidenceRequirement::ArchiveVerified
     );
-    let expr = LicenseExpression::parse("LicenseRef-Vendor").unwrap();
-    assert!(p.evaluate(&req, hash, &expr).is_permitted());
-    assert!(
-        !p.evaluate(&req, ContentHash::digest(b"changed"), &expr)
-            .is_permitted()
-    );
-    assert!(
-        Policy::from_pyproject(
-            &text.replace(&format!("artifact-hash='{hash}'\n"), ""),
-            date()
-        )
-        .is_err()
-    );
+}
+
+#[rstest]
+#[case::matching_content(b"example", true)]
+#[case::changed_content(b"changed", false)]
+fn custom_permission_is_bound_to_content(#[case] content: &[u8], #[case] expected: bool) {
+    // Arrange
+    let policy = Policy::from_pyproject(&custom_permission_config(), date()).unwrap();
+    let request = request("1.2.3", "https://pypi.org/simple");
+    let expression = LicenseExpression::parse("LicenseRef-Vendor").unwrap();
+
+    // Act
+    let observed = policy.evaluate(&request, ContentHash::digest(content), &expression);
+
+    // Assert
+    assert_eq!(observed.is_permitted(), expected);
+}
+
+#[test]
+fn custom_permission_requires_a_content_hash() {
+    // Arrange
+    let hash = ContentHash::digest(b"example");
+    let text = custom_permission_config().replace(&format!("artifact-hash='{hash}'\n"), "");
+
+    // Act
+    let observed = Policy::from_pyproject(&text, date());
+
+    // Assert
+    assert!(observed.is_err());
 }
 
 fn expressions() -> impl Strategy<Value = String> {
@@ -194,7 +242,32 @@ fn expressions() -> impl Strategy<Value = String> {
 proptest::proptest! {
     #![proptest_config(ProptestConfig {cases:256,failure_persistence:Some(Box::new(proptest::test_runner::FileFailurePersistence::Direct("tests/policy.proptest-regressions"))),..ProptestConfig::default()})]
     #[test]
+    fn generated_binary_permissions_follow_boolean_algebra(
+        left in 0_usize..3,
+        right in 0_usize..3,
+        conjunction in any::<bool>(),
+        mask in 0_u8..8,
+    ) {
+        // Arrange: numeric Boolean expectations are independent of SPDX parsing.
+        let units = ["MIT", "Apache-2.0", "BSD-3-Clause"];
+        let left_allowed = mask & (1_u8 << left) != 0;
+        let right_allowed = mask & (1_u8 << right) != 0;
+        let expected = if conjunction { left_allowed && right_allowed } else { left_allowed || right_allowed };
+        let allowed = units.iter().enumerate().filter(|(i,_)| mask & (1 << i) != 0).map(|(_,unit)| format!("'{unit}'")).collect::<Vec<_>>().join(",");
+        let policy = policy(&allowed);
+        let request = request("1.2.3", "https://pypi.org/simple");
+        let operator = if conjunction { "AND" } else { "OR" };
+        let expression = LicenseExpression::parse(&format!("{} {operator} {}", units[left], units[right])).unwrap();
+
+        // Act
+        let observed = policy.evaluate(&request, ContentHash::digest(b"example"), &expression).is_permitted();
+
+        // Assert
+        prop_assert_eq!(observed, expected);
+    }
+    #[test]
     fn adding_an_explicit_permission_is_monotone(expression in expressions(), mask in 0_u8..8) {
+        // Arrange
         let req=request("1.2.3","https://pypi.org/simple");
         let expr=LicenseExpression::parse(&expression).unwrap();
         let units=["MIT","Apache-2.0","BSD-3-Clause"];
@@ -202,13 +275,20 @@ proptest::proptest! {
         let small=policy(&allowed);
         let large=policy("'MIT','Apache-2.0','BSD-3-Clause'");
         let hash=ContentHash::digest(b"example");
-        proptest::prop_assert!(!small.evaluate(&req,hash,&expr).is_permitted() || large.evaluate(&req,hash,&expr).is_permitted());
+        // Act
+        let small_permitted = small.evaluate(&req,hash,&expr).is_permitted();
+        let large_permitted = large.evaluate(&req,hash,&expr).is_permitted();
+        // Assert
+        proptest::prop_assert!(!small_permitted || large_permitted);
     }
     #[test]
     fn package_name_normalization_is_idempotent(name in "[A-Za-z0-9][A-Za-z0-9_.-]{0,32}[A-Za-z0-9]") {
+        // Arrange
         let source=SourceId::parse("registry","https://pypi.org/simple").unwrap();
         let once=PackageId::parse(&name,"1.0",source.clone()).unwrap();
+        // Act
         let twice=PackageId::parse(once.name(),"1.0",source).unwrap();
+        // Assert
         prop_assert_eq!(once,twice);
     }
 }

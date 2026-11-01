@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Elastic-2.0
 # Adapted from HayaoSuzuki/hoimin at 39d35f3980c428ab15258b519a233b86f1551ffa.
 # Copyright the hoimin contributors; Elastic-2.0, see LICENSE.
 """Verify and stage build provenance for unchanged release wheels."""
@@ -23,14 +24,9 @@ from pathlib import Path
 from pypi_attestations import Attestation, Distribution, GitHubPublisher
 from sigstore.models import Bundle
 
+from tools.json_data import object_mapping
 from tools.pypi_release import prepare_wheels
 from tools.release_policy import RELEASE_PLATFORMS, SEMVER
-
-def object_mapping(value: object) -> dict:
-    if not isinstance(value, dict):
-        raise TypeError("Expected JSON object")
-    return value
-
 
 REPOSITORY = "HayaoSuzuki/taloon"
 WORKFLOW = "release.yml"
@@ -46,11 +42,13 @@ LOGGER = logging.getLogger(__name__)
 
 
 def sha256(path: Path) -> str:
+    """Hash an artifact without retaining its full contents in memory."""
     with path.open("rb") as stream:
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
 def statement_of(value: object) -> dict[str, object]:
+    """Decode the attestation statement from its validated envelope."""
     envelope = object_mapping(object_mapping(value)["envelope"])
     encoded = envelope["statement"]
     if not isinstance(encoded, str):
@@ -62,6 +60,7 @@ def statement_of(value: object) -> dict[str, object]:
 def statement_types(
     values: list[dict[str, object]], name: str, digest: str
 ) -> set[str]:
+    """Require exact wheel subjects and both publication predicate types."""
     types: list[str] = []
     for value in values:
         statement = statement_of(value)
@@ -80,6 +79,7 @@ def statement_types(
 
 
 def check_inventory(data: dict[str, object], wheels: list[Path]) -> None:
+    """Reject missing, substituted, duplicate or yanked index files."""
     records = data.get("urls")
     if not isinstance(records, list):
         msg = "Missing index file inventory"
@@ -103,6 +103,7 @@ def check_inventory(data: dict[str, object], wheels: list[Path]) -> None:
 
 
 def run_gh(arguments: list[str], *, cwd: Path | None = None) -> None:
+    """Run the resolved GitHub CLI with separate arguments and a deadline."""
     gh = shutil.which("gh")
     if gh is None:
         msg = "GitHub CLI is required"
@@ -117,6 +118,7 @@ def run_gh(arguments: list[str], *, cwd: Path | None = None) -> None:
 
 
 def verify_build(wheel: Path, bundle: Path, commit: str) -> None:
+    """Verify build identity against the exact source commit and workflow."""
     if re.fullmatch(r"[0-9a-f]{40}", commit) is None:
         msg = "Expected full release commit SHA"
         raise ValueError(msg)
@@ -145,18 +147,32 @@ def verify_build(wheel: Path, bundle: Path, commit: str) -> None:
 def verify_publish(wheel: Path, bundle: Path) -> None:
     # Recovery may publish an older built source from a newer main workflow.
     # Pin its main ref and publisher, not the original build's commit digest.
-    run_gh([
-        "attestation", "verify", str(wheel.resolve()), "--bundle", str(bundle.resolve()),
-        "--repo", REPOSITORY, "--signer-workflow", f"{REPOSITORY}/.github/workflows/{WORKFLOW}",
-        "--source-ref", "refs/heads/main", "--deny-self-hosted-runners",
-        "--predicate-type", PUBLISH,
-    ])
+    """Verify publication from the trusted main workflow identity."""
+    run_gh(
+        [
+            "attestation",
+            "verify",
+            str(wheel.resolve()),
+            "--bundle",
+            str(bundle.resolve()),
+            "--repo",
+            REPOSITORY,
+            "--signer-workflow",
+            f"{REPOSITORY}/.github/workflows/{WORKFLOW}",
+            "--source-ref",
+            "refs/heads/main",
+            "--deny-self-hosted-runners",
+            "--predicate-type",
+            PUBLISH,
+        ]
+    )
 
 
 def stage(
     tag: str, commit: str, assets: Path, release_json: Path, output: Path
 ) -> None:
     # Nothing is staged in the destination until all three signatures verify.
+    """Stage wheels only after every original build signature verifies."""
     if output.exists():
         msg = "Output already exists"
         raise ValueError(msg)
@@ -216,6 +232,7 @@ def stage(
 
 def fetch_json(url: str) -> dict[str, object]:
     # Callers construct URLs from fixed HTTPS index hosts and validated filenames.
+    """Fetch an object from a caller-validated HTTPS index endpoint."""
     with urllib.request.urlopen(url, timeout=60) as response:  # noqa: S310 -- fixed HTTPS hosts
         return object_mapping(json.load(response))
 
@@ -223,6 +240,7 @@ def fetch_json(url: str) -> dict[str, object]:
 def verify_index(
     index: str, tag: str, commit: str, directory: Path, *, allow_missing: bool = False
 ) -> bool:
+    """Verify a complete index publication against the staged wheels."""
     if re.fullmatch("v" + SEMVER, tag) is None:
         msg = "Expected stable release tag"
         raise ValueError(msg)
@@ -259,8 +277,11 @@ def verify_index_wheel(
     *,
     root: Path,
 ) -> None:
+    """Verify one index download and both of its provenance predicates."""
     records = data["urls"]
-    assert isinstance(records, list)
+    if not isinstance(records, list):
+        msg = "Missing index file inventory"
+        raise TypeError(msg)
     record = next(
         object_mapping(item)
         for item in records
@@ -360,6 +381,7 @@ def verify_with_propagation(
 
 
 def main() -> None:
+    """Select staging or index verification from explicit release arguments."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=["stage", "inspect", "verify"])
     parser.add_argument("--tag", required=True)

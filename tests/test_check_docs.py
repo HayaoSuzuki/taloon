@@ -1,6 +1,10 @@
+# SPDX-License-Identifier: Elastic-2.0
 """Failures that the documentation gate must catch before changes merge."""
 
-from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 import pytest
 
@@ -24,9 +28,13 @@ def bundle(tmp_path: Path) -> Path:
 
 
 def test_accepts_valid_bundle_and_preserves_unknown_metadata(tmp_path: Path) -> None:
+    # Arrange
     root = bundle(tmp_path)
     original = (root / "rule.md").read_bytes()
-    assert check_repository(tmp_path) == []
+    # Act
+    errors = check_repository(tmp_path)
+    # Assert
+    assert errors == []
     assert (root / "rule.md").read_bytes() == original
 
 
@@ -43,71 +51,103 @@ def test_accepts_valid_bundle_and_preserves_unknown_metadata(tmp_path: Path) -> 
     ],
 )
 def test_rejects_malformed_concepts(tmp_path: Path, content: str) -> None:
+    # Arrange
     root = bundle(tmp_path)
     (root / "rule.md").write_text(content)
+    # Act
     errors = check_repository(tmp_path)
+    # Assert
     assert errors
     assert any("rule.md" in error for error in errors)
 
 
 @pytest.mark.parametrize("name", ["nested/index.md", "log.md"])
 def test_reserved_files_cannot_hide_concepts(tmp_path: Path, name: str) -> None:
+    # Arrange
     root = bundle(tmp_path)
     page = root / name
     page.parent.mkdir(exist_ok=True)
     page.write_text("---\ntype: Decision\n---\n# Reserved\n")
-    assert any(name in error for error in validate_okf(root))
+    # Act
+    errors = validate_okf(root)
+    # Assert
+    assert any(name in error for error in errors)
 
 
 def test_requires_explicit_bundle_version(tmp_path: Path) -> None:
+    # Arrange
     root = bundle(tmp_path)
     (root / "index.md").write_text("# Knowledge\n[Rule](rule.md)\n")
-    assert any("index.md" in error for error in validate_okf(root))
+    # Act
+    errors = validate_okf(root)
+    # Assert
+    assert any("index.md" in error for error in errors)
 
 
 def test_missing_entry_point_fails_with_a_diagnostic(tmp_path: Path) -> None:
+    # Arrange
     root = bundle(tmp_path)
     (root / "index.md").unlink()
-    assert any("index.md" in error for error in check_repository(tmp_path))
+    # Act
+    errors = check_repository(tmp_path)
+    # Assert
+    assert any("index.md" in error for error in errors)
 
 
-def test_missing_source_and_orphan_are_reported(tmp_path: Path) -> None:
+@pytest.mark.parametrize("missing", ["source", "navigation"])
+def test_missing_source_or_navigation_is_reported(tmp_path: Path, missing: str) -> None:
+    # Arrange
     root = bundle(tmp_path)
-    (root.parent / "evidence.md").unlink()
-    (root / "orphan.md").write_text((root / "rule.md").read_text())
+    expected = "evidence.md" if missing == "source" else "orphan.md"
+    if missing == "source":
+        (root.parent / "evidence.md").unlink()
+    else:
+        (root / "orphan.md").write_text((root / "rule.md").read_text())
+    # Act
     errors = check_repository(tmp_path)
-    assert any("evidence.md" in error for error in errors)
-    assert any("orphan.md" in error for error in errors)
+    # Assert
+    assert any(expected in error for error in errors)
 
 
-def test_checks_user_docs_and_agent_entry_links(tmp_path: Path) -> None:
+@pytest.mark.parametrize("entry", ["docs/user/index.md", "AGENTS.md"])
+def test_checks_user_docs_and_agent_entry_links(tmp_path: Path, entry: str) -> None:
+    # Arrange
     bundle(tmp_path)
-    user = tmp_path / "docs/user"
-    user.mkdir()
-    (user / "index.md").write_text("[Quick start](absent.md)\n")
-    (tmp_path / "AGENTS.md").write_text("[Rules](missing-rules.md)\n")
+    page = tmp_path / entry
+    page.parent.mkdir(parents=True, exist_ok=True)
+    page.write_text("[Rules](missing-rules.md)\n")
+    # Act
     errors = check_repository(tmp_path)
-    assert any("absent.md" in error for error in errors)
+    # Assert
     assert any("missing-rules.md" in error for error in errors)
 
 
 def test_ignores_external_urls_and_links_in_examples(tmp_path: Path) -> None:
+    # Arrange
     bundle(tmp_path)
     (tmp_path / "README.md").write_text(
         "[External](https://example.org/unfetched)\n"
         "```markdown\n[Example](not-a-real-file.md)\n```\n"
     )
-    assert check_repository(tmp_path) == []
+    # Act
+    errors = check_repository(tmp_path)
+    # Assert
+    assert errors == []
 
 
 def test_source_ids_require_matching_citations(tmp_path: Path) -> None:
+    # Arrange
     root = bundle(tmp_path)
     page = root / "rule.md"
     page.write_text(page.read_text().replace("id: evidence", "id: uncited"))
-    assert any("uncited" in error for error in validate_okf(root))
+    # Act
+    errors = validate_okf(root)
+    # Assert
+    assert any("uncited" in error for error in errors)
 
 
 def test_duplicate_source_ids_fail(tmp_path: Path) -> None:
+    # Arrange
     root = bundle(tmp_path)
     page = root / "rule.md"
     page.write_text(
@@ -117,16 +157,23 @@ def test_duplicate_source_ids_fail(tmp_path: Path) -> None:
             "    resource: ../evidence.md\n---",
         )
     )
-    assert any("duplicate" in error for error in validate_okf(root))
+    # Act
+    errors = validate_okf(root)
+    # Assert
+    assert any("duplicate" in error for error in errors)
 
 
 def test_definition_alone_does_not_attribute_a_claim(tmp_path: Path) -> None:
+    # Arrange
     root = bundle(tmp_path)
     page = root / "rule.md"
     page.write_text(
         page.read_text().replace("Read the evidence.[^evidence]", "No attribution.")
     )
-    assert any("evidence" in error for error in validate_okf(root))
+    # Act
+    errors = validate_okf(root)
+    # Assert
+    assert any("evidence" in error for error in errors)
 
 
 @pytest.mark.parametrize(
@@ -142,6 +189,7 @@ def test_definition_alone_does_not_attribute_a_claim(tmp_path: Path) -> None:
 def test_malformed_sources_produce_diagnostics(
     tmp_path: Path, replacement: str
 ) -> None:
+    # Arrange
     root = bundle(tmp_path)
     page = root / "rule.md"
     page.write_text(
@@ -149,4 +197,7 @@ def test_malformed_sources_produce_diagnostics(
             "sources:\n  - id: evidence\n    resource: ../evidence.md", replacement
         )
     )
-    assert any("rule.md" in error for error in check_repository(tmp_path))
+    # Act
+    errors = check_repository(tmp_path)
+    # Assert
+    assert any("rule.md" in error for error in errors)
