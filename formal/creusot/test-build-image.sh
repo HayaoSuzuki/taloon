@@ -5,6 +5,12 @@ script_dir=$(cd "$(dirname "$0")" && pwd)
 test_dir=$(mktemp -d "${TMPDIR:-/tmp}/taloon-creusot-test.XXXXXX")
 trap 'rm -rf "$test_dir"' EXIT
 
+# Hosted runners need not provide ripgrep; keep this test on baseline utilities.
+mkdir "$test_dir/no-ripgrep"
+printf '#!/usr/bin/env bash\nexit 127\n' > "$test_dir/no-ripgrep/rg"
+chmod +x "$test_dir/no-ripgrep/rg"
+export PATH="$test_dir/no-ripgrep:$PATH"
+
 run_case() (
     # Arrange: a minimal recipe archive, real checksum/tar, and external-tool doubles.
     name=$1 architecture=$2 failures=$3 expected_status=$4 expected_calls=$5 corrupt=$6
@@ -18,7 +24,8 @@ run_case() (
     sed "s/^recipe_archive_sha256=.*/recipe_archive_sha256=$checksum/" \
         "$script_dir/build-image.sh" > "$CASE_DIR/build-image.sh"
     if [[ "$corrupt" == yes ]]; then
-        printf 'corruption' >> "$CASE_DIR/source.tar.gz"
+        printf 'tampered but valid Dockerfile\n' > "$CASE_DIR/recipe/formal/creusot/Dockerfile"
+        tar -czf "$CASE_DIR/source.tar.gz" -C "$CASE_DIR" recipe
     fi
     cat > "$CASE_DIR/bin/gh" <<'EOF'
 #!/usr/bin/env bash
@@ -71,8 +78,8 @@ EOF
         printf '%s\n' -f formal/creusot/Dockerfile -t taloon-creusot:local - >> "$CASE_DIR/expected-args"
         cmp "$CASE_DIR/expected-args" "$CASE_DIR/args.1" || exit 1
         tar -tf "$CASE_DIR/context.1" > "$CASE_DIR/members"
-        rg -q '^formal/creusot/Dockerfile$' "$CASE_DIR/members" || exit 1
-        rg -q '^tools/creusot_environment.py$' "$CASE_DIR/members" || exit 1
+        grep -Fxq 'formal/creusot/Dockerfile' "$CASE_DIR/members" || exit 1
+        grep -Fxq 'tools/creusot_environment.py' "$CASE_DIR/members" || exit 1
     fi
     if ((calls == 2)); then
         cmp "$CASE_DIR/context.1" "$CASE_DIR/context.2" || exit 1

@@ -57,3 +57,14 @@ workflow regression, documentation/OKF validation and strict user-site build.
 Only orchestration/docs/workflow files changed; shipping Rust and proof bodies
 are unchanged. The retry helper and workflow/static checks passed again in the
 parent session. These local checks do not assert an unobserved hosted result.
+
+Hosted execution of the helper exposed a missing ripgrep executable before image
+construction. A failing ripgrep stub reproduced that dependency locally; exact
+member checks now use standard grep and all seven cases pass with the stub kept
+active. They also pass in the pinned Ubuntu base without network or writable
+repository access. That minimal image uses a temporary shasum argument adapter
+to real GNU sha256sum because Perl is absent; this checks Linux shell/tar/assertion
+behavior, not the production image installer. The checksum fixture is now a
+valid repacked but tampered archive, so bypassing the checksum cannot be rejected
+merely by gzip corruption. All five executable negative mutations were rejected
+again after this refinement. No shipping or solver behavior changed.

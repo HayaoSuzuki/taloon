@@ -6,8 +6,8 @@ status: accepted
 sources:
 - id: creusot-build-retry
   resource: ../work/creusot-build-retry/review.md
-  working_tree: untracked
-  sha256: 077bf91ab6b5f6737bb5f8361c61d3ffe453be60a63b244261baa0bf5b9c6413
+  working_tree: modified
+  sha256: d880aeb4d56637c80705be6a8a039d183d8f2896a7a17a9ce81d260af8735660
 - id: legacy-license-review
   resource: ../work/legacy-license-interpretation/review.md
   working_tree: untracked
