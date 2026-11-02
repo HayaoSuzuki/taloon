@@ -4,6 +4,10 @@ title: License inspection specification
 description: Approved design for uv.lock coverage, Python license policy, evidence, and command behavior.
 status: accepted
 sources:
+- id: actionable-diagnostics-review
+  resource: ../work/actionable-license-diagnostics/review.md
+  working_tree: untracked
+  sha256: f56ab86f925d5d2149ce47181fcafa15a434ecfd1fe18698fda05d0294e86473
 - id: constrained-supplement-review
   resource: ../work/constrained-license-supplementation/review.md
   working_tree: untracked
@@ -495,3 +499,25 @@ Issue #15; parser and cryptographic correctness are separate boundaries.
 [^legacy-license-review]: [Legacy-field interpretation and structured-notice reviews](../work/legacy-license-interpretation/review.md).
 
 [^constrained-supplement-review]: [Constrained supplementation staged review](../work/constrained-license-supplementation/review.md).
+
+# Actionable diagnostic presentation
+
+Unknown-license errors retain their broad code and additionally expose a typed
+license_problem, assigned by the interpretation branch. Causes distinguish
+missing/repeated declarations, invalid expressions, unrecognized legacy text,
+unavailable/unrecognized/conflicting files and family mismatches. Transport and
+identity/integrity failures retain separate codes. Causes do not change declared
+license meaning, evidence requirements, permissions or exit precedence.
+
+Default check/describe text groups equivalent displayed outcomes within a single
+package/source and retains exact full redacted declarations in its key. Counts,
+a representative locator, a bounded declaration preview and actionable guidance
+replace repeated artifact blocks. Proof strength, origin, diagnostics/status and
+policy units/overrides remain discriminants. Applied overrides and supplementation
+remain visible even for compliant packages. Verbose shows each artifact and full
+report evidence; JSON keeps all artifacts and gains the optional snake_case
+license_problem field under schema 1. Diagnostic wording is not a machine
+contract; incompatible future layouts require a new schema version.
+[^actionable-diagnostics-review]
+
+[^actionable-diagnostics-review]: [Actionable diagnostic assessment and staged review](../work/actionable-license-diagnostics/review.md).
