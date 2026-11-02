@@ -4,6 +4,10 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: creusot-image-cache
+  resource: ../work/creusot-image-cache/review.md
+  working_tree: untracked
+  sha256: 876251b68000ccddcacfc0be45a52f4488847ef87197e69976411882c549f9b9
 - id: actionable-diagnostics-review
   resource: ../work/actionable-license-diagnostics/review.md
   working_tree: untracked
@@ -494,3 +498,21 @@ evidence; this adds no formal proof of parsing, classification or rendering.
 [^actionable-diagnostics-review]
 
 [^actionable-diagnostics-review]: [Actionable diagnostic assessment and staged review](../work/actionable-license-diagnostics/review.md).
+
+# Exact-key formal tool image cache
+
+Sustained signed-snapshot acquisition failures can outlast both bounded build
+attempts and correctly prevent release publication. CI now reuses a serialized
+amd64 tool image by exact runner/format/builder/preparer key, including the
+checksum-pinned recipe identity. GitHub repository/ref cache isolation is an
+explicit trust boundary; no prefix lookup or cross-repository image is used.
+Both restored and newly built images pass architecture and installation checks;
+failed preparation cannot save a cache. All current-source preflights, fresh
+proof inventories/goals and compiling mutations remain mandatory. No proof
+results or application inputs are cached. An initial cache miss still depends on
+the pinned upstream, and earlier failed main runs still need their own successful
+rerun before the unchanged release gate can pass. Reconsider key inputs whenever
+the recipe, preparation or platform assumptions change.
+[^creusot-image-cache]
+
+[^creusot-image-cache]: [Observed outage, cache boundary and staged verification](../work/creusot-image-cache/review.md).

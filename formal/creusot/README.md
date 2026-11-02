@@ -48,10 +48,28 @@ it does not classify logs or bypass recipe checks. A second failure returns
 Docker's exit status. Source fetch, checksum and context creation failures are
 not retried. CI's existing image-build deadline covers both attempts together.
 
+Hosted CI additionally reuses an exact-key GitHub Actions cache of the amd64 tool
+image. Its key binds the builder (including pinned recipe revision/checksum),
+preparation helper and runner OS/architecture, with no prefix fallback. Both
+restored and newly built images must pass architecture and installation checks;
+only successful cold preparation is saved. Invalid cache entries fail rather
+than bypass validation. GitHub repository/ref cache isolation is part of the
+trust boundary; arbitrary external image archives are not accepted by the workflow.
+Project configuration preflights, fresh proofs and compiling mutations still run
+for every checkout. Local build commands above retain their existing behavior.
+
+An empty cache still requires a functioning pinned acquisition source. During a
+sustained snapshot outage, neither caching nor the bounded build retry can
+bootstrap an image. Restore service access before rerunning failed main checks;
+then follow the [release recovery procedure](../../docs/development/releases.md#recovery-and-provenance-verification)
+for the original release run. A failed quality check must continue to block
+publication. Cache reuse does not repair an already-recorded failed source run.
+
 Run the synthetic wrapper regressions without network access or Docker:
 
 ```sh
 bash formal/creusot/test-build-image.sh
+bash formal/creusot/test-prepare-image.sh
 ```
 
 These checks use a local recipe archive and substitute its checksum in a temporary
