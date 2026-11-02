@@ -227,3 +227,143 @@ fn long_selected_paths_preserve_same_request_rebinding(
         expected
     );
 }
+
+#[rstest]
+#[case::unknown("UNKNOWN", "MIT", Some("MIT"))]
+#[case::unknown_apache("unknown", "Apache-2.0", Some("Apache-2.0"))]
+#[case::bsd_two("BSD", "BSD-2-Clause", Some("BSD-2-Clause"))]
+#[case::bsd_three(" bSd License ", "BSD-3-Clause", Some("BSD-3-Clause"))]
+#[case::apache("Apache", "Apache-2.0", Some("Apache-2.0"))]
+#[case::apache_license("Apache License", "Apache-2.0", Some("Apache-2.0"))]
+#[case::apache_software("Apache Software License", "Apache-2.0", Some("Apache-2.0"))]
+#[case::apache_two("Apache 2", "Apache-2.0", Some("Apache-2.0"))]
+#[case::bsd_mismatch("BSD", "MIT", None)]
+#[case::apache_mismatch("Apache", "BSD-3-Clause", None)]
+#[case::none("NONE", "MIT", None)]
+#[case::unlicensed("UNLICENSED", "MIT", None)]
+#[case::noassertion("NOASSERTION", "MIT", Some("NOASSERTION"))]
+#[case::extra_conditions("BSD with additional restrictions", "BSD-3-Clause", None)]
+#[case::unrecognized_version("Apache 1", "Apache-2.0", None)]
+fn legacy_supplement_requires_an_eligible_value_and_matching_file(
+    #[case] value: &str,
+    #[case] file_id: &str,
+    #[case] expected: Option<&str>,
+    #[values(ArtifactFormat::Wheel, ArtifactFormat::Sdist)] format: ArtifactFormat,
+) {
+    // Arrange
+    let text = spdx::license_id(file_id).unwrap().text();
+    let bytes = archive(
+        format,
+        &format!("License: {value}\nLicense-File: LICENSE"),
+        &[("LICENSE", text)],
+    );
+    let request = request(&bytes, format);
+    // Act
+    let evidence = Evidence::from_archive(&request, &bytes).unwrap();
+    // Assert
+    assert_eq!(
+        evidence
+            .license()
+            .ok()
+            .as_ref()
+            .map(LicenseExpression::text),
+        expected
+    );
+    assert!(!evidence.needs_license_files());
+}
+
+#[rstest]
+#[case::explicit_expression("License-Expression: ISC\nLicense: UNKNOWN", Some("ISC"))]
+#[case::invalid_expression("License-Expression: invalid\nLicense: UNKNOWN", None)]
+#[case::repeated_expression(
+    "License-Expression: MIT\nLicense-Expression: MIT\nLicense: UNKNOWN",
+    None
+)]
+#[case::repeated_legacy("License: UNKNOWN\nLicense: UNKNOWN", None)]
+#[case::valid_legacy("License: ISC", Some("ISC"))]
+fn authoritative_or_ambiguous_declarations_block_supplementation(
+    #[case] fields: &str,
+    #[case] expected: Option<&str>,
+) {
+    // Arrange
+    let bytes = archive(
+        ArtifactFormat::Wheel,
+        &format!("{fields}\nLicense-File: LICENSE"),
+        &[("LICENSE", mit())],
+    );
+    let request = request(&bytes, ArtifactFormat::Wheel);
+    // Act
+    let evidence = Evidence::from_archive(&request, &bytes).unwrap();
+    // Assert
+    assert_eq!(
+        evidence
+            .license()
+            .ok()
+            .as_ref()
+            .map(LicenseExpression::text),
+        expected
+    );
+    assert_eq!(evidence.summary().license_files.len(), 0);
+}
+
+#[rstest]
+#[case::expression("License-Expression: MIT", "license_expression")]
+#[case::legacy("License: MIT License", "legacy_declaration")]
+#[case::absent("", "bundled_files")]
+#[case::supplement("License: UNKNOWN", "legacy_supplement")]
+fn license_origin_survives_raw_record_reinterpretation(#[case] fields: &str, #[case] origin: &str) {
+    // Arrange
+    let bytes = archive(
+        ArtifactFormat::Wheel,
+        &format!("{fields}\nLicense-File: LICENSE"),
+        &[("LICENSE", mit())],
+    );
+    let request = request(&bytes, ArtifactFormat::Wheel);
+    let record = Evidence::from_archive(&request, &bytes)
+        .unwrap()
+        .to_record();
+    // Act
+    let restored = Evidence::from_record(&request, record).unwrap();
+    let summary = serde_json::to_value(restored.summary()).unwrap();
+    // Assert
+    assert_eq!(restored.license().unwrap().text(), "MIT");
+    assert_eq!(summary["license_origin"], origin);
+}
+
+#[rstest]
+#[case::conflicting_files("ISC")]
+#[case::unrecognized_file("extra terms")]
+fn incomplete_supplement_keeps_unknown_origin(#[case] second: &str) {
+    // Arrange
+    let second = spdx::license_id(second).map_or(second, |id| id.text());
+    let bytes = archive(
+        ArtifactFormat::Wheel,
+        "License: UNKNOWN\nLicense-File: LICENSE\nLicense-File: EXTRA",
+        &[("LICENSE", mit()), ("EXTRA", second)],
+    );
+    let request = request(&bytes, ArtifactFormat::Wheel);
+    // Act
+    let evidence = Evidence::from_archive(&request, &bytes).unwrap();
+    // Assert
+    assert_eq!(evidence.license().unwrap_err().code, Code::UnknownLicense);
+    assert_eq!(
+        serde_json::to_value(evidence.summary()).unwrap()["license_origin"],
+        serde_json::Value::Null
+    );
+    assert_eq!(evidence.summary().license_files.len(), 2);
+    assert!(!evidence.needs_license_files());
+}
+
+proptest::proptest! {
+    #[test]
+    fn added_legacy_terms_are_never_discarded(suffix in "[a-z]{1,40}") {
+        // Arrange
+        let bytes = archive(ArtifactFormat::Wheel, &format!("License: BSD; {suffix}\nLicense-File: LICENSE"), &[("LICENSE", spdx::license_id("BSD-3-Clause").unwrap().text())]);
+        let request = request(&bytes, ArtifactFormat::Wheel);
+        // Act
+        let evidence = Evidence::from_archive(&request, &bytes).unwrap();
+        // Assert
+        proptest::prop_assert_eq!(evidence.license().unwrap_err().code, Code::UnknownLicense);
+        proptest::prop_assert!(evidence.summary().license_files.is_empty());
+    }
+}

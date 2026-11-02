@@ -1,6 +1,48 @@
 //! Precise names and complete texts in legacy fields; SPDX expression syntax stays strict.
 use crate::{model::Error, policy::LicenseExpression};
 
+/// The only incomplete declarations that verified file text may complete.
+/// Whole-value matching keeps added terms outside this extension.
+#[derive(Clone, Copy)]
+pub(super) enum FileConstraint {
+    AnyRecognized,
+    Bsd,
+    Apache,
+}
+impl FileConstraint {
+    pub(super) fn for_legacy(value: &str) -> Option<Self> {
+        let value = value.trim();
+        if value.eq_ignore_ascii_case("UNKNOWN") {
+            Some(Self::AnyRecognized)
+        } else if ["BSD", "BSD License"]
+            .iter()
+            .any(|label| value.eq_ignore_ascii_case(label))
+        {
+            Some(Self::Bsd)
+        } else if [
+            "Apache",
+            "Apache License",
+            "Apache Software License",
+            "Apache 2",
+        ]
+        .iter()
+        .any(|label| value.eq_ignore_ascii_case(label))
+        {
+            Some(Self::Apache)
+        } else {
+            None
+        }
+    }
+
+    pub(super) fn accepts(self, expression: &LicenseExpression) -> bool {
+        match self {
+            Self::AnyRecognized => true,
+            Self::Bsd => matches!(expression.text(), "BSD-2-Clause" | "BSD-3-Clause"),
+            Self::Apache => expression.text() == "Apache-2.0",
+        }
+    }
+}
+
 // Whole-value, versioned names only. Generic BSD/Apache labels are ambiguous.
 const ALIASES: &[(&str, &str)] = &[
     ("Apache License, Version 2.0", "Apache-2.0"),

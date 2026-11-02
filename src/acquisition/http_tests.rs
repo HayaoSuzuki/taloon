@@ -1382,3 +1382,252 @@ fn cached_legacy_names_need_no_new_evidence(#[case] offline: bool) {
     assert_eq!(summary.cache_hits, 1);
     assert_eq!(fixture.count(), 0);
 }
+
+#[rstest::rstest]
+#[case::unknown("UNKNOWN", "MIT")]
+#[case::bsd_short("BSD", "BSD-2-Clause")]
+#[case::bsd_name("BSD License", "BSD-3-Clause")]
+#[case::apache_short("Apache", "Apache-2.0")]
+#[case::apache_name("Apache License", "Apache-2.0")]
+#[case::apache_software("Apache Software License", "Apache-2.0")]
+#[case::apache_two("Apache 2", "Apache-2.0")]
+#[case::trimmed_mixed_case("  bSd LiCeNsE  ", "BSD-3-Clause")]
+fn legacy_supplement_downloads_one_verified_archive(#[case] legacy: &str, #[case] expected: &str) {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let (fixture, request, _) = bundled_fixture(
+        &format!("License: {legacy}\nLicense-File: LICENSE"),
+        spdx::license_id(expected).unwrap().text(),
+    );
+    let acquirer = Acquirer::with_transport(
+        AcquisitionOptions::testing(temp.path(), false),
+        fixture.clone(),
+    )
+    .unwrap();
+    // Act
+    let (evidence, summary) = acquire_bundled(&acquirer, &request);
+    // Assert
+    assert_eq!(summary.http.index.requests, 1);
+    assert_eq!(summary.http.metadata.requests, 1);
+    assert_eq!(summary.http.archive.requests, 1);
+    assert_eq!(summary.archive_extractions, 1);
+    assert_eq!(fixture.count(), 3);
+    assert_eq!(evidence.license().unwrap().text(), expected);
+    assert!(evidence.requirement_satisfied(EvidenceRequirement::ArchiveVerified));
+}
+
+#[rstest::rstest]
+#[case::bsd_with_apache("BSD", spdx::license_id("Apache-2.0").unwrap().text())]
+#[case::apache_with_mit("Apache", spdx::license_id("MIT").unwrap().text())]
+#[case::unknown_custom("UNKNOWN", "Custom redistribution conditions apply.")]
+fn legacy_supplement_negative_scan_is_reused_from_cache(#[case] legacy: &str, #[case] text: &str) {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let (fixture, request, _) =
+        bundled_fixture(&format!("License: {legacy}\nLicense-File: LICENSE"), text);
+    let acquirer = Acquirer::with_transport(
+        AcquisitionOptions::testing(temp.path(), false),
+        fixture.clone(),
+    )
+    .unwrap();
+    let (first, first_summary) = acquire_bundled(&acquirer, &request);
+    assert_eq!(first_summary.http.archive.requests, 1);
+    assert_eq!(first.license().unwrap_err().code, Code::UnknownLicense);
+    let before = fixture.count();
+    // Act
+    let (cached, summary) = acquire_bundled(&acquirer, &request);
+    // Assert
+    assert_eq!(cached.license().unwrap_err().code, Code::UnknownLicense);
+    assert!(!cached.needs_license_files());
+    assert!(cached.requirement_satisfied(EvidenceRequirement::ArchiveVerified));
+    assert_eq!(summary.cache_hits, 1);
+    assert_eq!(summary.network_requests, 0);
+    assert_eq!(summary.downloaded_bytes, 0);
+    assert_eq!(summary.archive_extractions, 0);
+    assert_eq!(fixture.count(), before);
+}
+
+#[rstest::rstest]
+#[case::unknown_online("UNKNOWN", "MIT", false, 1, Some("MIT"))]
+#[case::bsd_online("BSD License", "BSD-3-Clause", false, 1, Some("BSD-3-Clause"))]
+#[case::apache_online("Apache 2", "Apache-2.0", false, 1, Some("Apache-2.0"))]
+#[case::unknown_offline("UNKNOWN", "MIT", true, 0, None)]
+#[case::bsd_offline("BSD", "BSD-2-Clause", true, 0, None)]
+#[case::apache_offline("Apache", "Apache-2.0", true, 0, None)]
+fn legacy_supplement_cached_sidecar_respects_network_mode(
+    #[case] legacy: &str,
+    #[case] bundled: &str,
+    #[case] offline: bool,
+    #[case] archives: u64,
+    #[case] expected: Option<&str>,
+) {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let (fixture, request, metadata) = bundled_fixture(
+        &format!("License: {legacy}\nLicense-File: LICENSE"),
+        spdx::license_id(bundled).unwrap().text(),
+    );
+    let acquirer = Acquirer::with_transport(
+        AcquisitionOptions::testing(temp.path(), offline),
+        fixture.clone(),
+    )
+    .unwrap();
+    let hash = request.hash().unwrap();
+    let sidecar = Evidence::from_sidecar(
+        &request,
+        taloon::evidence::SidecarAssociation::new(hash, hash, ContentHash::digest(&metadata))
+            .unwrap(),
+        &metadata,
+    )
+    .unwrap();
+    acquirer.cache.put(&request, &sidecar).unwrap();
+    // Act
+    let (evidence, summary) = acquire_bundled(&acquirer, &request);
+    // Assert
+    assert_eq!(summary.http.index.requests, 0);
+    assert_eq!(summary.http.metadata.requests, 0);
+    assert_eq!(summary.http.archive.requests, archives);
+    assert_eq!(summary.archive_extractions, archives);
+    assert_eq!(fixture.count() as u64, archives);
+    assert_eq!(evidence.needs_license_files(), offline);
+    assert_eq!(
+        evidence
+            .license()
+            .ok()
+            .as_ref()
+            .map(taloon::policy::LicenseExpression::text),
+        expected,
+    );
+}
+
+#[rstest::rstest]
+#[case::valid_expression("License-Expression: Apache-2.0\nLicense: UNKNOWN", Some("Apache-2.0"))]
+#[case::invalid_expression("License-Expression: not-a-license\nLicense: UNKNOWN", None)]
+#[case::repeated_expression(
+    "License-Expression: MIT\nLicense-Expression: MIT\nLicense: UNKNOWN",
+    None
+)]
+#[case::repeated_legacy("License: UNKNOWN\nLicense: UNKNOWN", None)]
+#[case::additional_conditions(
+    "License: BSD License; redistribution requires separate permission",
+    None
+)]
+fn legacy_supplement_keeps_ineligible_sidecars_on_metadata_path(
+    #[case] fields: &str,
+    #[case] expected: Option<&str>,
+) {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let (fixture, request, _) = bundled_fixture(fields, spdx::license_id("MIT").unwrap().text());
+    let acquirer = Acquirer::with_transport(
+        AcquisitionOptions::testing(temp.path(), false),
+        fixture.clone(),
+    )
+    .unwrap();
+    // Act
+    let (evidence, summary) = acquire_bundled(&acquirer, &request);
+    // Assert
+    assert_eq!(summary.http.index.requests, 1);
+    assert_eq!(summary.http.metadata.requests, 1);
+    assert_eq!(summary.http.archive.requests, 0);
+    assert_eq!(summary.archive_extractions, 0);
+    assert_eq!(fixture.count(), 2);
+    assert!(!evidence.needs_license_files());
+    assert_eq!(
+        evidence
+            .license()
+            .ok()
+            .as_ref()
+            .map(taloon::policy::LicenseExpression::text),
+        expected,
+    );
+}
+
+#[rstest::rstest]
+#[case::expression("License-Expression: Apache-2.0\nLicense: UNKNOWN", Some("Apache-2.0"))]
+#[case::additional_conditions(
+    "License: BSD License; redistribution requires separate permission",
+    None
+)]
+fn legacy_supplement_uses_fresh_archive_declaration(
+    #[case] archive_fields: &str,
+    #[case] expected: Option<&str>,
+) {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let (fixture, request, _) =
+        bundled_fixture(archive_fields, spdx::license_id("MIT").unwrap().text());
+    let sidecar_metadata = crate::testfixtures::metadata("License: UNKNOWN\nLicense-File: LICENSE");
+    let sidecar_hash = ContentHash::digest(&sidecar_metadata)
+        .to_string()
+        .replace("sha256:", "");
+    let mut index_document: serde_json::Value = serde_json::from_slice(
+        &fixture.routes.lock().unwrap()["https://example.test/simple/example/"].body,
+    )
+    .unwrap();
+    index_document["files"][0]["core-metadata"]["sha256"] = sidecar_hash.into();
+    fixture.add(
+        "https://example.test/simple/example/",
+        200,
+        &serde_json::to_vec(&index_document).unwrap(),
+    );
+    fixture.add("https://files.test/a.whl.metadata", 200, &sidecar_metadata);
+    let acquirer = Acquirer::with_transport(
+        AcquisitionOptions::testing(temp.path(), false),
+        fixture.clone(),
+    )
+    .unwrap();
+    // Act
+    let (evidence, summary) = acquire_bundled(&acquirer, &request);
+    // Assert
+    assert_eq!(summary.http.index.requests, 1);
+    assert_eq!(summary.http.metadata.requests, 1);
+    assert_eq!(summary.http.archive.requests, 1);
+    assert_eq!(summary.archive_extractions, 1);
+    assert_eq!(fixture.count(), 3);
+    assert!(evidence.requirement_satisfied(EvidenceRequirement::ArchiveVerified));
+    assert!(!evidence.needs_license_files());
+    assert_eq!(
+        evidence
+            .license()
+            .ok()
+            .as_ref()
+            .map(taloon::policy::LicenseExpression::text),
+        expected,
+    );
+}
+
+#[rstest::rstest]
+#[case::unknown("UNKNOWN", "MIT")]
+#[case::bsd("BSD", "BSD-2-Clause")]
+#[case::apache("Apache License", "Apache-2.0")]
+fn legacy_supplement_positive_scan_is_reused_from_cache(
+    #[case] legacy: &str,
+    #[case] expected: &str,
+) {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let (fixture, request, _) = bundled_fixture(
+        &format!("License: {legacy}\nLicense-File: LICENSE"),
+        spdx::license_id(expected).unwrap().text(),
+    );
+    let acquirer = Acquirer::with_transport(
+        AcquisitionOptions::testing(temp.path(), false),
+        fixture.clone(),
+    )
+    .unwrap();
+    let (_, first_summary) = acquire_bundled(&acquirer, &request);
+    assert_eq!(first_summary.http.archive.requests, 1);
+    let before = fixture.count();
+    // Act
+    let (cached, summary) = acquire_bundled(&acquirer, &request);
+    // Assert
+    assert_eq!(cached.license().unwrap().text(), expected);
+    assert!(!cached.needs_license_files());
+    assert!(cached.requirement_satisfied(EvidenceRequirement::ArchiveVerified));
+    assert_eq!(summary.cache_hits, 1);
+    assert_eq!(summary.network_requests, 0);
+    assert_eq!(summary.downloaded_bytes, 0);
+    assert_eq!(summary.archive_extractions, 0);
+    assert_eq!(fixture.count(), before);
+}

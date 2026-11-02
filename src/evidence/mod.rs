@@ -95,9 +95,20 @@ pub struct EvidenceSummary {
     pub metadata_version: String,
     pub original_expression: Vec<String>,
     pub original_license: Vec<String>,
+    /// Interpretation source before any policy clarification; absent when unknown.
+    pub license_origin: Option<LicenseOrigin>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub license_files: Vec<LicenseFileSummary>,
     pub warnings: Vec<Error>,
+}
+/// How observed evidence supplies an expression, independently of policy overrides.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LicenseOrigin {
+    LicenseExpression,
+    LegacyDeclaration,
+    BundledFiles,
+    LegacySupplement,
 }
 /// Association advertised by the locked registry; it does not verify archive bytes.
 #[derive(Debug, Clone, Copy)]
@@ -475,39 +486,71 @@ impl Evidence {
     /// # Errors
     /// Returns unknown-license for duplicate/invalid declarations or unrecognized bundled text; never infers from classifiers.
     pub fn license(&self) -> Result<LicenseExpression, Error> {
-        if self.metadata.expression.is_empty()
-            && self.metadata.legacy.is_empty()
-            && let Some(files) = &self.record.data.license_files
-        {
-            return files.license();
+        self.interpret_license().map(|(expression, _)| expression)
+    }
+
+    // Both acquisition and interpretation use this decision. A sidecar can
+    // request an archive scan, but only the fresh archive's metadata authorizes it.
+    fn file_constraint(&self) -> Option<legacy::FileConstraint> {
+        if !self.metadata.expression.is_empty() {
+            return None;
         }
+        match self.metadata.legacy.as_slice() {
+            [] => Some(legacy::FileConstraint::AnyRecognized),
+            [value] => legacy::FileConstraint::for_legacy(value),
+            _ => None,
+        }
+    }
+
+    fn interpret_license(&self) -> Result<(LicenseExpression, LicenseOrigin), Error> {
         let values = if self.metadata.expression.is_empty() {
             &self.metadata.legacy
         } else {
             &self.metadata.expression
         };
-        match values.as_slice() {
+        let declaration = match values.as_slice() {
             [value] if self.metadata.expression.is_empty() => legacy::interpret(
                 value,
                 self.metadata
                     .legacy_span
                     .as_ref()
                     .and_then(|span| self.record.data.metadata.get(span.clone())),
-            ),
-            [value] => LicenseExpression::parse(value),
+            )
+            .map(|expression| (expression, LicenseOrigin::LegacyDeclaration)),
+            [value] => LicenseExpression::parse(value)
+                .map(|expression| (expression, LicenseOrigin::LicenseExpression)),
             _ => Err(Error::new(
                 Code::UnknownLicense,
                 "missing or repeated license declaration",
             )),
+        };
+        if declaration.is_ok() {
+            return declaration;
         }
+        if let Some(constraint) = self.file_constraint()
+            && let Some(files) = &self.record.data.license_files
+        {
+            let expression = files.license()?;
+            if !constraint.accepts(&expression) {
+                return Err(Error::new(
+                    Code::UnknownLicense,
+                    "bundled license text conflicts with legacy license family",
+                ));
+            }
+            let origin = if self.metadata.legacy.is_empty() {
+                LicenseOrigin::BundledFiles
+            } else {
+                LicenseOrigin::LegacySupplement
+            };
+            return Ok((expression, origin));
+        }
+        declaration
     }
-    /// Whether absent declarations still need an archive-file observation.
+    /// Whether absent or narrowly incomplete declarations need archive-file evidence.
     /// Completed unknown scans return false, avoiding repeated archive fetches.
     #[must_use]
     pub fn needs_license_files(&self) -> bool {
-        self.metadata.expression.is_empty()
-            && self.metadata.legacy.is_empty()
-            && self.record.data.license_files.is_none()
+        self.record.data.license_files.is_none() && self.file_constraint().is_some()
     }
     #[must_use]
     pub fn requirement_satisfied(&self, need: EvidenceRequirement) -> bool {
@@ -536,6 +579,7 @@ impl Evidence {
                 .iter()
                 .map(|s| crate::declaration::redact_urls(s))
                 .collect(),
+            license_origin: self.interpret_license().ok().map(|(_, origin)| origin),
             license_files: self
                 .record
                 .data

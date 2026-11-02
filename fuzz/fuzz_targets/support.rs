@@ -35,6 +35,11 @@ pub fn roundtrip(request: &ArtifactRequest, evidence: &Evidence) {
         replay.requirement_satisfied(EvidenceRequirement::ArchiveVerified),
         evidence.requirement_satisfied(EvidenceRequirement::ArchiveVerified)
     );
+    assert_eq!(replay.needs_license_files(), evidence.needs_license_files());
+    assert_eq!(
+        replay.summary().license_origin,
+        evidence.summary().license_origin
+    );
 }
 pub fn inspect(bytes: &[u8], format: ArtifactFormat) {
     let request = request(bytes, format);
