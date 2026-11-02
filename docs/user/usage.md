@@ -4,6 +4,7 @@
 taloon check
 taloon check --project /path/to/project --format json
 taloon check --offline --deny-warnings
+taloon check --verbose
 ```
 
 Without `--project`, taloon walks upward from the current directory to the nearest
@@ -28,8 +29,24 @@ aggregated. Failure paths show a shortest known route per entry point, with
 recorded group/extra/marker conditions; absent origins are explained rather than
 invented. Conditions describe locked alternatives, not environment evaluation.
 
+Default text groups artifacts within each package when their displayed outcome,
+redacted original declarations, diagnostics, proof strength, license origin and policy
+units/overrides agree. It shows a count, one representative locator, declaration
+previews and cause-specific next steps. Different full redacted declarations stay separate
+even when their 200-character previews look identical. Compliant packages with
+applied overrides remain visible so their review basis can be inspected.
+
+Use `--verbose` for each artifact's locator, observed archive/metadata hashes,
+selected file summaries and full original declarations. JSON always contains
+every artifact; `--verbose` does not change it. Grouping affects presentation
+only: every artifact is still acquired/evaluated and contributes to the exit code.
+The [evidence guide](evidence.md#license-problem-causes) explains typed causes.
+
 For `check --format json`, stdout contains exactly one schema-version-1 object,
-including startup errors. Help/version requests print normal CLI help/version text.
+including startup errors. Optional `license_problem` on license diagnostics is
+an additive schema-1 field with a snake_case cause; other errors omit it. Existing
+fields remain, wording is not a machine contract, and incompatible report layouts
+require a new schema version. Help/version requests print normal CLI help/version text.
 When stderr is an interactive terminal, taloon shows processed/total artifact
 counts and elapsed time during acquisition, including while waiting for a
 response. Processed counts include failures; the final report determines the
@@ -66,6 +83,7 @@ cached artifact evidence is insufficient.
 ```sh
 taloon describe requests
 taloon describe requests --offline
+taloon describe requests --verbose
 taloon describe requests --project /path/to/project --format json
 ```
 
@@ -98,7 +116,8 @@ retain their edges without recursive expansion. Every recorded wheel/sdist is
 an evidence target. Equal validated expression text is grouped with artifact
 counts; different declarations are listed separately and never joined into an
 invented AND/OR expression. Unknown/invalid declarations and unsupported targets
-remain visible, alongside available observations. A syntactically valid
+remain visible, alongside available observations. Problem groups use the same
+summary/`--verbose` presentation as check. A syntactically valid
 LicenseRef is displayed as declared without supplying its definition or permission.
 
 Evidence verification, provenance, acquisition limits, credentials, progress and

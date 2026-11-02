@@ -105,6 +105,30 @@ archive, without refetching their index or sidecar. Offline performs no network
 requests and retains Unknown when file evidence is unavailable. Normal cache
 clearing, corruption recovery and eviction can require acquisition again.
 
+## License problem causes
+
+A license interpretation diagnostic keeps `code: unknown_license` and adds
+`license_problem` in JSON. Acquisition, hash/identity mismatches and malformed
+metadata retain their separate codes; they are not guessed to be license errors.
+
+| `license_problem` | Meaning and next step |
+| --- | --- |
+| `missing_declaration` | No expression or legacy field and no file observation yet. Acquire available evidence online, or review an exact artifact for clarification. |
+| `repeated_declaration` | The authoritative field occurs more than once. Review every occurrence; request corrected metadata or a reviewed clarification. |
+| `invalid_expression` | The present `License-Expression` has unsupported syntax or identifiers. A legacy field cannot replace it. |
+| `unrecognized_legacy` | The legacy value is not an accepted expression, name or full text. Review the original terms without discarding additional conditions. |
+| `license_files_unavailable` | A completed file scan lacks usable selected files (missing, ambiguous, invalid, oversized or attribution-only). Inspect the paths/limits and exact artifact. |
+| `unrecognized_license_text` | Selected text is outside supported complete templates. Review the full text. |
+| `conflicting_license_files` | Selected files require different expressions. Review their relationship; do not choose one or invent AND/OR. |
+| `legacy_family_mismatch` | Recognized bundled text disagrees with the incomplete legacy family. Review the disagreement. |
+
+Text displays the corresponding cause and next step once per equivalent group.
+Use `--verbose` or JSON to trace individual artifacts and full declaration values.
+A clarification still needs a reviewed expression, reason and verified archive
+hash as described in [configuration](configuration.md); these messages do not
+approve a license or write configuration. File-read problems remain deliberately
+one bounded category rather than claiming to identify an unobserved legal cause.
+
 ## HTTPS and credentials
 
 Production acquisition uses HTTPS with certificate verification and rejects

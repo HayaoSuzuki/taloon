@@ -4,7 +4,7 @@ use super::{
     text_match,
 };
 use crate::{
-    model::{ArtifactFormat, Code, ContentHash, Error},
+    model::{ArtifactFormat, ContentHash, Error, LicenseProblem},
     policy::LicenseExpression,
 };
 use serde::{Deserialize, Serialize};
@@ -44,8 +44,8 @@ fn kind(path: &str) -> LicenseFileKind {
         LicenseFileKind::License
     }
 }
-fn unknown(message: impl Into<String>) -> Error {
-    Error::new(Code::UnknownLicense, message)
+fn unknown(problem: LicenseProblem, message: impl Into<String>) -> Error {
+    Error::license(problem, message)
 }
 impl FileObservation {
     pub(super) fn read(
@@ -78,25 +78,38 @@ impl FileObservation {
     pub(super) fn license(&self) -> Result<LicenseExpression, Error> {
         let files = match self {
             Self::Complete { files } => files,
-            Self::Unavailable { message } => return Err(unknown(message.clone())),
+            Self::Unavailable { message } => {
+                return Err(unknown(
+                    LicenseProblem::LicenseFilesUnavailable,
+                    message.clone(),
+                ));
+            }
         };
         let mut expression = None;
         for file in files {
             if matches!(kind(&file.path), LicenseFileKind::Attribution) {
                 continue;
             }
-            let matched = text_match::identify(&file.text)
-                .ok_or_else(|| unknown("unrecognized bundled license text"))?;
+            let matched = text_match::identify(&file.text).ok_or_else(|| {
+                unknown(
+                    LicenseProblem::UnrecognizedLicenseText,
+                    "unrecognized bundled license text",
+                )
+            })?;
             if expression.is_some_and(|previous| previous != matched) {
                 return Err(unknown(
+                    LicenseProblem::ConflictingLicenseFiles,
                     "bundled license files require different expressions",
                 ));
             }
             expression = Some(matched);
         }
-        LicenseExpression::parse(
-            expression.ok_or_else(|| unknown("no recognizable bundled license file"))?,
-        )
+        LicenseExpression::parse(expression.ok_or_else(|| {
+            unknown(
+                LicenseProblem::LicenseFilesUnavailable,
+                "no recognizable bundled license file",
+            )
+        })?)
     }
     pub(super) fn summary(&self) -> Vec<LicenseFileSummary> {
         let Self::Complete { files } = self else {

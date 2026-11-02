@@ -4,6 +4,10 @@ title: Pure core and acquisition boundary
 description: Approved deep modules and request/result API for license inspection without core I/O.
 status: accepted
 sources:
+- id: actionable-diagnostics-review
+  resource: ../work/actionable-license-diagnostics/review.md
+  working_tree: untracked
+  sha256: f56ab86f925d5d2149ce47181fcafa15a434ecfd1fe18698fda05d0294e86473
 - id: constrained-supplement-review
   resource: ../work/constrained-license-supplementation/review.md
   working_tree: untracked
@@ -538,3 +542,20 @@ expression priority and raw line boundaries.[^legacy-license-review]
 [^legacy-license-review]: [Legacy interpretation design and staged review](../work/legacy-license-interpretation/review.md).
 
 [^constrained-supplement-review]: [Constrained supplementation staged review](../work/constrained-license-supplementation/review.md).
+
+# Diagnostic and presentation ownership
+
+Evidence assigns LicenseProblem at interpretation failures, independent of
+human wording. Error keeps the broad category and optional typed detail without
+changing raw cache observations. Neither acquisition nor rendering parses prose
+to reconstruct license semantics. Two binary renderers share one borrowed artifact
+view, grouping and verbose presenter; the core still evaluates every artifact.
+Grouping keys borrow full redacted declarations and include the displayed result
+plus unescaped diagnostic/policy context to prevent preview/escape collisions.
+BTreeMap indexing avoids pairwise scans; presentation text is allocated once per
+artifact, and retained group keys are proportional to distinct results. This
+adds no I/O or general report schema layer. Revisit if another consumer or measured
+cost justifies a separate structural grouping key.
+[^actionable-diagnostics-review]
+
+[^actionable-diagnostics-review]: [Actionable diagnostic assessment and staged review](../work/actionable-license-diagnostics/review.md).

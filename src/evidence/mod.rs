@@ -8,7 +8,7 @@ mod text_match;
 use crate::{
     model::{
         ArtifactFormat, ArtifactLocator, ArtifactRequest, Code, ContentHash, Error,
-        EvidenceRequirement, PackageId, RequestId, SourceId,
+        EvidenceRequirement, LicenseProblem, PackageId, RequestId, SourceId,
     },
     policy::LicenseExpression,
 };
@@ -516,12 +516,18 @@ impl Evidence {
                     .as_ref()
                     .and_then(|span| self.record.data.metadata.get(span.clone())),
             )
+            .map_err(|error| Error::license(LicenseProblem::UnrecognizedLegacy, error.message))
             .map(|expression| (expression, LicenseOrigin::LegacyDeclaration)),
             [value] => LicenseExpression::parse(value)
+                .map_err(|error| Error::license(LicenseProblem::InvalidExpression, error.message))
                 .map(|expression| (expression, LicenseOrigin::LicenseExpression)),
-            _ => Err(Error::new(
-                Code::UnknownLicense,
-                "missing or repeated license declaration",
+            [] => Err(Error::license(
+                LicenseProblem::MissingDeclaration,
+                "missing license declaration",
+            )),
+            _ => Err(Error::license(
+                LicenseProblem::RepeatedDeclaration,
+                "repeated license declaration",
             )),
         };
         if declaration.is_ok() {
@@ -532,8 +538,8 @@ impl Evidence {
         {
             let expression = files.license()?;
             if !constraint.accepts(&expression) {
-                return Err(Error::new(
-                    Code::UnknownLicense,
+                return Err(Error::license(
+                    LicenseProblem::LegacyFamilyMismatch,
                     "bundled license text conflicts with legacy license family",
                 ));
             }

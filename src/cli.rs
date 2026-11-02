@@ -1,5 +1,6 @@
 //! Runtime setup and rendering; inspection owns all verdict rules.
 use crate::acquisition::{Acquirer, AcquisitionBatch, AcquisitionOptions, EvidenceCache};
+mod artifacts;
 mod describe;
 mod json;
 use clap::{Parser, Subcommand, ValueEnum};
@@ -37,6 +38,9 @@ enum Command {
         /// Use local artifacts and sufficient cached evidence; never access the network.
         #[arg(long)]
         offline: bool,
+        /// Show each artifact and its complete observed declarations.
+        #[arg(long)]
+        verbose: bool,
     },
     /// Manage taloon's persisted evidence cache.
     Cache {
@@ -53,6 +57,9 @@ enum Command {
         /// Use local artifacts and sufficient cached evidence; never access the network.
         #[arg(long)]
         offline: bool,
+        /// Show each artifact and its complete observed declarations.
+        #[arg(long)]
+        verbose: bool,
         /// Fail a complete check when it emits warnings.
         #[arg(long)]
         deny_warnings: bool,
@@ -94,13 +101,14 @@ pub(crate) fn run() -> u8 {
                     project,
                     format,
                     offline,
+                    verbose,
                 },
         }) => {
             let report =
                 describe::run(project.as_deref(), &package, offline).unwrap_or_else(|error| {
                     taloon::description::DescriptionReport::from_input_error(&package, error)
                 });
-            describe::emit(&report, format)
+            describe::emit(&report, format, verbose)
         }
         Ok(Arguments {
             command:
@@ -108,12 +116,13 @@ pub(crate) fn run() -> u8 {
                     project,
                     format,
                     offline,
+                    verbose,
                     deny_warnings,
                 },
         }) => {
             let report =
                 check(project.as_deref(), offline).unwrap_or_else(Report::from_input_error);
-            emit(&report, format, deny_warnings)
+            emit(&report, format, deny_warnings, verbose)
         }
         Ok(Arguments {
             command: Command::Cache {
@@ -133,6 +142,7 @@ pub(crate) fn run() -> u8 {
                 input("invalid command line; run taloon describe --help"),
             ),
             format,
+            false,
         ),
         Err(_) => emit(
             &Report::from_input_error(Error::new(
@@ -140,6 +150,7 @@ pub(crate) fn run() -> u8 {
                 "invalid command line; run taloon --help",
             )),
             format,
+            false,
             false,
         ),
     }
@@ -282,7 +293,7 @@ fn cache_directory(home: Option<&Path>) -> Result<PathBuf, Error> {
     base.map(|p| p.join("taloon"))
         .ok_or_else(|| input("cannot determine cache directory; set TALOON_CACHE_DIR"))
 }
-fn emit(report: &Report, format: Format, deny_warnings: bool) -> u8 {
+fn emit(report: &Report, format: Format, deny_warnings: bool, verbose: bool) -> u8 {
     let code = report.exit_code(deny_warnings);
     let encoded = match format {
         Format::Json => json::encode(&Envelope {
@@ -290,7 +301,7 @@ fn emit(report: &Report, format: Format, deny_warnings: bool) -> u8 {
             exit_code: code,
         })
         .map_err(|_| ()),
-        Format::Text => Ok(text_report(report).into_bytes()),
+        Format::Text => Ok(text_report(report, verbose).into_bytes()),
     };
     let Ok(mut bytes) = encoded else {
         return 2;
@@ -330,7 +341,7 @@ fn diagnostic(out: &mut String, d: &Diagnostic) {
         safe(&d.error.message)
     );
 }
-fn text_report(report: &Report) -> String {
+fn text_report(report: &Report, verbose: bool) -> String {
     let mut out = String::new();
     let artifacts: usize = report.packages().iter().map(|p| p.artifacts.len()).sum();
     let _ = writeln!(
@@ -343,9 +354,11 @@ fn text_report(report: &Report) -> String {
         diagnostic(&mut out, d);
     }
     for package in report.packages() {
-        if package.status == Status::Compliant
+        if !verbose
+            && package.status == Status::Compliant
             && package.artifacts.iter().all(|a| {
                 a.diagnostics.is_empty()
+                    && a.decision.as_ref().is_none_or(|d| d.overrides.is_empty())
                     && !a
                         .evidence
                         .as_ref()
@@ -364,43 +377,12 @@ fn text_report(report: &Report) -> String {
         for d in &package.diagnostics {
             diagnostic(&mut out, d);
         }
-        for artifact in &package.artifacts {
-            let _ = writeln!(out, "  {:?}: {}", artifact.status, safe(&artifact.locator));
-            if let Some(e) = &artifact.evidence {
-                let _ = writeln!(out, "    {:?}, observed {}", e.strength, e.content_hash);
-                if e.license_origin == Some(LicenseOrigin::LegacySupplement) {
-                    let _ = writeln!(
-                        out,
-                        "    license source: legacy declaration supplemented by bundled files"
-                    );
-                }
-            }
-            if let Some(expression) = &artifact.interpreted_expression {
-                let _ = writeln!(out, "    license: {}", safe(expression));
-            }
-            if let Some(decision) = &artifact.decision {
-                for unit in &decision.units {
-                    let permission = if unit.permitted {
-                        "permitted"
-                    } else {
-                        "denied"
-                    };
-                    let _ = writeln!(out, "    {permission} unit: {}", safe(&unit.unit));
-                }
-                for applied in &decision.overrides {
-                    let _ = writeln!(
-                        out,
-                        "    {:?} {}: {}",
-                        applied.kind,
-                        safe(&applied.id),
-                        safe(&applied.reason)
-                    );
-                }
-            }
-            for d in &artifact.diagnostics {
-                diagnostic(&mut out, d);
-            }
-        }
+        artifacts::render(
+            &mut out,
+            package.artifacts.iter().map(artifacts::Artifact::from),
+            package.artifacts.len(),
+            verbose,
+        );
         if let Some(note) = &package.origin_note {
             let _ = writeln!(out, "  {}", safe(note));
         }

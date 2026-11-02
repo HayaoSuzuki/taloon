@@ -34,14 +34,14 @@ struct Envelope<'a> {
     report: &'a DescriptionReport,
     exit_code: u8,
 }
-pub(super) fn emit(report: &DescriptionReport, format: Format) -> u8 {
+pub(super) fn emit(report: &DescriptionReport, format: Format, verbose: bool) -> u8 {
     let encoded = match format {
         Format::Json => super::json::encode(&Envelope {
             report,
             exit_code: report.exit_code(),
         })
         .map_err(|_| ()),
-        Format::Text => Ok(text(report).into_bytes()),
+        Format::Text => Ok(text(report, verbose).into_bytes()),
     };
     let Ok(mut bytes) = encoded else {
         return 2;
@@ -121,7 +121,7 @@ impl<'a> GraphDisplay<'a> {
         }
     }
 }
-fn text(report: &DescriptionReport) -> String {
+fn text(report: &DescriptionReport, verbose: bool) -> String {
     let mut out = String::new();
     let scope = match report.selection_mode() {
         Some(SelectionMode::AllExternal) => "all external packages",
@@ -164,22 +164,22 @@ fn text(report: &DescriptionReport) -> String {
                 package.artifacts.len()
             );
         }
-        for artifact in &package.artifacts {
-            let supplemented = artifact
-                .evidence
-                .as_ref()
-                .is_some_and(|e| e.license_origin == Some(LicenseOrigin::LegacySupplement));
-            if supplemented || !artifact.diagnostics.is_empty() {
-                let _ = writeln!(out, "  artifact: {}", safe(&artifact.locator));
-                if supplemented {
-                    let _ = writeln!(
-                        out,
-                        "    license source: legacy declaration supplemented by bundled files"
-                    );
-                }
-                diagnostics(&mut out, &artifact.diagnostics, "    ");
-            }
-        }
+        super::artifacts::render(
+            &mut out,
+            package
+                .artifacts
+                .iter()
+                .filter(|a| {
+                    verbose
+                        || !a.diagnostics.is_empty()
+                        || a.evidence.as_ref().is_some_and(|e| {
+                            e.license_origin == Some(LicenseOrigin::LegacySupplement)
+                        })
+                })
+                .map(super::artifacts::Artifact::from),
+            package.artifacts.len(),
+            verbose,
+        );
         diagnostics(&mut out, &package.diagnostics, "  ");
         graph.dependencies(&mut out, &package.package.id);
     }

@@ -4,6 +4,10 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: actionable-diagnostics-review
+  resource: ../work/actionable-license-diagnostics/review.md
+  working_tree: untracked
+  sha256: f56ab86f925d5d2149ce47181fcafa15a434ecfd1fe18698fda05d0294e86473
 - id: constrained-supplement-review
   resource: ../work/constrained-license-supplementation/review.md
   working_tree: untracked
@@ -475,3 +479,18 @@ Lean/Creusot claims to metadata semantics, archive readers or legal equivalence.
 [^constrained-supplement-review]
 
 [^constrained-supplement-review]: [Constrained supplementation staged review](../work/constrained-license-supplementation/review.md).
+
+# Diagnostic causes and grouped presentation
+
+Public sidecar/archive cases pin branch-owned causes, authoritative-field
+precedence and cache reinterpretation. A generated repeated-field property uses
+an independent cardinality expectation. Real CLI tests cover both commands,
+summary/verbose/JSON, acquisition versus declaration failures, distinct
+clarifications and credential/control-safe previews. A generated boundary case
+requires declarations differing after the preview to remain separate. Unit
+presentation cases additionally vary proof and status. Stable/shuffled suites,
+bounded metadata/wheel/sdist fuzz and fresh-context review provide behavioral
+evidence; this adds no formal proof of parsing, classification or rendering.
+[^actionable-diagnostics-review]
+
+[^actionable-diagnostics-review]: [Actionable diagnostic assessment and staged review](../work/actionable-license-diagnostics/review.md).
