@@ -84,31 +84,96 @@ fn attribution(original: &str, normalized_header: &str, id: &str) -> bool {
         };
         header = copyright;
     }
-    // Substituted attribution is exactly one copyright line, with an optional
-    // standalone BSD reservation. Additional lines cannot become holder names.
-    if let Some(line) = lines.next()
-        && (!id.starts_with("BSD-") || line != "All rights reserved." || lines.next().is_some())
-    {
+    // Only separate copyright notices and an optional final BSD reservation
+    // belong to the substituted header. Never flatten extra lines into names.
+    let mut count = 0;
+    loop {
+        count += 1;
+        if count > 32 || !copyright_line(header) {
+            return false;
+        }
+        match lines.next() {
+            None => return true,
+            Some("All rights reserved.") if id.starts_with("BSD-") => {
+                return lines.next().is_none();
+            }
+            Some(next) => header = next,
+        }
+    }
+}
+
+fn copyright_line(line: &str) -> bool {
+    let Some(notice) = line.strip_prefix("Copyright ") else {
+        return false;
+    };
+    let notice = notice.strip_prefix("(c) ").unwrap_or(notice);
+    let Some(holder_offset) =
+        notice.find(|c: char| !(c.is_ascii_digit() || c == '-' || c == ',' || c.is_whitespace()))
+    else {
+        return false;
+    };
+    let (years, holder) = notice.split_at(holder_offset);
+    if !years.ends_with(char::is_whitespace) {
         return false;
     }
-    let Some(header) = header.strip_prefix("Copyright ") else {
-        return false;
-    };
-    let header = header.strip_prefix("(c) ").unwrap_or(header);
-    let Some((year, holder)) = header.split_once(' ') else {
-        return false;
-    };
-    // A single year or year range and proper-name tokens, optionally followed by
-    // an email address. Restricting the grammar avoids treating arbitrary lines
-    // beginning with Copyright as disposable metadata.
-    let year = year.trim_end_matches(',');
+    // A trailing comma retains the established single-year notice spelling.
+    let years = years.trim().strip_suffix(',').unwrap_or(years.trim());
     let valid_year = |part: &str| part.len() == 4 && part.bytes().all(|b| b.is_ascii_digit());
-    let year_valid = valid_year(year)
-        || year
-            .split_once('-')
-            .is_some_and(|(a, b)| valid_year(a) && valid_year(b));
+    let mut count = 0;
+    for year in years.split(',').map(str::trim) {
+        count += 1;
+        if count > 32
+            || !(valid_year(year)
+                || year
+                    .split_once('-')
+                    .is_some_and(|(a, b)| valid_year(a) && valid_year(b)))
+        {
+            return false;
+        }
+    }
+    holder_name(holder)
+}
+
+fn corporate_abbreviation(token: &str) -> bool {
+    matches!(token, "Inc" | "Ltd" | "Corp" | "Co")
+}
+
+fn holder_name(holder: &str) -> bool {
     let holder = holder.strip_suffix('.').unwrap_or(holder);
-    year_valid && !holder.is_empty() && holder.split_whitespace().all(holder_token)
+    let mut tokens = holder.split_whitespace().peekable();
+    let mut named = false;
+    let mut final_connector = false;
+    while let Some(token) = tokens.next() {
+        final_connector = matches!(token, "and" | "the" | "of");
+        if final_connector
+            || matches!(
+                token,
+                "contributors" | "authors" | "developers" | "maintainers" | "team"
+            )
+        {
+            continue;
+        }
+        // A comma belongs only to a corporate suffix, never an arbitrary clause.
+        let name = if let Some(name) = token.strip_suffix(',') {
+            if !tokens
+                .peek()
+                .is_some_and(|next| corporate_abbreviation(next))
+            {
+                return false;
+            }
+            name
+        } else {
+            token
+        };
+        if !holder_token(name) {
+            return false;
+        }
+        if name.starts_with('<') {
+            return named && tokens.peek().is_none();
+        }
+        named = true;
+    }
+    named && !final_connector
 }
 
 fn holder_token(token: &str) -> bool {
@@ -345,7 +410,173 @@ mod tests {
         assert_eq!(actual, Some("MIT"));
     }
 
+    fn with_attribution(id: &str, header: &str) -> String {
+        let marker = match id {
+            "MIT" => "Permission is hereby granted",
+            "ISC" => "Permission to use",
+            _ => "Redistribution and use",
+        };
+        let (_, body) = canonical(id).split_once(marker).unwrap();
+        format!("{header}\n\n{marker}{body}")
+    }
+
+    #[rstest]
+    #[case::mit("MIT")]
+    #[case::bsd_two("BSD-2-Clause")]
+    #[case::bsd_three("BSD-3-Clause")]
+    #[case::isc("ISC")]
+    fn recognizes_separate_copyright_lines(#[case] id: &str) {
+        let text = with_attribution(
+            id,
+            "Copyright (c) 2025 Example Author\nCopyright 2026 Other Author",
+        );
+
+        let actual = identify(&text);
+
+        assert_eq!(actual, Some(id));
+    }
+
+    #[rstest]
+    #[case::year_list("Copyright (c) 2022, 2024, 2025-2026 Example Author")]
+    #[case::compact_year_list("Copyright (c) 2022,2024,2025-2026 Example Author")]
+    #[case::corporation("Copyright (c) 2026 Example, Inc.")]
+    #[case::limited("Copyright (c) 2026 Example Ltd.")]
+    #[case::corporate_limited("Copyright (c) 2026 Example, Ltd.")]
+    #[case::corporate_company("Copyright (c) 2026 Example, Co.")]
+    #[case::corporate_corp("Copyright (c) 2026 Example, Corp.")]
+    #[case::roles("Copyright (c) 2026 Example and the contributors")]
+    #[case::team("Copyright (c) 2026 The Example team of authors and developers")]
+    #[case::maintainers("Copyright (c) 2026 Example maintainers")]
+    fn recognizes_structured_attribution(#[case] header: &str) {
+        let text = with_attribution("MIT", header);
+
+        let actual = identify(&text);
+
+        assert_eq!(actual, Some("MIT"));
+    }
+
+    #[rstest]
+    #[case::mit("MIT")]
+    #[case::bsd("BSD-3-Clause")]
+    #[case::isc("ISC")]
+    fn recognizes_maximum_copyright_lines(#[case] id: &str) {
+        let header = vec!["Copyright (c) 2026 Example Author"; 32].join("\n");
+        let text = with_attribution(id, &header);
+
+        let actual = identify(&text);
+
+        assert_eq!(actual, Some(id));
+    }
+
+    #[test]
+    fn rejects_excess_copyright_lines() {
+        let header = vec!["Copyright (c) 2026 Example Author"; 33].join("\n");
+        let text = with_attribution("MIT", &header);
+
+        let actual = identify(&text);
+
+        assert_eq!(actual, None);
+    }
+
+    #[rstest]
+    #[case::corporate_sentence("Copyright (c) 2026 Example, Inc. Redistribution Requires Consent.")]
+    #[case::lowercase_sentence("Copyright (c) 2026 Example and permission is withheld")]
+    #[case::extra_line(
+        "Copyright (c) 2026 Example\nRedistribution Requires Consent.\nCopyright (c) 2025 Other Author"
+    )]
+    #[case::same_line_copyright("Copyright (c) 2026 Example Copyright (c) 2025 Other Author")]
+    #[case::year_gap("Copyright (c) 2022,,2026 Example")]
+    #[case::year_short("Copyright (c) 2022, 26 Example")]
+    #[case::year_open_range("Copyright (c) 2022- Example")]
+    #[case::roles_only("Copyright (c) 2026 contributors and maintainers")]
+    #[case::trailing_connector("Copyright (c) 2026 Example and")]
+    #[case::unknown_corporate_suffix("Copyright (c) 2026 Example, Other.")]
+    #[case::comma_clause("Copyright (c) 2026 Example, Redistribution Requires Consent")]
+    #[case::reservation_between_notices(
+        "Copyright (c) 2026 Example\nAll rights reserved.\nCopyright (c) 2025 Other Author"
+    )]
+    #[case::repeated_reservation(
+        "Copyright (c) 2026 Example\nAll rights reserved.\nAll rights reserved."
+    )]
+    #[case::preamble("Provided under these terms\nCopyright (c) 2026 Example")]
+    #[case::reservation_before_copyright("All rights reserved.\nCopyright (c) 2026 Example")]
+    fn rejects_unstructured_attribution(#[case] header: &str) {
+        let text = with_attribution("BSD-3-Clause", header);
+
+        let actual = identify(&text);
+
+        assert_eq!(actual, None);
+    }
+
+    #[rstest]
+    #[case::maximum(32, Some("MIT"))]
+    #[case::excess(33, None)]
+    fn bounds_year_lists(#[case] count: usize, #[case] expected: Option<&str>) {
+        let years = vec!["2026"; count].join(", ");
+        let text = with_attribution("MIT", &format!("Copyright (c) {years} Example"));
+
+        let actual = identify(&text);
+
+        assert_eq!(actual, expected);
+    }
+
+    #[rstest]
+    #[case::mit("MIT")]
+    #[case::isc("ISC")]
+    fn rejects_reservation_for_non_bsd_texts(#[case] id: &str) {
+        let text = with_attribution(id, "Copyright (c) 2026 Example\nAll rights reserved.");
+
+        let actual = identify(&text);
+
+        assert_eq!(actual, None);
+    }
+
+    #[test]
+    fn recognizes_bsd_reservation_after_multiple_notices() {
+        let text = with_attribution(
+            "BSD-3-Clause",
+            "Copyright (c) 2025 Example\nCopyright (c) 2026 Other Author\nAll rights reserved.",
+        );
+
+        let actual = identify(&text);
+
+        assert_eq!(actual, Some("BSD-3-Clause"));
+    }
+
     proptest! {
+        #[test]
+        fn structured_notices_preserve_recognition(
+            years in prop::collection::vec(1900_u16..2100, 2..10),
+            names in prop::collection::vec("Author[a-z]{2,12}", 2..8),
+            id in prop::sample::select(vec!["MIT", "BSD-2-Clause", "BSD-3-Clause", "ISC"]),
+        ) {
+            let years = years.iter().map(u16::to_string).collect::<Vec<_>>().join(", ");
+            let header = names.iter().map(|name| format!("Copyright (c) {years} {name} and contributors")).collect::<Vec<_>>().join("\n");
+            let text = with_attribution(id, &header);
+
+            let actual = identify(&text);
+
+            prop_assert_eq!(actual, Some(id));
+        }
+
+        #[test]
+        fn additional_lines_between_notices_are_rejected(word in "[A-Z][a-z]{2,12}", id in prop::sample::select(vec!["MIT", "BSD-2-Clause", "BSD-3-Clause", "ISC"])) {
+            let text = with_attribution(id, &format!("Copyright (c) 2025 Example\n{word} Requires Consent.\nCopyright (c) 2026 Other Author"));
+
+            let actual = identify(&text);
+
+            prop_assert_eq!(actual, None);
+        }
+
+        #[test]
+        fn sentences_after_corporate_names_are_rejected(name in "Company[a-z]{2,12}", word in "[A-Z][a-z]{2,12}") {
+            let text = with_attribution("MIT", &format!("Copyright (c) 2026 {name}, Inc. {word} Requires Consent."));
+
+            let actual = identify(&text);
+
+            prop_assert_eq!(actual, None);
+        }
+
         #[test]
         fn whitespace_preserves_recognition(separator in prop::sample::select(vec![" ", "\n", "\r\n", "\t", " \n\t "])) {
             let text = canonical("MIT").split_whitespace().collect::<Vec<_>>().join(separator);
