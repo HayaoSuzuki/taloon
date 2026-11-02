@@ -4,6 +4,10 @@ title: Pure core and acquisition boundary
 description: Approved deep modules and request/result API for license inspection without core I/O.
 status: accepted
 sources:
+- id: bundled-license-review
+  resource: ../work/bundled-license-evidence/review.md
+  working_tree: untracked
+  sha256: ed82b8bf06d4d89c63c8b074f3e1b400dfc3422bf7c7d6458a73ddc146c1b359
 - id: creusot-contracts
   resource: ../work/creusot-contracts/review.md
   working_tree: modified
@@ -476,3 +480,27 @@ boundary; the [verification decision](verification-strategy.md#direct-rust-decis
 owns proof guarantees and limits.[^creusot-contracts]
 
 [^creusot-contracts]: [Production decision extraction and verification evidence](../work/creusot-contracts/review.md).
+
+# Bundled-file evidence boundary
+
+The original declaration-only boundary is extended for absent fields. Evidence
+owns bounded exact-path readers, conservative complete-template interpretation
+and raw archive-file observations. It exposes only whether an observation still
+needs files; acquisition owns cache-first archive escalation and all I/O. This
+keeps the no-network metadata fast path independent of matcher/ZIP/tar details.
+One additional bounded pass over an already verified source archive discovers
+selected text without retaining arbitrary members. The existing metadata pass
+returns its validated root, avoiding a duplicate root-discovery pass.
+[^bundled-license-review]
+
+Optional observed files participate in existing record checksums and bounds.
+Their absence serializes exactly as before, so unrelated valid cached declarations
+do not need redownloading. Old/weak absent-declaration observations upgrade
+selectively; completed positive and negative scans remain reusable. File snapshots
+cannot be restored at sidecar strength. Interpretation runs against current local
+templates rather than treating a stored verdict as evidence. No transport or
+filesystem capability enters the pure core. Reconsider if supporting more license
+variants needs a different template engine or measurements justify an archive
+representation change.[^bundled-license-review]
+
+[^bundled-license-review]: [Bundled-file design and integration evidence](../work/bundled-license-evidence/review.md).

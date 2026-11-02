@@ -4,6 +4,10 @@ title: License inspection specification
 description: Approved design for uv.lock coverage, Python license policy, evidence, and command behavior.
 status: accepted
 sources:
+- id: bundled-license-review
+  resource: ../work/bundled-license-evidence/review.md
+  working_tree: untracked
+  sha256: ed82b8bf06d4d89c63c8b074f3e1b400dfc3422bf7c7d6458a73ddc146c1b359
 - id: declaration-reporting
   resource: ../work/evidence-and-invariants/issue15.md
   working_tree: modified
@@ -113,8 +117,17 @@ expression; it must not trigger fallback to another field. When
 License-Expression is absent, accept legacy License only if the complete value
 parses as a valid SPDX expression. Otherwise report unknown license information,
 which a valid hash-bound clarification may resolve.
-Do not infer an expression from classifiers, prose, fuzzy name matching, or
-license text.[^core-metadata][^owner]
+Do not infer an expression from classifiers, free-form metadata prose or fuzzy
+name/text matching. The original declaration-only boundary is extended by the
+owner's bundled-file request: when both fields are absent, complete local
+license-template recognition may supply the expression. Explicit invalid or
+repeated fields cannot fall back. The initial set is MIT, BSD-2-Clause,
+BSD-3-Clause, ISC and Apache-2.0; formatting/holder substitutions are narrow,
+and mismatched/additional/ambiguous terms remain unknown. AUTHORS basenames are
+retained attribution observations, not license candidates; this is a scope rule,
+not proof about their legal contents. Other selected files must agree on one
+recognized expression. No OR/AND relationship is invented between differing
+files.[^core-metadata][^owner][^bundled-license-review]
 
 Use SPDX expression syntax and the identifiers allowed by Python's License
 Expression specification. Pin the identifier database with the implementation
@@ -385,8 +398,8 @@ Selection occurs before acquisition, which shares check's evidence cache,
 authentication, fallback, proof and progress behavior.[^describe-design]
 
 The command reads no pyproject policy or date and applies no clarifications,
-exceptions or permission decisions. It uses original declarations, exact-text
-artifact grouping and explicit unknown/unsupported outcomes; differing artifact
+exceptions or permission decisions. It uses original declarations or the same absent-declaration bundled-file
+recognition as check, exact-expression artifact grouping and explicit unknown/unsupported outcomes; differing artifact
 licenses are not joined into a synthetic expression. Complete description exits
 0, input/incomplete outcomes exit 2, and no permission exit 1 is produced. Text
 lists unique packages and annotated relationships; the separate describe JSON
@@ -439,3 +452,5 @@ Issue #15; parser and cryptographic correctness are separate boundaries.
 [^declaration-reporting]
 
 [^declaration-reporting]: [Declaration reporting correction and five-pass review](../work/evidence-and-invariants/issue15.md).
+
+[^bundled-license-review]: [Bundled-file design, network evidence and reviews](../work/bundled-license-evidence/review.md).

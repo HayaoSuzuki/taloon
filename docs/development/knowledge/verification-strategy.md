@@ -4,6 +4,10 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: bundled-license-review
+  resource: ../work/bundled-license-evidence/review.md
+  working_tree: untracked
+  sha256: ed82b8bf06d4d89c63c8b074f3e1b400dfc3422bf7c7d6458a73ddc146c1b359
 - id: expanded-contract-review
   resource: ../work/evidence-and-invariants/review.md
   working_tree: untracked
@@ -405,3 +409,16 @@ Revisit contracts when production decisions or the pinned environment changes.
 [^contract-graph]: [Ordered-container feasibility and deferral](../work/evidence-and-invariants/graph.md).
 
 [^expanded-contract-review]: [Expanded contracts final integration and limits](../work/evidence-and-invariants/review.md).
+
+# Bundled-file interpretation checks
+
+Named and generated cases exercise complete-template matching, changed/additional
+terms, namespace/path attacks, bounded ZIP/tar reads, evidence-file restoration
+and explicit declaration precedence. HTTP fixtures pin selective fallback and
+warm/offline request counts; a public sqlparse 0.6.0 smoke exercise uses both exact
+locked distribution hashes. This does not extend the Creusot or Lean proof scope
+to license recognition, archive parsers or legal completeness. Retained
+attribution files are not semantically proved to lack additional terms.
+[^bundled-license-review]
+
+[^bundled-license-review]: [Bundled-file tests, measurements and staged review](../work/bundled-license-evidence/review.md).
