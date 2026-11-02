@@ -4,6 +4,10 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: constrained-supplement-review
+  resource: ../work/constrained-license-supplementation/review.md
+  working_tree: untracked
+  sha256: d1ff5e2be3367bada1c6a635b996e5b1ee9ac6967831400aeceebc4677d7b252
 - id: creusot-build-retry
   resource: ../work/creusot-build-retry/review.md
   working_tree: modified
@@ -457,3 +461,17 @@ recipe changes or sustained service outages; do not substitute unpinned sources
 to make a required context pass.[^creusot-build-retry]
 
 [^creusot-build-retry]: [Observed acquisition failures and bounded retry review](../work/creusot-build-retry/review.md).
+
+# Constrained legacy supplementation
+
+Named wheel/sdist cases and generated extra-term guards exercise whole-value
+eligibility, family agreement, strict declaration priority, conflicting files,
+raw-record replay and interpretation origin. HTTP fixtures check single archive
+escalation, fresh archive metadata authority over sidecar hints, zero-network
+positive/negative warm reuse and offline pending observations. Real process tests
+check both commands, compliant text visibility and evidence origin surviving a
+separate policy clarification. This is behavioral coverage, not an extension of
+Lean/Creusot claims to metadata semantics, archive readers or legal equivalence.
+[^constrained-supplement-review]
+
+[^constrained-supplement-review]: [Constrained supplementation staged review](../work/constrained-license-supplementation/review.md).

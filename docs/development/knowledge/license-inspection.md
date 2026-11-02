@@ -4,6 +4,10 @@ title: License inspection specification
 description: Approved design for uv.lock coverage, Python license policy, evidence, and command behavior.
 status: accepted
 sources:
+- id: constrained-supplement-review
+  resource: ../work/constrained-license-supplementation/review.md
+  working_tree: untracked
+  sha256: d1ff5e2be3367bada1c6a635b996e5b1ee9ac6967831400aeceebc4677d7b252
 - id: legacy-license-review
   resource: ../work/legacy-license-interpretation/review.md
   working_tree: untracked
@@ -122,10 +126,12 @@ License-Expression is absent, interpret one complete legacy License value as a
 strict SPDX expression first, then a unique official SPDX full name or explicit
 versioned/clause-specific alias, then a supported complete license template.
 Only whole-name lookup ignores ASCII case; expressions stay strict. Reject names
-mapping to differing identities, generic BSD/Apache labels, arbitrary extra terms
+mapping to differing identities, unsupported family labels, arbitrary extra terms
 and invented AND/OR relationships. This expands interpretation within the same
 legacy field and does not permit fallback from an invalid License-Expression or
-from a present legacy value to a different file.[^legacy-license-review]
+from an arbitrary present legacy value to a different file. The narrow
+incomplete-value extension below supersedes the original absent-only rule.
+[^legacy-license-review][^constrained-supplement-review]
 
 The legacy text matcher reads the original field span in retained metadata;
 unfolded values remain the source for expression/name interpretation and original
@@ -140,8 +146,19 @@ Otherwise report unknown license information, which a valid hash-bound
 clarification may resolve. Do not infer an expression from classifiers,
 unrecognized metadata prose or fuzzy name/text matching. The original declaration-only boundary is extended by the
 owner's bundled-file request: when both fields are absent, complete local
-license-template recognition may supply the expression. Explicit invalid or
-repeated fields cannot fall back. The initial set is MIT, BSD-2-Clause,
+license-template recognition may supply the expression. Additionally, one legacy
+value equal to UNKNOWN, BSD/BSD License, or Apache/Apache License/Apache Software
+License/Apache 2 (whole value, outer whitespace/ASCII case ignored) may be completed
+from verified bundled text. BSD requires BSD-2-Clause or BSD-3-Clause; Apache
+requires Apache-2.0. UNKNOWN accepts an existing recognized template. Valid
+declarations remain first; present expressions, repeated fields, family mismatches
+and added conditions cannot be overridden. Fresh archive metadata, not a sidecar
+hint, decides eligibility. Completed negative observations remain reusable.
+JSON license_origin records the evidence interpretation source before policy
+clarifications; text identifies successful legacy supplementation.
+[^constrained-supplement-review]
+
+The initial set is MIT, BSD-2-Clause,
 BSD-3-Clause, ISC and Apache-2.0; formatting/holder substitutions are narrow,
 and mismatched/additional/ambiguous terms remain unknown. AUTHORS basenames are
 retained attribution observations, not license candidates; this is a scope rule,
@@ -476,3 +493,5 @@ Issue #15; parser and cryptographic correctness are separate boundaries.
 [^bundled-license-review]: [Bundled-file design, network evidence and reviews](../work/bundled-license-evidence/review.md).
 
 [^legacy-license-review]: [Legacy-field interpretation and structured-notice reviews](../work/legacy-license-interpretation/review.md).
+
+[^constrained-supplement-review]: [Constrained supplementation staged review](../work/constrained-license-supplementation/review.md).

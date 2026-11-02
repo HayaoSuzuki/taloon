@@ -4,6 +4,10 @@ title: Pure core and acquisition boundary
 description: Approved deep modules and request/result API for license inspection without core I/O.
 status: accepted
 sources:
+- id: constrained-supplement-review
+  resource: ../work/constrained-license-supplementation/review.md
+  working_tree: untracked
+  sha256: d1ff5e2be3367bada1c6a635b996e5b1ee9ac6967831400aeceebc4677d7b252
 - id: legacy-license-review
   resource: ../work/legacy-license-interpretation/review.md
   working_tree: untracked
@@ -487,7 +491,8 @@ owns proof guarantees and limits.[^creusot-contracts]
 
 # Bundled-file evidence boundary
 
-The original declaration-only boundary is extended for absent fields. Evidence
+The original declaration-only boundary is extended for absent fields and the
+exact incomplete legacy values defined in the inspection contract. Evidence
 owns bounded exact-path readers, conservative complete-template interpretation
 and raw archive-file observations. It exposes only whether an observation still
 needs files; acquisition owns cache-first archive escalation and all I/O. This
@@ -518,9 +523,18 @@ records the raw legacy value's byte range in already-retained immutable headers;
 folded values still serve expressions, names and reporting. This prevents line
 unfolding from erasing restrictions without adding duplicate owned text or a
 second metadata parser. Whole-name lookup trims once before catalog traversal.
-Existing cache bytes, acquisition requirements and I/O behavior are unchanged;
-file fallback still requires absent fields. Reconsider when new name variants or
+Existing cache bytes and proof requirements are unchanged. A private typed
+FileConstraint centralizes incomplete-value eligibility and exact family matching;
+acquisition asks only whether files are needed. Archive construction applies the
+query to fresh metadata, so a sidecar hint cannot authorize overriding different
+archive declarations. Optional LicenseOrigin in the report describes current
+evidence interpretation, before policy overrides; no verdict is persisted.
+The selected extension reuses bounded archive acquisition and completed negative
+observations without a new transport layer or configuration flag.
+[^constrained-supplement-review] Reconsider when new name variants or
 license templates require a different representation, preserving explicit
 expression priority and raw line boundaries.[^legacy-license-review]
 
 [^legacy-license-review]: [Legacy interpretation design and staged review](../work/legacy-license-interpretation/review.md).
+
+[^constrained-supplement-review]: [Constrained supplementation staged review](../work/constrained-license-supplementation/review.md).
