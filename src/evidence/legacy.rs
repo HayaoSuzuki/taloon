@@ -1,4 +1,4 @@
-//! Precise names in the legacy free-text field, without changing expression syntax.
+//! Precise names and complete texts in legacy fields; SPDX expression syntax stays strict.
 use crate::{model::Error, policy::LicenseExpression};
 
 // Whole-value, versioned names only. Generic BSD/Apache labels are ambiguous.
@@ -18,14 +18,18 @@ fn unique_name<'a>(
     value: &str,
     candidates: impl Iterator<Item = (&'a str, &'a str)>,
 ) -> Option<&'a str> {
+    let value = value.trim();
     let mut matches = candidates
-        .filter(|(name, _)| name.eq_ignore_ascii_case(value.trim()))
+        .filter(|(name, _)| name.eq_ignore_ascii_case(value))
         .map(|(_, id)| id);
     let result = matches.next()?;
     (!matches.any(|id| id != result)).then_some(result)
 }
 
-pub(super) fn interpret(value: &str) -> Result<LicenseExpression, Error> {
+/// Interpret one unfolded legacy value. Complete-text matching additionally
+/// requires the original value with continuation-line boundaries preserved.
+/// Names and expressions use the unfolded form; arbitrary prose is not guessed.
+pub(super) fn interpret(value: &str, raw_text: Option<&str>) -> Result<LicenseExpression, Error> {
     let error = match LicenseExpression::parse(value) {
         Ok(expression) => return Ok(expression),
         Err(error) => error,
@@ -35,6 +39,9 @@ pub(super) fn interpret(value: &str) -> Result<LicenseExpression, Error> {
         .map(|license| (license.full_name, license.name))
         .chain(ALIASES.iter().copied());
     if let Some(id) = unique_name(value, names) {
+        return LicenseExpression::parse(id);
+    }
+    if let Some(id) = raw_text.and_then(super::text_match::identify) {
         return LicenseExpression::parse(id);
     }
     Err(error)

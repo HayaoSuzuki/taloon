@@ -1248,6 +1248,8 @@ fn acquire_bundled(
 }
 #[rstest::rstest]
 #[case::declared("License-Expression: MIT\nLicense-File: LICENSE", 0)]
+#[case::legacy_name("License: MIT License\nLicense-File: LICENSE", 0)]
+#[case::legacy_text(&format!("License: {}\nLicense-File: LICENSE", spdx::license_id("MIT").unwrap().text().replace('\n', "\n ")), 0)]
 #[case::absent("License-File: LICENSE", 1)]
 fn bundled_fallback_only_fetches_archives_for_absent_declarations(
     #[case] fields: &str,
@@ -1345,4 +1347,38 @@ fn cached_sidecar_upgrade_does_not_refetch_metadata(
             .map(taloon::policy::LicenseExpression::text),
         expected
     );
+}
+
+#[rstest::rstest]
+#[case::online(false)]
+#[case::offline(true)]
+fn cached_legacy_names_need_no_new_evidence(#[case] offline: bool) {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let (fixture, request, metadata) = bundled_fixture(
+        "License: MIT License",
+        spdx::license_id("MIT").unwrap().text(),
+    );
+    let acquirer = Acquirer::with_transport(
+        AcquisitionOptions::testing(temp.path(), offline),
+        fixture.clone(),
+    )
+    .unwrap();
+    let hash = request.hash().unwrap();
+    let evidence = Evidence::from_sidecar(
+        &request,
+        taloon::evidence::SidecarAssociation::new(hash, hash, ContentHash::digest(&metadata))
+            .unwrap(),
+        &metadata,
+    )
+    .unwrap();
+    acquirer.cache.put(&request, &evidence).unwrap();
+    // Act
+    let (restored, summary) = acquire_bundled(&acquirer, &request);
+    // Assert
+    assert_eq!(restored.license().unwrap().text(), "MIT");
+    assert_eq!(summary.network_requests, 0);
+    assert_eq!(summary.downloaded_bytes, 0);
+    assert_eq!(summary.cache_hits, 1);
+    assert_eq!(fixture.count(), 0);
 }

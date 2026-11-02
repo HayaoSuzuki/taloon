@@ -42,6 +42,7 @@ fn precise_legacy_names_are_interpreted_without_archive_proof(
     assert!(evidence.requirement_satisfied(EvidenceRequirement::IndexAssociated));
     assert!(!evidence.requirement_satisfied(EvidenceRequirement::ArchiveVerified));
     assert!(!evidence.needs_license_files());
+    assert_eq!(evidence.summary().original_license, vec![value.to_owned()]);
 }
 #[rstest]
 #[case::bsd("BSD")]
@@ -93,3 +94,156 @@ fn valid_legacy_expressions_keep_their_semantics(#[case] text: &str) {
     assert_eq!(expression.text(), text);
 }
 
+#[rstest]
+#[case::mit("MIT")]
+#[case::bsd2("BSD-2-Clause")]
+#[case::bsd3("BSD-3-Clause")]
+#[case::isc("ISC")]
+#[case::apache("Apache-2.0")]
+fn complete_legacy_text_is_interpreted_from_metadata(#[case] id: &str) {
+    // Arrange
+    let text = spdx::license_id(id).unwrap().text();
+    let evidence = legacy(text);
+    // Act
+    let expression = evidence.license().unwrap();
+    // Assert
+    assert_eq!(expression.text(), id);
+    assert!(evidence.requirement_satisfied(EvidenceRequirement::IndexAssociated));
+    assert!(!evidence.requirement_satisfied(EvidenceRequirement::ArchiveVerified));
+    assert_eq!(evidence.summary().original_expression, Vec::<String>::new());
+    assert_ne!(evidence.summary().original_license[0], "");
+}
+#[rstest]
+#[case::authoritative("License-Expression: MIT\nLicense: Apache 2.0", Some("MIT"))]
+#[case::invalid_expression("License-Expression: INVALID\nLicense: MIT License", None)]
+#[case::expression_is_not_a_name("License-Expression: MIT License\nLicense: MIT", None)]
+#[case::repeated_legacy("License: MIT License\nLicense: MIT License", None)]
+#[case::repeated_expression(
+    "License-Expression: MIT\nLicense-Expression: MIT\nLicense: MIT License",
+    None
+)]
+fn field_priority_and_cardinality_remain_strict(
+    #[case] fields: &str,
+    #[case] expected: Option<&str>,
+) {
+    // Arrange
+    let meta = metadata(fields);
+    let bytes = wheel(&meta);
+    let request = request(&bytes, ArtifactFormat::Wheel);
+    let evidence = Evidence::from_archive(&request, &bytes).unwrap();
+    // Act
+    let result = evidence.license();
+    // Assert
+    assert_eq!(
+        result
+            .ok()
+            .as_ref()
+            .map(taloon::policy::LicenseExpression::text),
+        expected
+    );
+}
+#[test]
+fn cached_raw_legacy_fields_are_reinterpreted_without_new_observations() {
+    // Arrange
+    let evidence = legacy(spdx::license_id("MIT").unwrap().text());
+    let meta = metadata(&format!(
+        "License: {}",
+        spdx::license_id("MIT").unwrap().text().replace('\n', "\n ")
+    ));
+    let bytes = wheel(&meta);
+    let request = request(&bytes, ArtifactFormat::Wheel);
+    let encoded = serde_json::to_vec(&evidence.to_record()).unwrap();
+    let decoded = serde_json::from_slice(&encoded).unwrap();
+    // Act
+    let restored = Evidence::from_record(&request, decoded).unwrap();
+    // Assert
+    assert_eq!(restored.license().unwrap().text(), "MIT");
+    assert!(!restored.needs_license_files());
+}
+proptest! {
+    #[test]
+    fn added_terms_cannot_be_dropped_from_complete_text(extra in "[a-z]{1,24}") {
+        // Arrange
+        let text=format!("{}\nAdditional terms: {extra}",spdx::license_id("MIT").unwrap().text());
+        let evidence=legacy(&text);
+        // Act
+        let result=evidence.license();
+        // Assert
+        prop_assert!(result.is_err());
+    }
+}
+
+#[rstest]
+#[case::sidecar_lf_restriction(false, "\n", false)]
+#[case::sidecar_crlf_restriction(false, "\r\n", false)]
+#[case::archive_lf_restriction(true, "\n", false)]
+#[case::archive_crlf_restriction(true, "\r\n", false)]
+#[case::sidecar_lf_notices(false, "\n", true)]
+#[case::sidecar_crlf_notices(false, "\r\n", true)]
+#[case::archive_lf_notices(true, "\n", true)]
+#[case::archive_crlf_notices(true, "\r\n", true)]
+fn legacy_text_keeps_original_notice_boundaries(
+    #[case] archive: bool,
+    #[case] newline: &str,
+    #[case] valid: bool,
+) {
+    // Arrange
+    let canonical = spdx::license_id("MIT").unwrap().text();
+    let (_, body) = canonical
+        .split_once("Permission is hereby granted")
+        .unwrap();
+    let second = if valid {
+        "Copyright (c) 2025 Sample"
+    } else {
+        "Redistribution Requires Consent."
+    };
+    let text =
+        format!("Copyright (c) 2026 Example\n{second}\n\nPermission is hereby granted{body}");
+    let meta = metadata(&format!("License: {}", text.replace('\n', "\n ")));
+    let meta = String::from_utf8(meta)
+        .unwrap()
+        .replace('\n', newline)
+        .into_bytes();
+    let bytes = wheel(&meta);
+    let request = request(&bytes, ArtifactFormat::Wheel);
+    let evidence = if archive {
+        Evidence::from_archive(&request, &bytes).unwrap()
+    } else {
+        let hash = request.hash().unwrap();
+        Evidence::from_sidecar(
+            &request,
+            SidecarAssociation::new(hash, hash, ContentHash::digest(&meta)).unwrap(),
+            &meta,
+        )
+        .unwrap()
+    };
+    // Act
+    let interpreted = evidence.license();
+    // Assert
+    assert_eq!(
+        interpreted
+            .ok()
+            .as_ref()
+            .map(taloon::policy::LicenseExpression::text),
+        if valid { Some("MIT") } else { None }
+    );
+}
+
+proptest! {
+    #[test]
+    fn raw_legacy_spans_survive_unicode_headers_and_cache_roundtrips(prefix in "[éΩ漢]{0,40}") {
+        // Arrange
+        let text=spdx::license_id("MIT").unwrap().text();
+        let meta=metadata(&format!("X-Note: {prefix}\nLicense: {}",text.replace('\n',"\n ")));
+        let bytes=wheel(&meta);
+        let request=request(&bytes,ArtifactFormat::Wheel);
+        let original=Evidence::from_archive(&request,&bytes).unwrap();
+        let encoded=serde_json::to_vec(&original.to_record()).unwrap();
+        let decoded=serde_json::from_slice(&encoded).unwrap();
+        // Act
+        let restored=Evidence::from_record(&request,decoded).unwrap();
+        let expression=restored.license().unwrap();
+        // Assert
+        prop_assert_eq!(expression.text(),"MIT");
+    }
+}

@@ -73,6 +73,8 @@ struct Metadata {
     version: String,
     expression: Vec<String>,
     legacy: Vec<String>,
+    // Byte span in the retained raw headers; no duplicate owned license text.
+    legacy_span: Option<std::ops::Range<usize>>,
     files: Vec<String>,
     warnings: Vec<Error>,
 }
@@ -237,7 +239,15 @@ fn singleton<'a>(headers: &'a BTreeMap<String, Vec<String>>, key: &str) -> Resul
 fn parse_metadata(request: &ArtifactRequest, text: &str) -> Result<Metadata, Error> {
     let mut headers: BTreeMap<String, Vec<String>> = BTreeMap::new();
     let mut current: Option<String> = None;
-    for line in text.lines() {
+    let mut legacy_span: Option<std::ops::Range<usize>> = None;
+    let mut offset = 0;
+    for physical in text.split_inclusive('\n') {
+        let line = physical
+            .strip_suffix('\n')
+            .map_or(physical, |line| line.strip_suffix('\r').unwrap_or(line));
+        let line_start = offset;
+        let line_end = line_start + line.len();
+        offset += physical.len();
         if line.is_empty() {
             break;
         }
@@ -249,6 +259,11 @@ fn parse_metadata(request: &ArtifactRequest, text: &str) -> Result<Metadata, Err
                 .ok_or_else(|| Error::new(Code::InvalidMetadata, "orphan metadata continuation"))?;
             last.push(' ');
             last.push_str(line.trim());
+            if current.as_deref() == Some("license")
+                && let Some(span) = &mut legacy_span
+            {
+                span.end = line_end;
+            }
             continue;
         }
         let (key, value) = line
@@ -264,10 +279,11 @@ fn parse_metadata(request: &ArtifactRequest, text: &str) -> Result<Metadata, Err
             ));
         }
         let key = key.to_ascii_lowercase();
-        headers
-            .entry(key.clone())
-            .or_default()
-            .push(value.trim().into());
+        let values = headers.entry(key.clone()).or_default();
+        values.push(value.trim().into());
+        if key == "license" {
+            legacy_span = (values.len() == 1).then_some(line_start + key.len() + 1..line_end);
+        }
         current = Some(key);
     }
     let version = singleton(&headers, "metadata-version")?;
@@ -316,6 +332,7 @@ fn parse_metadata(request: &ArtifactRequest, text: &str) -> Result<Metadata, Err
             .cloned()
             .unwrap_or_default(),
         legacy: headers.get("license").cloned().unwrap_or_default(),
+        legacy_span,
         files: headers.get("license-file").cloned().unwrap_or_default(),
         warnings,
     })
@@ -470,7 +487,13 @@ impl Evidence {
             &self.metadata.expression
         };
         match values.as_slice() {
-            [value] if self.metadata.expression.is_empty() => legacy::interpret(value),
+            [value] if self.metadata.expression.is_empty() => legacy::interpret(
+                value,
+                self.metadata
+                    .legacy_span
+                    .as_ref()
+                    .and_then(|span| self.record.data.metadata.get(span.clone())),
+            ),
             [value] => LicenseExpression::parse(value),
             _ => Err(Error::new(
                 Code::UnknownLicense,
