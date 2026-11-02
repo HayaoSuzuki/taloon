@@ -4,6 +4,10 @@ title: Pure core and acquisition boundary
 description: Approved deep modules and request/result API for license inspection without core I/O.
 status: accepted
 sources:
+- id: legacy-license-review
+  resource: ../work/legacy-license-interpretation/review.md
+  working_tree: untracked
+  sha256: dca68bb0997c79a7bf25ba5244afade94b4dc42a9e74b4b12e8976ba03982090
 - id: bundled-license-review
   resource: ../work/bundled-license-evidence/review.md
   working_tree: untracked
@@ -504,3 +508,19 @@ variants needs a different template engine or measurements justify an archive
 representation change.[^bundled-license-review]
 
 [^bundled-license-review]: [Bundled-file design and integration evidence](../work/bundled-license-evidence/review.md).
+
+# Legacy-field interpretation ownership
+
+A private legacy interpreter hides exact catalog/alias lookup and complete text
+recognition behind the existing LicenseExpression result. Strict SPDX validation
+and all field priority/cardinality rules remain evidence-owned. Metadata parsing
+records the raw legacy value's byte range in already-retained immutable headers;
+folded values still serve expressions, names and reporting. This prevents line
+unfolding from erasing restrictions without adding duplicate owned text or a
+second metadata parser. Whole-name lookup trims once before catalog traversal.
+Existing cache bytes, acquisition requirements and I/O behavior are unchanged;
+file fallback still requires absent fields. Reconsider when new name variants or
+license templates require a different representation, preserving explicit
+expression priority and raw line boundaries.[^legacy-license-review]
+
+[^legacy-license-review]: [Legacy interpretation design and staged review](../work/legacy-license-interpretation/review.md).

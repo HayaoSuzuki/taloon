@@ -4,6 +4,10 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: legacy-license-review
+  resource: ../work/legacy-license-interpretation/review.md
+  working_tree: untracked
+  sha256: dca68bb0997c79a7bf25ba5244afade94b4dc42a9e74b4b12e8976ba03982090
 - id: bundled-license-review
   resource: ../work/bundled-license-evidence/review.md
   working_tree: untracked
@@ -422,3 +426,18 @@ attribution files are not semantically proved to lack additional terms.
 [^bundled-license-review]
 
 [^bundled-license-review]: [Bundled-file tests, measurements and staged review](../work/bundled-license-evidence/review.md).
+
+# Legacy metadata correspondence checks
+
+Named public tests exercise precise legacy names, complete metadata texts,
+strict expression precedence, repeated fields, unchanged proof strength and raw
+cache restoration. Generated cases vary whole-name casing, additional terms and
+Unicode header offsets. LF/CRLF archive/sidecar regressions distinguish separate
+restrictions from multiple copyright notices; they rejected an intermediate
+unfolded-text interpretation. HTTP fixtures pin zero extra archive calls and
+network-free cached reinterpretation. Expanded notice grammar retains earlier
+extra-sentence attacks and adds independent generated structures. These are
+behavioral checks; existing Lean/Creusot claims do not expand to text matching,
+metadata parsing or legal equivalence.[^legacy-license-review]
+
+[^legacy-license-review]: [Legacy interpretation red/green and review evidence](../work/legacy-license-interpretation/review.md).

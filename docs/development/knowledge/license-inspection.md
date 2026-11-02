@@ -4,6 +4,10 @@ title: License inspection specification
 description: Approved design for uv.lock coverage, Python license policy, evidence, and command behavior.
 status: accepted
 sources:
+- id: legacy-license-review
+  resource: ../work/legacy-license-interpretation/review.md
+  working_tree: untracked
+  sha256: dca68bb0997c79a7bf25ba5244afade94b4dc42a9e74b4b12e8976ba03982090
 - id: bundled-license-review
   resource: ../work/bundled-license-evidence/review.md
   working_tree: untracked
@@ -114,11 +118,27 @@ Use a valid `License-Expression` when present. Ignore the legacy `License` when
 both occur, following Core Metadata. A present invalid License-Expression makes
 the check incomplete unless a valid hash-bound clarification supplies the
 expression; it must not trigger fallback to another field. When
-License-Expression is absent, accept legacy License only if the complete value
-parses as a valid SPDX expression. Otherwise report unknown license information,
-which a valid hash-bound clarification may resolve.
-Do not infer an expression from classifiers, free-form metadata prose or fuzzy
-name/text matching. The original declaration-only boundary is extended by the
+License-Expression is absent, interpret one complete legacy License value as a
+strict SPDX expression first, then a unique official SPDX full name or explicit
+versioned/clause-specific alias, then a supported complete license template.
+Only whole-name lookup ignores ASCII case; expressions stay strict. Reject names
+mapping to differing identities, generic BSD/Apache labels, arbitrary extra terms
+and invented AND/OR relationships. This expands interpretation within the same
+legacy field and does not permit fallback from an invalid License-Expression or
+from a present legacy value to a different file.[^legacy-license-review]
+
+The legacy text matcher reads the original field span in retained metadata;
+unfolded values remain the source for expression/name interpretation and original
+field reporting. LF/CRLF and Unicode byte offsets must preserve independent
+copyright/condition lines. Raw cache bytes and provenance do not change; the
+current interpreter re-evaluates existing observations without acquisition.
+Structured substitutions allow at most 32 copyright notices and 32 year/range
+entries per notice, with narrowly listed corporate/role forms. They do not prove
+semantic authorship or licensing completeness.[^legacy-license-review]
+
+Otherwise report unknown license information, which a valid hash-bound
+clarification may resolve. Do not infer an expression from classifiers,
+unrecognized metadata prose or fuzzy name/text matching. The original declaration-only boundary is extended by the
 owner's bundled-file request: when both fields are absent, complete local
 license-template recognition may supply the expression. Explicit invalid or
 repeated fields cannot fall back. The initial set is MIT, BSD-2-Clause,
@@ -454,3 +474,5 @@ Issue #15; parser and cryptographic correctness are separate boundaries.
 [^declaration-reporting]: [Declaration reporting correction and five-pass review](../work/evidence-and-invariants/issue15.md).
 
 [^bundled-license-review]: [Bundled-file design, network evidence and reviews](../work/bundled-license-evidence/review.md).
+
+[^legacy-license-review]: [Legacy-field interpretation and structured-notice reviews](../work/legacy-license-interpretation/review.md).

@@ -19,9 +19,15 @@ name and parsed version. Unsupported versions/formats, ambiguous members,
 malformed identity, and hash mismatches yield exit 2.
 
 `License-Expression` takes precedence. An invalid present expression cannot fall
-back to `License`. When absent, a complete legacy License field is accepted only
-if it parses as SPDX. Invalid, repeated, unknown, or prose-only declarations are
-incomplete unless a valid hash-bound clarification supplies the expression.
+back to `License`. When absent, a single legacy `License` value is interpreted
+as a strict SPDX expression, a precise license name, or a complete recognized
+license text. Official full names come from the pinned SPDX list; explicit
+version/clause aliases include `Apache 2.0` and `BSD 2-Clause License`. Name
+matching uses the whole value and ignores ASCII case. Generic `BSD` or
+`Apache Software License`, added conditions and ambiguous names remain Unknown.
+This name/text handling applies only to `License`: `License-Expression: MIT
+License` is still invalid. Repeated values and unrecognized declarations need a
+valid hash-bound clarification.
 When both declaration fields are absent, taloon can inspect bundled license
 files as described below. Classifiers never supply a license expression.
 This checks declarations; it does not establish that undeclared bundled software
@@ -52,6 +58,9 @@ source files and external repositories are not searched.
 The initial matcher recognizes complete MIT, BSD-2-Clause, BSD-3-Clause, ISC and
 Apache-2.0 texts. It accepts whitespace and a narrow set of copyright/holder
 variants for the shorter licenses; Apache requires the complete canonical text.
+Structured variants include multiple copyright notices, year lists and selected
+corporate/author-role spellings. Separate lines and sentences remain meaningful;
+additional conditions cannot be discarded as copyright formatting.
 This is template recognition, not fuzzy similarity or legal analysis. Unknown
 variants, changed terms, appended text and differing license expressions across
 files remain Unknown. Explicit metadata, including invalid or repeated fields,
@@ -68,6 +77,8 @@ file hashes, roles and matched expressions; original declaration fields remain
 empty when absent. This recognition does not establish licensing completeness
 for bundled third-party code.
 
+Precise legacy names and recognized text in metadata use the existing sidecar
+and raw-metadata cache; interpreting them requires no extra archive download.
 Valid metadata keeps its small sidecar fast path. Absent declarations trigger
 full archive verification at most once per cached observation, with the existing
 bounded HTTP retry policy. The bundled canonical texts require no runtime
