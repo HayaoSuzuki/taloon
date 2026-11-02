@@ -2,7 +2,7 @@
 
 ## Scope and observed limits
 
-The owner requested both durable GHCR environments and the separate deny feature.
+The owner requested durable GHCR environments.
 This record and PR #22 concern environment acquisition only. The
 [plan](plan.md) separates environment publication from current-source proof checks.
 The existing cache-only contract was insufficient for durable bootstrap: cache

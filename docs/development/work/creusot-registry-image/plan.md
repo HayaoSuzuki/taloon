@@ -3,8 +3,8 @@
 **Goal:** Separate tool-environment publication from current-source proof checks,
 using an attested, digest-pinned GHCR image once bootstrapped.
 
-**Authorization:** The owner requested both this environment work and Issue #23.
-Continue environment work in PR #22; keep deny changes in a separate worktree/PR.
+**Authorization:** The owner requested durable GHCR tool environments.
+Continue this environment work in PR #22.
 Use software-design-philosophy, writing-plans, TDD and five reviews per stage.
 
 ## Selected design and alternatives

@@ -6,8 +6,8 @@ status: accepted
 sources:
 - id: creusot-registry-image
   resource: ../work/creusot-registry-image/review.md
-  working_tree: untracked
-  sha256: 263dac7a23e5d2fa735142858acb7bb89b474bece8094600ceac6122845740a7
+  working_tree: modified
+  sha256: f0ad79e29e87ea05c30ad250014d7cbc220f791b8e9f4683378c3009a1821ec6
 - id: creusot-image-cache
   resource: ../work/creusot-image-cache/review.md
   working_tree: untracked
