@@ -75,6 +75,9 @@ EOF
                 CREUSOT_BASE=ubuntu@sha256:18b33ff3829707f31ada654a963b9ee35f2e6f0241b964bd17a22a9b330cb63d \
                 --build-arg TOOLCHAIN_MANIFEST=toolchain-arm64.json >> "$CASE_DIR/expected-args"
         fi
+        builder_hash=$(shasum -a 256 "$CASE_DIR/build-image.sh"); builder_hash=${builder_hash%% *}
+        printf '%s\n' --label "io.taloon.creusot.builder-sha256=$builder_hash" \
+            --label org.opencontainers.image.source=https://github.com/HayaoSuzuki/taloon >> "$CASE_DIR/expected-args"
         printf '%s\n' -f formal/creusot/Dockerfile -t taloon-creusot:local - >> "$CASE_DIR/expected-args"
         cmp "$CASE_DIR/expected-args" "$CASE_DIR/args.1" || exit 1
         tar -tf "$CASE_DIR/context.1" > "$CASE_DIR/members"

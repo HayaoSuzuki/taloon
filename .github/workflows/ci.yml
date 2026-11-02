@@ -103,6 +103,10 @@ jobs:
 
   formal:
     name: Lean proofs and generated corpus freshness
+    permissions:
+      contents: read
+      packages: read
+      attestations: read
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -132,19 +136,32 @@ jobs:
         run: |
           bash formal/creusot/test-build-image.sh
           bash formal/creusot/test-prepare-image.sh
+          bash formal/creusot/test-registry-image.sh
+          bash formal/creusot/test-publish-image.sh
+      - name: Select the reviewed environment pin
+        id: environment
+        run: |
+          mode=$(bash formal/creusot/registry-image.sh formal/creusot/image.pin formal/creusot/build-image.sh --mode)
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+      - name: Authenticate for the pinned registry environment
+        if: steps.environment.outputs.mode == 'registry'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
       - name: Restore exact pinned Creusot image
+        if: steps.environment.outputs.mode == 'bootstrap'
         id: creusot-image
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/taloon-creusot-image.tar
-          key: taloon-creusot-image-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('formal/creusot/build-image.sh', 'formal/creusot/prepare-image.sh') }}
+          key: taloon-creusot-image-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('formal/creusot/build-image.sh', 'formal/creusot/prepare-image.sh', 'formal/creusot/registry-image.sh', 'formal/creusot/image.pin') }}
       - name: Prepare and validate checksum-pinned Creusot environment
         env:
           GH_TOKEN: ${{ github.token }}
           CREUSOT_CACHE_HIT: ${{ steps.creusot-image.outputs.cache-hit }}
-        run: timeout 1200s bash formal/creusot/prepare-image.sh "$RUNNER_TEMP/taloon-creusot-image.tar" "${CREUSOT_CACHE_HIT:-false}"
+        run: timeout 1200s bash formal/creusot/prepare-image.sh "$RUNNER_TEMP/taloon-creusot-image.tar" "${CREUSOT_CACHE_HIT:-false}" formal/creusot/image.pin
       - name: Save validated pinned Creusot image
-        if: steps.creusot-image.outputs.cache-hit != 'true'
+        if: steps.environment.outputs.mode == 'bootstrap' && steps.creusot-image.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/taloon-creusot-image.tar
