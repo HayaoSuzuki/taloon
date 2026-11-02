@@ -149,7 +149,10 @@ different origin, even if that destination has its own netrc entry.
 For an incomplete result, inspect its machine diagnostic and artifact association,
 then restore access or sufficient cache evidence. For unknown metadata, review
 an exact artifact before adding a clarification and explicit permission. For a
-violation, change the dependency or deliberately amend the policy. Re-running
+violation, change the dependency or deliberately amend the policy. In deny mode,
+explicit denials win over exceptions; a clarification still receives the same
+policy evaluation. An empty denylist does not repair unknown declarations or
+insufficient proof. Re-running
 with a broader cache does not change the policy's meaning.
 
 ## Original license declarations

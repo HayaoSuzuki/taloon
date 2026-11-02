@@ -43,7 +43,11 @@ only: every artifact is still acquired/evaluated and contributes to the exit cod
 The [evidence guide](evidence.md#license-problem-causes) explains typed causes.
 
 For `check --format json`, stdout contains exactly one schema-version-1 object,
-including startup errors. Optional `license_problem` on license diagnostics is
+including startup errors. `policy_mode` identifies `allow` or `deny` after valid
+policy loading, including empty or incomplete inspections; startup errors before
+policy loading omit it. Each artifact permission decision also includes `mode`.
+Text output identifies the selected mode. Reports do not contain the configured
+allow/deny arrays. Optional `license_problem` on license diagnostics is
 an additive schema-1 field with a snake_case cause; other errors omit it. Existing
 fields remain, wording is not a machine contract, and incompatible report layouts
 require a new schema version. Help/version requests print normal CLI help/version text.
@@ -90,7 +94,7 @@ taloon describe requests --project /path/to/project --format json
 `describe` reads the selected `uv.lock` and displays the named package and its
 transitive dependency licenses. It uses the same upward lock discovery and
 exact `--project` directory selection as `check`. It does not require or read
-`pyproject.toml` or `[tool.taloon]`: allowlists, exceptions, clarifications,
+`pyproject.toml` or `[tool.taloon]`: allowlists, denylists, exceptions, clarifications,
 custom-license definitions and their expiry do not alter these observations.
 It reports declared licenses without granting permission.
 

@@ -4,6 +4,10 @@ title: License inspection specification
 description: Approved design for uv.lock coverage, Python license policy, evidence, and command behavior.
 status: accepted
 sources:
+- id: deny-policy
+  resource: ../work/deny-policy/plan.md
+  working_tree: untracked
+  sha256: 63afb2f7f520a264139fbb52aa03b1a3b6ec8decc1f803a4c1de804035d27193
 - id: actionable-diagnostics-review
   resource: ../work/actionable-license-diagnostics/review.md
   working_tree: untracked
@@ -192,8 +196,17 @@ Missing or invalid information is an incomplete check.[^owner]
 # Policy and scoped overrides
 
 Load one `[tool.taloon]` policy from the `pyproject.toml` beside the selected
-lock. A missing policy is a configuration error. An explicit empty allowlist
-permits nothing. Do not merge workspace-member policies or implicit user-wide
+lock. Schema 1 requires exactly one explicit `allow` or `deny` array; both
+(including empty arrays) and neither are configuration errors. An empty allowlist
+permits nothing. An empty denylist permits recognized standard SPDX units only.
+Deny rejects listed exact atomic/WITH units, while OR still requires any permitted
+term and AND all terms. Unknown, invalid and missing declarations remain
+incomplete; custom references never gain implicit permission. Deny wins over
+matching exceptions, while hash-scoped exceptions remain usable for reviewed
+custom references. This deliberately extends the original allow-only contract.
+[^deny-policy]
+
+Do not merge workspace-member policies or implicit user-wide
 policy. The following schema is an implementer choice for review; the owner
 delegated key names and serialization details.[^owner]
 
@@ -226,13 +239,15 @@ expires = "2027-01-31"
 # expires = "2027-01-31"
 ```
 
-Global allow entries contain a single SPDX license identifier or a complete
+Global allow and deny entries contain a single SPDX license identifier or a complete
 license-with-exception unit, rather than compound AND/OR expressions. Additive
 exceptions require a normalized package name, exact version, source identity,
 and nonempty reason. Version ranges and source wildcards are outside this
 version. A regular exception applies across that package identity's recorded
 artifacts; an optional artifact hash narrows it to one content identity.
-Exceptions add permission to the global allowlist.[^owner]
+Exceptions add permission to the global allowlist.[^owner] In deny mode they cannot
+override a listed denial; custom entries may be listed to reject them, never to
+grant unreviewed custom permission.[^deny-policy]
 
 Forbid any LicenseRef permission in the global allowlist. An exception allowing
 a LicenseRef unit requires an artifact hash in addition to its package selector.
@@ -256,14 +271,15 @@ Retain reasons and applied override identities in reports. Reject unknown
 policy keys and malformed selectors rather than silently ignoring them; these
 validation details are implementer choices under Q28.[^owner]
 
-Warn about unused global permissions, exceptions, and clarifications only when
+Warn about unused global allow entries, deny entries, exceptions, and clarifications only when
 non-use can be established. Use a conservative definition: a global permission
 is unused when its unit occurs in no applicable interpreted expression; an
 exception is unused when its package/artifact selector matches no target; a
 clarification is unused when its hash matches no target. Suppress unused
 warnings for runs with incomplete evidence. Do not call a permission unused
 merely because another OR branch could satisfy the expression. These warning
-definitions are implementer choices under Q28.[^owner]
+definitions are implementer choices under Q28. Deny warnings use distinct
+denial wording and observe the same complete-run/all-OR rule.[^owner][^deny-policy]
 
 # Acquisition evidence and cache
 
@@ -345,6 +361,10 @@ Support `--format text|json`, `--offline`, and `--deny-warnings`. Emit a structu
 report for both complete and incomplete checks. In JSON mode, reserve stdout
 for one versioned JSON report and send incidental diagnostics to stderr. Text
 mode summarizes successful checks and groups failures by package and artifact.
+Check JSON includes `policy_mode` after valid policy loading, even for empty or
+incomplete inspection; startup errors before loading omit it. Artifact permission
+decisions include `mode`, and text identifies the selected mode without exposing
+configured arrays. Describe retains its separate policy-free schema.[^deny-policy]
 Schema versioning and rendering are implementer choices under Q28.[^owner]
 
 Interactive stderr displays acquisition progress as processed/total artifact
@@ -521,3 +541,5 @@ contract; incompatible future layouts require a new schema version.
 [^actionable-diagnostics-review]
 
 [^actionable-diagnostics-review]: [Actionable diagnostic assessment and staged review](../work/actionable-license-diagnostics/review.md).
+
+[^deny-policy]: [Deny policy design, implementation and staged reviews](../work/deny-policy/plan.md).
