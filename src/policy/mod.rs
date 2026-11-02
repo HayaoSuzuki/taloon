@@ -103,6 +103,7 @@ pub struct AppliedOverride {
 }
 #[derive(Debug, Clone, Serialize)]
 pub struct PolicyDecision {
+    pub mode: PolicyMode,
     pub outcome: PermissionOutcome,
     pub units: Vec<UnitDecision>,
     pub overrides: Vec<AppliedOverride>,
@@ -114,11 +115,29 @@ impl PolicyDecision {
     }
 }
 
+/// Global permission strategy, applied independently to every atomic SPDX unit.
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PolicyMode {
+    Allow,
+    Deny,
+}
+impl PolicyMode {
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Allow => "allow",
+            Self::Deny => "deny",
+        }
+    }
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 struct RawPolicy {
     schema_version: u32,
-    allow: Vec<String>,
+    allow: Option<Vec<String>>,
+    deny: Option<Vec<String>>,
     #[serde(default)]
     exceptions: Vec<RawException>,
     #[serde(default)]
@@ -175,7 +194,8 @@ impl Clarification {
 /// One immutable workspace policy; validation includes all entries, even unmatched ones.
 #[derive(Debug, Clone)]
 pub struct Policy {
-    allow: BTreeSet<PermissionUnit>,
+    mode: PolicyMode,
+    units: BTreeSet<PermissionUnit>,
     exceptions: BTreeMap<PackageId, Vec<Exception>>,
     clarifications: BTreeMap<ContentHash, Clarification>,
 }
@@ -230,10 +250,19 @@ impl Policy {
                 "unsupported policy schema version",
             ));
         }
-        let allow = raw
-            .allow
+        let (mode, configured) = match (raw.allow, raw.deny) {
+            (Some(units), None) => (PolicyMode::Allow, units),
+            (None, Some(units)) => (PolicyMode::Deny, units),
+            _ => {
+                return Err(Error::new(
+                    Code::Configuration,
+                    "exactly one of allow or deny is required",
+                ));
+            }
+        };
+        let units = configured
             .iter()
-            .map(|a| permission_unit(a, false))
+            .map(|unit| permission_unit(unit, mode == PolicyMode::Deny))
             .collect::<Result<_, _>>()?;
         let mut exceptions: BTreeMap<PackageId, Vec<Exception>> = BTreeMap::new();
         for (position, e) in raw.exceptions.into_iter().enumerate() {
@@ -274,10 +303,16 @@ impl Policy {
             }
         }
         Ok(Self {
-            allow,
+            mode,
+            units,
             exceptions,
             clarifications,
         })
+    }
+    /// Selected global strategy; the configured unit set remains private.
+    #[must_use]
+    pub fn mode(&self) -> PolicyMode {
+        self.mode
     }
     #[must_use]
     /// Minimum proof required by hash-scoped policy entries for the locked content.
@@ -298,7 +333,8 @@ impl Policy {
         self.clarifications.get(&hash)
     }
     #[must_use]
-    /// Evaluate explicit permission units with additive, exact-identity exceptions.
+    /// Evaluate exact units: deny entries prevail over scoped exceptions.
+    /// Unlisted standard units are permitted in deny mode; custom units still need an exception.
     /// The caller must validate evidence and any clarification before invoking evaluation.
     pub fn evaluate(
         &self,
@@ -308,8 +344,18 @@ impl Policy {
     ) -> PolicyDecision {
         // Global units are immutable; only scoped matches need a per-call view.
         let matching: Vec<_> = self.matching_exceptions(request, hash).collect();
-        let permits = |unit: &str| {
-            self.allow.contains(unit) || matching.iter().any(|entry| entry.allow.contains(unit))
+        let permits = |req: &spdx::LicenseReq| {
+            let unit = req.to_string();
+            let configured = self.units.contains(unit.as_str());
+            let scoped = matching
+                .iter()
+                .any(|entry| entry.allow.contains(unit.as_str()));
+            match self.mode {
+                PolicyMode::Allow => configured || scoped,
+                PolicyMode::Deny => {
+                    !configured && (matches!(req.license, spdx::LicenseItem::Spdx { .. }) || scoped)
+                }
+            }
         };
         let overrides = matching
             .iter()
@@ -319,20 +365,21 @@ impl Policy {
                 reason: entry.reason.clone(),
             })
             .collect();
-        let permitted = expression.ast.evaluate(|req| permits(&req.to_string()));
+        let permitted = expression.ast.evaluate(permits);
         PolicyDecision {
+            mode: self.mode,
             outcome: if permitted {
                 PermissionOutcome::Permitted
             } else {
                 PermissionOutcome::Denied
             },
             units: expression
-                .units
-                .iter()
-                .map(|unit| UnitDecision {
-                    unit: unit.clone(),
-                    permitted: permits(unit),
-                })
+                .ast
+                .requirements()
+                .map(|requirement| (requirement.req.to_string(), permits(&requirement.req)))
+                .collect::<BTreeMap<_, _>>()
+                .into_iter()
+                .map(|(unit, permitted)| UnitDecision { unit, permitted })
                 .collect(),
             overrides,
         }
@@ -356,7 +403,7 @@ impl Policy {
     ) -> Vec<Error> {
         // Retain only configured usage. A common all-used global-only policy
         // stops early, while exception/clarification checks share one input pass.
-        let mut unused_units: BTreeSet<_> = self.allow.iter().map(PermissionUnit::as_str).collect();
+        let mut unused_units: BTreeSet<_> = self.units.iter().map(PermissionUnit::as_str).collect();
         let mut used_packages: BTreeMap<&PackageId, BTreeSet<ContentHash>> = BTreeMap::new();
         let mut unused_clarifications: BTreeSet<_> = self.clarifications.keys().copied().collect();
         for (request, hash, expression) in observations {
@@ -384,7 +431,10 @@ impl Policy {
             .map(|unit| {
                 Error::new(
                     Code::UnusedPermission,
-                    format!("unused global permission: {unit}"),
+                    match self.mode {
+                        PolicyMode::Allow => format!("unused global permission: {unit}"),
+                        PolicyMode::Deny => format!("unused global denial: {unit}"),
+                    },
                 )
             })
             .collect();

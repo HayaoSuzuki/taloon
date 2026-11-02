@@ -350,6 +350,9 @@ fn text_report(report: &Report, verbose: bool) -> String {
         report.status(),
         report.packages().len()
     );
+    if let Some(mode) = report.policy_mode() {
+        let _ = writeln!(out, "policy: {}", mode.as_str());
+    }
     for d in report.diagnostics() {
         diagnostic(&mut out, d);
     }

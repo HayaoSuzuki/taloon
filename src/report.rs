@@ -2,7 +2,7 @@
 use crate::{
     evidence::EvidenceSummary,
     model::{ContentHash, Error, RequestId, SourceId, SourceKind, safe_locator},
-    policy::PolicyDecision,
+    policy::{PolicyDecision, PolicyMode},
     resolution::DependencyPath,
 };
 use serde::Serialize;
@@ -73,6 +73,8 @@ pub type PackageReport = taloon_decisions::status::PackageOutcome<
 pub struct Report {
     schema_version: u32,
     status: Status,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    policy_mode: Option<PolicyMode>,
     packages: Vec<PackageReport>,
     diagnostics: Vec<Diagnostic>,
     acquisition: AcquisitionSummary,
@@ -83,6 +85,7 @@ impl Report {
         let status = taloon_decisions::status::aggregate(&packages, input_error);
         Self {
             schema_version: 1,
+            policy_mode: None,
             status,
             packages,
             diagnostics,
@@ -92,6 +95,15 @@ impl Report {
     #[must_use]
     pub fn from_input_error(error: Error) -> Self {
         Self::new(vec![], vec![Diagnostic::error(error)])
+    }
+    /// Selected strategy, absent when policy validation did not complete.
+    #[must_use]
+    pub fn policy_mode(&self) -> Option<PolicyMode> {
+        self.policy_mode
+    }
+    pub(crate) fn with_policy_mode(mut self, mode: PolicyMode) -> Self {
+        self.policy_mode = Some(mode);
+        self
     }
     #[must_use]
     pub fn status(&self) -> Status {
