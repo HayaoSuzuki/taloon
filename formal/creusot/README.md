@@ -48,28 +48,65 @@ it does not classify logs or bypass recipe checks. A second failure returns
 Docker's exit status. Source fetch, checksum and context creation failures are
 not retried. CI's existing image-build deadline covers both attempts together.
 
-Hosted CI additionally reuses an exact-key GitHub Actions cache of the amd64 tool
-image. Its key binds the builder (including pinned recipe revision/checksum),
-preparation helper and runner OS/architecture, with no prefix fallback. Both
-restored and newly built images must pass architecture and installation checks;
-only successful cold preparation is saved. Invalid cache entries fail rather
-than bypass validation. GitHub repository/ref cache isolation is part of the
-trust boundary; arbitrary external image archives are not accepted by the workflow.
-Project configuration preflights, fresh proofs and compiling mutations still run
-for every checkout. Local build commands above retain their existing behavior.
+Hosted CI selects the committed `formal/creusot/image.pin`. Its single line is
+`IMAGE SOURCE_COMMIT BUILDER_SHA256`, without shell evaluation. `IMAGE` is either
+`bootstrap` with source `-`, or exactly the taloon GHCR repository with a SHA-256
+digest. The builder hash must match the current build-image.sh bytes. Invalid,
+missing, multi-line or stale pins fail. The committed initial pin explicitly
+selects bootstrap because no registry image has yet been published.
 
-An empty cache still requires a functioning pinned acquisition source. During a
-sustained snapshot outage, neither caching nor the bounded build retry can
-bootstrap an image. Restore service access before rerunning failed main checks;
-then follow the [release recovery procedure](../../docs/development/releases.md#recovery-and-provenance-verification)
-for the original release run. A failed quality check must continue to block
-publication. Cache reuse does not repair an already-recorded failed source run.
+In bootstrap mode, CI reuses the exact-key Actions image cache or runs the pinned
+builder. The key binds the builder, preparation/registry helpers, pin and runner
+OS/architecture, with no prefix fallback. GitHub repository/ref cache isolation is
+a trust boundary. Both cached and built images pass architecture/installation
+checks. An empty bootstrap cache still needs a functioning snapshot source.
+
+With a registry pin, CI authenticates using its read-only workflow token, verifies
+OCI build provenance for the exact digest, repository, trusted-main environment
+publisher and pinned source/signer commit, then pulls by digest. The image's
+builder label must match the current builder. Architecture/installation and all
+current-project configuration checks still run. Failed provenance, pull or label
+verification stops the job; it cannot select a cache or local rebuild. This path
+does not contact the Ubuntu snapshot to reconstruct tools. It still depends on
+GitHub/GHCR, and source-dependent proof inputs may need their own acquisition.
+Fresh generation, all proof inventories/goals and compiling mutations remain
+mandatory. Local build commands above retain their existing behavior.
+
+### Publish and adopt a durable environment
+
+The [environment publisher](../../.github/workflows/creusot-image.yml) builds only
+trusted main source, validates the installation, pushes the image and attests its
+actual digest using GitHub OIDC. It runs on main changes to its builder/workflow
+or through manual dispatch after the workflow exists on main:
+
+```sh
+gh workflow run creusot-image.yml --repo HayaoSuzuki/taloon --ref main
+```
+
+Successful publication verifies the OCI provenance and builder identity before
+uploading the `creusot-image-pin` artifact. Review its actual digest, source
+commit and builder hash, then commit that file as `formal/creusot/image.pin` in a
+normal PR. The publisher does not write the repository or automatically adopt a
+new environment. No digest is fabricated to represent a pending publication.
+Changing the builder requires a reviewed replacement pin (or explicit bootstrap
+with its new builder hash) and a newly validated image. Proof results are never
+part of this image or the cache.
+
+The first environment publication still needs the pinned upstream. Current
+snapshot outages therefore block initial bootstrap until acquisition recovers;
+these workflow changes do not turn that failure into success. A workflow must be
+merged before its manual dispatch is available. Source CI and the application
+release gate remain required; recover failed main runs and their original release
+using the [release procedure](../../docs/development/releases.md#recovery-and-provenance-verification).
+Registry image publication is separate from Python package publication.
 
 Run the synthetic wrapper regressions without network access or Docker:
 
 ```sh
 bash formal/creusot/test-build-image.sh
 bash formal/creusot/test-prepare-image.sh
+bash formal/creusot/test-registry-image.sh
+bash formal/creusot/test-publish-image.sh
 ```
 
 These checks use a local recipe archive and substitute its checksum in a temporary

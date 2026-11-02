@@ -4,6 +4,10 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: creusot-registry-image
+  resource: ../work/creusot-registry-image/review.md
+  working_tree: untracked
+  sha256: 263dac7a23e5d2fa735142858acb7bb89b474bece8094600ceac6122845740a7
 - id: creusot-image-cache
   resource: ../work/creusot-image-cache/review.md
   working_tree: untracked
@@ -502,7 +506,7 @@ evidence; this adds no formal proof of parsing, classification or rendering.
 # Exact-key formal tool image cache
 
 Sustained signed-snapshot acquisition failures can outlast both bounded build
-attempts and correctly prevent release publication. CI now reuses a serialized
+attempts and correctly prevent release publication. In explicit bootstrap mode, CI reuses a serialized
 amd64 tool image by exact runner/format/builder/preparer key, including the
 checksum-pinned recipe identity. GitHub repository/ref cache isolation is an
 explicit trust boundary; no prefix lookup or cross-repository image is used.
@@ -516,3 +520,26 @@ the recipe, preparation or platform assumptions change.
 [^creusot-image-cache]
 
 [^creusot-image-cache]: [Observed outage, cache boundary and staged verification](../work/creusot-image-cache/review.md).
+
+# Attested durable formal environment
+
+A committed three-field pin selects explicit bootstrap or an own-repository
+GHCR image at an exact SHA-256 digest, with source commit and current builder
+hash. Missing, malformed or stale pins fail. The builder labels its own bytes;
+consumption verifies OCI provenance for repository, trusted-main publisher,
+source/signer commit and hosted runners before pulling, then checks image builder
+identity and installation. A failed registry operation cannot select bootstrap:
+mode classification is separate from external exit statuses. Bootstrap alone
+uses the existing bounded builder/cache. All project preflights, fresh proofs
+and mutations remain mandatory; no source outcomes are cached.
+
+The trusted-main environment workflow builds/pushes/attests actual image bytes,
+verifies the result and uploads a candidate pin without modifying the repository.
+Adoption is a reviewed normal commit. The initial pin honestly remains bootstrap
+until a first successful publish and adoption; current snapshot acquisition and
+workflow availability can block that first operation. GHCR publication and local
+synthetic tests are distinct evidence. This reduces ordinary proof jobs' snapshot
+acquisition dependency, not all network or trusted-service dependencies.
+[^creusot-registry-image]
+
+[^creusot-registry-image]: [Durable image design, provenance boundaries and staged verification](../work/creusot-registry-image/review.md).
