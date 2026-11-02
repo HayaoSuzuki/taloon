@@ -6,11 +6,11 @@ use std::{
     path::PathBuf,
 };
 use taloon::{
-    evidence::{Evidence, EvidenceRecord, MAX_METADATA_BYTES},
+    evidence::{Evidence, EvidenceRecord, MAX_LICENSE_OBSERVATION_BYTES, MAX_METADATA_BYTES},
     model::{ArtifactFormat, ArtifactRequest, Code, ContentHash, Error, EvidenceRequirement},
 };
 // A JSON string may use six bytes per input byte; preserve schema headroom.
-const MAX_RECORD: u64 = 6 * MAX_METADATA_BYTES + 64 * 1024;
+const MAX_RECORD: u64 = 6 * (MAX_METADATA_BYTES + MAX_LICENSE_OBSERVATION_BYTES as u64) + 64 * 1024;
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Envelope {
@@ -215,6 +215,41 @@ mod tests {
             0
         );
         assert_eq!(std::fs::read(path).unwrap(), b"keep");
+    }
+
+    #[test]
+    fn maximum_escaped_file_observation_survives_disk_cache() {
+        use std::fmt::Write as _;
+        // Arrange: legal maximum text/path bytes with worst-case JSON expansion.
+        let temp = tempfile::tempdir().unwrap();
+        let cache = EvidenceCache::new(temp.path().to_owned());
+        let paths: Vec<_> = (0..32)
+            .map(|n| format!("{n:02}{}", "\"".repeat(4094)))
+            .collect();
+        let mut metadata = String::from("Metadata-Version: 2.4\nName: example\nVersion: 1.0\n");
+        for path in &paths {
+            writeln!(metadata, "License-File: {path}").unwrap();
+        }
+        metadata.push_str("X-Padding: ");
+        metadata.push_str(&"\u{1}".repeat(4 * 1024 * 1024 - metadata.len() - 2));
+        metadata.push_str("\n\n");
+        let text = "\u{1}".repeat(32 * 1024);
+        let names: Vec<_> = paths
+            .iter()
+            .map(|p| format!("example-1.0.dist-info/licenses/{p}"))
+            .collect();
+        let files: Vec<_> = names
+            .iter()
+            .map(|p| (p.as_str(), text.as_bytes()))
+            .collect();
+        let bytes = crate::testfixtures::wheel_with_files(metadata.as_bytes(), &files);
+        let request = crate::testfixtures::request(&bytes, ArtifactFormat::Wheel);
+        let evidence = Evidence::from_archive(&request, &bytes).unwrap();
+        cache.put(&request, &evidence).unwrap();
+        // Act
+        let restored = cache.get(&request, ContentHash::digest(&bytes)).unwrap();
+        // Assert
+        assert!(restored.is_some());
     }
 
     proptest! {

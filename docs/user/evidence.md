@@ -19,10 +19,19 @@ name and parsed version. Unsupported versions/formats, ambiguous members,
 malformed identity, and hash mismatches yield exit 2.
 
 `License-Expression` takes precedence. An invalid present expression cannot fall
-back to `License`. When absent, a complete legacy License field is accepted only
-if it parses as SPDX. Missing, repeated, unknown, or prose-only declarations are
-incomplete unless a valid hash-bound clarification supplies the expression.
-Classifiers, license files, and full-text guessing do not grant permission.
+back to `License`. When absent, a single legacy `License` value is interpreted
+as a strict SPDX expression, a precise license name, or a complete recognized
+license text. Official full names come from the pinned SPDX list; explicit
+version/clause aliases include `Apache 2.0` and `BSD 2-Clause License`. Name
+matching uses the whole value and ignores ASCII case. Incomplete family labels
+can use verified bundled text under the narrow rules below; added conditions
+and other ambiguous names remain Unknown.
+This name/text handling applies only to `License`: `License-Expression: MIT
+License` is still invalid. Repeated values and unrecognized declarations need a
+valid hash-bound clarification.
+When both declaration fields are absent, or one eligible incomplete legacy value
+is present, taloon can inspect bundled license files as described below.
+Classifiers never supply a license expression.
 This checks declarations; it does not establish that undeclared bundled software
 or future built wheels have the same license.
 
@@ -39,6 +48,62 @@ Inputs are bounded: 64 MiB lock, 16 MiB pyproject/index response, 4 MiB metadata
 256 MiB compressed archive, and 1 GiB expanded source tar. Oversized input is an
 explicit error, never a skipped target. Archives are buffered and interpreted in
 memory without filesystem extraction. UTF-8 metadata is required.
+
+## Bundled license text
+
+`check` and `describe` inspect `License-File` entries inside the hash-verified
+distribution when both declaration fields are absent. They also complete a single
+legacy `License` value equal to `UNKNOWN`, `BSD`, `BSD License`, `Apache`,
+`Apache License`, `Apache Software License` or `Apache 2` (ignoring outer
+whitespace and ASCII case). BSD labels require recognized BSD-2-Clause or
+BSD-3-Clause text; Apache labels require Apache-2.0. A family mismatch stays
+Unknown. `UNKNOWN` accepts any text recognized by the matcher. This supplies an
+expression for the normal policy check; it does not automatically permit it.
+A sidecar only triggers retrieval: the archive's own metadata must authorize
+supplementation. With no entries, they try conventional LICENSE/LICENCE/COPYING
+names (optionally `.txt`
+or `.md`) in the source archive root or wheel metadata directory. Arbitrary
+source files and external repositories are not searched.
+
+The initial matcher recognizes complete MIT, BSD-2-Clause, BSD-3-Clause, ISC and
+Apache-2.0 texts. It accepts whitespace and a narrow set of copyright/holder
+variants for the shorter licenses; Apache requires the complete canonical text.
+Structured variants include multiple copyright notices, year lists and selected
+corporate/author-role spellings. Separate lines and sentences remain meaningful;
+additional conditions cannot be discarded as copyright formatting.
+This is template recognition, not fuzzy similarity or legal analysis. Unknown
+variants, changed terms, appended text and differing license expressions across
+files remain Unknown. Valid declarations take precedence. Any present
+`License-Expression`, repeated legacy fields, additional terms and legacy values
+outside the exact list above cannot be rescued by a permissive file.
+
+AUTHORS, AUTHORS.txt and AUTHORS.md are classified by name as attribution files,
+retained as observations and excluded from license matching. This classification
+does not establish that those files contain no additional obligations. Every
+other declared file must match the same supported expression. Missing, ambiguous,
+nonregular, non-UTF-8 or oversized selected files leave the license unknown;
+clarifications can still supply a reviewed expression. Files are limited to 32,
+256 KiB each, 1 MiB total and 4,096 bytes per relative path. JSON `evidence.license_files` records relative paths,
+file hashes, roles and matched expressions; original declaration fields remain
+empty when absent. JSON `evidence.license_origin` identifies `license_expression`,
+`legacy_declaration`, `bundled_files` or `legacy_supplement`, and is null when
+the evidence cannot supply an expression. It describes evidence before policy
+clarifications, which remain separately reported. Text output explicitly labels
+successful legacy supplementation, including compliant artifacts. This recognition
+does not establish licensing completeness
+for bundled third-party code.
+
+Precise legacy names and recognized text in metadata use the existing sidecar
+and raw-metadata cache; interpreting them requires no extra archive download.
+Valid metadata keeps its small sidecar fast path. Absent or eligible incomplete
+legacy declarations trigger full archive verification at most once per cached observation, with the existing
+bounded HTTP retry policy. The bundled canonical texts require no runtime
+network database. Subsequent runs reuse observed file text, including completed
+unknown scans; no archive is repeatedly fetched merely because recognition
+failed. Cached older/sidecar observations needing files upgrade directly to an
+archive, without refetching their index or sidecar. Offline performs no network
+requests and retains Unknown when file evidence is unavailable. Normal cache
+clearing, corruption recovery and eviction can require acquisition again.
 
 ## HTTPS and credentials
 

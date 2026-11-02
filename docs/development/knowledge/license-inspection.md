@@ -4,6 +4,18 @@ title: License inspection specification
 description: Approved design for uv.lock coverage, Python license policy, evidence, and command behavior.
 status: accepted
 sources:
+- id: constrained-supplement-review
+  resource: ../work/constrained-license-supplementation/review.md
+  working_tree: untracked
+  sha256: d1ff5e2be3367bada1c6a635b996e5b1ee9ac6967831400aeceebc4677d7b252
+- id: legacy-license-review
+  resource: ../work/legacy-license-interpretation/review.md
+  working_tree: untracked
+  sha256: dca68bb0997c79a7bf25ba5244afade94b4dc42a9e74b4b12e8976ba03982090
+- id: bundled-license-review
+  resource: ../work/bundled-license-evidence/review.md
+  working_tree: untracked
+  sha256: ed82b8bf06d4d89c63c8b074f3e1b400dfc3422bf7c7d6458a73ddc146c1b359
 - id: declaration-reporting
   resource: ../work/evidence-and-invariants/issue15.md
   working_tree: modified
@@ -110,11 +122,49 @@ Use a valid `License-Expression` when present. Ignore the legacy `License` when
 both occur, following Core Metadata. A present invalid License-Expression makes
 the check incomplete unless a valid hash-bound clarification supplies the
 expression; it must not trigger fallback to another field. When
-License-Expression is absent, accept legacy License only if the complete value
-parses as a valid SPDX expression. Otherwise report unknown license information,
-which a valid hash-bound clarification may resolve.
-Do not infer an expression from classifiers, prose, fuzzy name matching, or
-license text.[^core-metadata][^owner]
+License-Expression is absent, interpret one complete legacy License value as a
+strict SPDX expression first, then a unique official SPDX full name or explicit
+versioned/clause-specific alias, then a supported complete license template.
+Only whole-name lookup ignores ASCII case; expressions stay strict. Reject names
+mapping to differing identities, unsupported family labels, arbitrary extra terms
+and invented AND/OR relationships. This expands interpretation within the same
+legacy field and does not permit fallback from an invalid License-Expression or
+from an arbitrary present legacy value to a different file. The narrow
+incomplete-value extension below supersedes the original absent-only rule.
+[^legacy-license-review][^constrained-supplement-review]
+
+The legacy text matcher reads the original field span in retained metadata;
+unfolded values remain the source for expression/name interpretation and original
+field reporting. LF/CRLF and Unicode byte offsets must preserve independent
+copyright/condition lines. Raw cache bytes and provenance do not change; the
+current interpreter re-evaluates existing observations without acquisition.
+Structured substitutions allow at most 32 copyright notices and 32 year/range
+entries per notice, with narrowly listed corporate/role forms. They do not prove
+semantic authorship or licensing completeness.[^legacy-license-review]
+
+Otherwise report unknown license information, which a valid hash-bound
+clarification may resolve. Do not infer an expression from classifiers,
+unrecognized metadata prose or fuzzy name/text matching. The original declaration-only boundary is extended by the
+owner's bundled-file request: when both fields are absent, complete local
+license-template recognition may supply the expression. Additionally, one legacy
+value equal to UNKNOWN, BSD/BSD License, or Apache/Apache License/Apache Software
+License/Apache 2 (whole value, outer whitespace/ASCII case ignored) may be completed
+from verified bundled text. BSD requires BSD-2-Clause or BSD-3-Clause; Apache
+requires Apache-2.0. UNKNOWN accepts an existing recognized template. Valid
+declarations remain first; present expressions, repeated fields, family mismatches
+and added conditions cannot be overridden. Fresh archive metadata, not a sidecar
+hint, decides eligibility. Completed negative observations remain reusable.
+JSON license_origin records the evidence interpretation source before policy
+clarifications; text identifies successful legacy supplementation.
+[^constrained-supplement-review]
+
+The initial set is MIT, BSD-2-Clause,
+BSD-3-Clause, ISC and Apache-2.0; formatting/holder substitutions are narrow,
+and mismatched/additional/ambiguous terms remain unknown. AUTHORS basenames are
+retained attribution observations, not license candidates; this is a scope rule,
+not proof about their legal contents. Other selected files must agree on one
+recognized expression. No OR/AND relationship is invented between differing
+files.[^core-metadata][^owner][^bundled-license-review]
 
 Use SPDX expression syntax and the identifiers allowed by Python's License
 Expression specification. Pin the identifier database with the implementation
@@ -385,8 +435,8 @@ Selection occurs before acquisition, which shares check's evidence cache,
 authentication, fallback, proof and progress behavior.[^describe-design]
 
 The command reads no pyproject policy or date and applies no clarifications,
-exceptions or permission decisions. It uses original declarations, exact-text
-artifact grouping and explicit unknown/unsupported outcomes; differing artifact
+exceptions or permission decisions. It uses original declarations or the same absent-declaration bundled-file
+recognition as check, exact-expression artifact grouping and explicit unknown/unsupported outcomes; differing artifact
 licenses are not joined into a synthetic expression. Complete description exits
 0, input/incomplete outcomes exit 2, and no permission exit 1 is produced. Text
 lists unique packages and annotated relationships; the separate describe JSON
@@ -439,3 +489,9 @@ Issue #15; parser and cryptographic correctness are separate boundaries.
 [^declaration-reporting]
 
 [^declaration-reporting]: [Declaration reporting correction and five-pass review](../work/evidence-and-invariants/issue15.md).
+
+[^bundled-license-review]: [Bundled-file design, network evidence and reviews](../work/bundled-license-evidence/review.md).
+
+[^legacy-license-review]: [Legacy-field interpretation and structured-notice reviews](../work/legacy-license-interpretation/review.md).
+
+[^constrained-supplement-review]: [Constrained supplementation staged review](../work/constrained-license-supplementation/review.md).

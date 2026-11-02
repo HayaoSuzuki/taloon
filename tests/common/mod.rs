@@ -62,3 +62,21 @@ pub fn request(bytes: &[u8], format: ArtifactFormat) -> ArtifactRequest {
     )
     .unwrap()
 }
+
+pub fn wheel_with_files(metadata: &[u8], files: &[(&str, &[u8])]) -> Vec<u8> {
+    let mut writer = zip::ZipWriter::new(Cursor::new(Vec::new()));
+    writer
+        .start_file(
+            "example-1.0.dist-info/METADATA",
+            zip::write::SimpleFileOptions::default(),
+        )
+        .unwrap();
+    writer.write_all(metadata).unwrap();
+    for (name, bytes) in files {
+        writer
+            .start_file(*name, zip::write::SimpleFileOptions::default())
+            .unwrap();
+        writer.write_all(bytes).unwrap();
+    }
+    writer.finish().unwrap().into_inner()
+}

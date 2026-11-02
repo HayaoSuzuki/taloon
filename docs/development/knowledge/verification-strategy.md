@@ -4,6 +4,22 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: constrained-supplement-review
+  resource: ../work/constrained-license-supplementation/review.md
+  working_tree: untracked
+  sha256: d1ff5e2be3367bada1c6a635b996e5b1ee9ac6967831400aeceebc4677d7b252
+- id: creusot-build-retry
+  resource: ../work/creusot-build-retry/review.md
+  working_tree: modified
+  sha256: d880aeb4d56637c80705be6a8a039d183d8f2896a7a17a9ce81d260af8735660
+- id: legacy-license-review
+  resource: ../work/legacy-license-interpretation/review.md
+  working_tree: untracked
+  sha256: dca68bb0997c79a7bf25ba5244afade94b4dc42a9e74b4b12e8976ba03982090
+- id: bundled-license-review
+  resource: ../work/bundled-license-evidence/review.md
+  working_tree: untracked
+  sha256: ed82b8bf06d4d89c63c8b074f3e1b400dfc3422bf7c7d6458a73ddc146c1b359
 - id: expanded-contract-review
   resource: ../work/evidence-and-invariants/review.md
   working_tree: untracked
@@ -405,3 +421,57 @@ Revisit contracts when production decisions or the pinned environment changes.
 [^contract-graph]: [Ordered-container feasibility and deferral](../work/evidence-and-invariants/graph.md).
 
 [^expanded-contract-review]: [Expanded contracts final integration and limits](../work/evidence-and-invariants/review.md).
+
+# Bundled-file interpretation checks
+
+Named and generated cases exercise complete-template matching, changed/additional
+terms, namespace/path attacks, bounded ZIP/tar reads, evidence-file restoration
+and explicit declaration precedence. HTTP fixtures pin selective fallback and
+warm/offline request counts; a public sqlparse 0.6.0 smoke exercise uses both exact
+locked distribution hashes. This does not extend the Creusot or Lean proof scope
+to license recognition, archive parsers or legal completeness. Retained
+attribution files are not semantically proved to lack additional terms.
+[^bundled-license-review]
+
+[^bundled-license-review]: [Bundled-file tests, measurements and staged review](../work/bundled-license-evidence/review.md).
+
+# Legacy metadata correspondence checks
+
+Named public tests exercise precise legacy names, complete metadata texts,
+strict expression precedence, repeated fields, unchanged proof strength and raw
+cache restoration. Generated cases vary whole-name casing, additional terms and
+Unicode header offsets. LF/CRLF archive/sidecar regressions distinguish separate
+restrictions from multiple copyright notices; they rejected an intermediate
+unfolded-text interpretation. HTTP fixtures pin zero extra archive calls and
+network-free cached reinterpretation. Expanded notice grammar retains earlier
+extra-sentence attacks and adds independent generated structures. These are
+behavioral checks; existing Lean/Creusot claims do not expand to text matching,
+metadata parsing or legal equivalence.[^legacy-license-review]
+
+[^legacy-license-review]: [Legacy interpretation red/green and review evidence](../work/legacy-license-interpretation/review.md).
+
+# Pinned environment acquisition recovery
+
+Image construction retries once using the exact same verified recipe/context and
+architecture parameters. Only the Docker build is retried; source/checksum gates
+and all downstream proofs remain mandatory. Existing build/job deadlines cover
+both attempts. Synthetic orchestration and rejected mutations check the wrapper;
+actual hosted image/proof success is separate evidence. Reconsider on upstream
+recipe changes or sustained service outages; do not substitute unpinned sources
+to make a required context pass.[^creusot-build-retry]
+
+[^creusot-build-retry]: [Observed acquisition failures and bounded retry review](../work/creusot-build-retry/review.md).
+
+# Constrained legacy supplementation
+
+Named wheel/sdist cases and generated extra-term guards exercise whole-value
+eligibility, family agreement, strict declaration priority, conflicting files,
+raw-record replay and interpretation origin. HTTP fixtures check single archive
+escalation, fresh archive metadata authority over sidecar hints, zero-network
+positive/negative warm reuse and offline pending observations. Real process tests
+check both commands, compliant text visibility and evidence origin surviving a
+separate policy clarification. This is behavioral coverage, not an extension of
+Lean/Creusot claims to metadata semantics, archive readers or legal equivalence.
+[^constrained-supplement-review]
+
+[^constrained-supplement-review]: [Constrained supplementation staged review](../work/constrained-license-supplementation/review.md).

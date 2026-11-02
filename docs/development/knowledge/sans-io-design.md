@@ -4,6 +4,18 @@ title: Pure core and acquisition boundary
 description: Approved deep modules and request/result API for license inspection without core I/O.
 status: accepted
 sources:
+- id: constrained-supplement-review
+  resource: ../work/constrained-license-supplementation/review.md
+  working_tree: untracked
+  sha256: d1ff5e2be3367bada1c6a635b996e5b1ee9ac6967831400aeceebc4677d7b252
+- id: legacy-license-review
+  resource: ../work/legacy-license-interpretation/review.md
+  working_tree: untracked
+  sha256: dca68bb0997c79a7bf25ba5244afade94b4dc42a9e74b4b12e8976ba03982090
+- id: bundled-license-review
+  resource: ../work/bundled-license-evidence/review.md
+  working_tree: untracked
+  sha256: ed82b8bf06d4d89c63c8b074f3e1b400dfc3422bf7c7d6458a73ddc146c1b359
 - id: creusot-contracts
   resource: ../work/creusot-contracts/review.md
   working_tree: modified
@@ -476,3 +488,53 @@ boundary; the [verification decision](verification-strategy.md#direct-rust-decis
 owns proof guarantees and limits.[^creusot-contracts]
 
 [^creusot-contracts]: [Production decision extraction and verification evidence](../work/creusot-contracts/review.md).
+
+# Bundled-file evidence boundary
+
+The original declaration-only boundary is extended for absent fields and the
+exact incomplete legacy values defined in the inspection contract. Evidence
+owns bounded exact-path readers, conservative complete-template interpretation
+and raw archive-file observations. It exposes only whether an observation still
+needs files; acquisition owns cache-first archive escalation and all I/O. This
+keeps the no-network metadata fast path independent of matcher/ZIP/tar details.
+One additional bounded pass over an already verified source archive discovers
+selected text without retaining arbitrary members. The existing metadata pass
+returns its validated root, avoiding a duplicate root-discovery pass.
+[^bundled-license-review]
+
+Optional observed files participate in existing record checksums and bounds.
+Their absence serializes exactly as before, so unrelated valid cached declarations
+do not need redownloading. Old/weak absent-declaration observations upgrade
+selectively; completed positive and negative scans remain reusable. File snapshots
+cannot be restored at sidecar strength. Interpretation runs against current local
+templates rather than treating a stored verdict as evidence. No transport or
+filesystem capability enters the pure core. Reconsider if supporting more license
+variants needs a different template engine or measurements justify an archive
+representation change.[^bundled-license-review]
+
+[^bundled-license-review]: [Bundled-file design and integration evidence](../work/bundled-license-evidence/review.md).
+
+# Legacy-field interpretation ownership
+
+A private legacy interpreter hides exact catalog/alias lookup and complete text
+recognition behind the existing LicenseExpression result. Strict SPDX validation
+and all field priority/cardinality rules remain evidence-owned. Metadata parsing
+records the raw legacy value's byte range in already-retained immutable headers;
+folded values still serve expressions, names and reporting. This prevents line
+unfolding from erasing restrictions without adding duplicate owned text or a
+second metadata parser. Whole-name lookup trims once before catalog traversal.
+Existing cache bytes and proof requirements are unchanged. A private typed
+FileConstraint centralizes incomplete-value eligibility and exact family matching;
+acquisition asks only whether files are needed. Archive construction applies the
+query to fresh metadata, so a sidecar hint cannot authorize overriding different
+archive declarations. Optional LicenseOrigin in the report describes current
+evidence interpretation, before policy overrides; no verdict is persisted.
+The selected extension reuses bounded archive acquisition and completed negative
+observations without a new transport layer or configuration flag.
+[^constrained-supplement-review] Reconsider when new name variants or
+license templates require a different representation, preserving explicit
+expression priority and raw line boundaries.[^legacy-license-review]
+
+[^legacy-license-review]: [Legacy interpretation design and staged review](../work/legacy-license-interpretation/review.md).
+
+[^constrained-supplement-review]: [Constrained supplementation staged review](../work/constrained-license-supplementation/review.md).

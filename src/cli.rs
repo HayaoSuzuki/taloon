@@ -13,6 +13,7 @@ use std::{
     time::{Duration, Instant},
 };
 use taloon::{
+    evidence::LicenseOrigin,
     inspection::Inspection,
     model::{ArtifactRequest, Code, Error, EvaluationDate},
     report::{Diagnostic, Report, Status},
@@ -343,7 +344,13 @@ fn text_report(report: &Report) -> String {
     }
     for package in report.packages() {
         if package.status == Status::Compliant
-            && package.artifacts.iter().all(|a| a.diagnostics.is_empty())
+            && package.artifacts.iter().all(|a| {
+                a.diagnostics.is_empty()
+                    && !a
+                        .evidence
+                        .as_ref()
+                        .is_some_and(|e| e.license_origin == Some(LicenseOrigin::LegacySupplement))
+            })
         {
             continue;
         }
@@ -361,6 +368,12 @@ fn text_report(report: &Report) -> String {
             let _ = writeln!(out, "  {:?}: {}", artifact.status, safe(&artifact.locator));
             if let Some(e) = &artifact.evidence {
                 let _ = writeln!(out, "    {:?}, observed {}", e.strength, e.content_hash);
+                if e.license_origin == Some(LicenseOrigin::LegacySupplement) {
+                    let _ = writeln!(
+                        out,
+                        "    license source: legacy declaration supplemented by bundled files"
+                    );
+                }
             }
             if let Some(expression) = &artifact.interpreted_expression {
                 let _ = writeln!(out, "    license: {}", safe(expression));

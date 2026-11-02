@@ -650,3 +650,153 @@ fn declaration_json_preserves_prose_and_protects_terminal(
         "{actual}"
     );
 }
+
+fn project_with_bsd_file(root: &Path, fields: &str) -> Vec<u8> {
+    project(root, fields);
+    let bytes = common::wheel_with_files(
+        &common::metadata(fields),
+        &[(
+            "example-1.0.dist-info/licenses/LICENSE",
+            spdx::license_id("BSD-3-Clause").unwrap().text().as_bytes(),
+        )],
+    );
+    std::fs::write(root.join("example.whl"), &bytes).unwrap();
+    policy(root, "'BSD-3-Clause'");
+    bytes
+}
+
+#[rstest::rstest]
+#[case::check("check", "interpreted_expression")]
+#[case::describe("describe", "expression")]
+fn legacy_supplement_json_preserves_declaration_and_source(
+    #[case] command: &str,
+    #[case] expression_field: &str,
+) {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    project_with_bsd_file(temp.path(), "License: BSD");
+    let mut args = vec![command];
+    if command == "describe" {
+        args.push("example");
+    }
+    args.extend(["--offline", "--format=json"]);
+
+    // Act
+    let output = invoke(temp.path(), &temp.path().join("cache"), &args);
+
+    // Assert
+    let report = json(&output);
+    let artifact = &report["packages"][0]["artifacts"][0];
+    assert_eq!(artifact["evidence"]["license_origin"], "legacy_supplement");
+    assert_eq!(
+        artifact["evidence"]["original_license"],
+        serde_json::json!(["BSD"])
+    );
+    assert_eq!(artifact[expression_field], "BSD-3-Clause");
+    assert_eq!(artifact["diagnostics"], serde_json::json!([]));
+    assert_eq!(output.status.code(), Some(0));
+}
+
+#[rstest::rstest]
+#[case::check("check")]
+#[case::describe("describe")]
+fn legacy_supplement_text_identifies_successful_evidence(#[case] command: &str) {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    project_with_bsd_file(temp.path(), "License: BSD");
+    let mut args = vec![command];
+    if command == "describe" {
+        args.push("example");
+    }
+    args.extend(["--offline", "--format=text"]);
+
+    // Act
+    let output = invoke(temp.path(), &temp.path().join("cache"), &args);
+
+    // Assert
+    let text = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        text.contains("license source: legacy declaration supplemented by bundled files"),
+        "{text}"
+    );
+    assert!(text.contains("example.whl"), "{text}");
+    assert!(!text.contains("Warning"), "{text}");
+    assert_eq!(output.status.code(), Some(0));
+}
+
+#[rstest::rstest]
+#[case::json("json")]
+#[case::text("text")]
+fn legacy_supplement_clarification_keeps_evidence_source(#[case] format: &str) {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let bytes = project_with_bsd_file(temp.path(), "License: BSD");
+    let hash = taloon::model::ContentHash::digest(&bytes);
+    std::fs::write(
+        temp.path().join("pyproject.toml"),
+        format!("[tool.taloon]\nschema-version=1\nallow=['MIT']\n[[tool.taloon.clarifications]]\nartifact-hash='{hash}'\nexpression='MIT'\nreason='Reviewed synthetic artifact'\n"),
+    ).unwrap();
+
+    // Act
+    let output = invoke(
+        temp.path(),
+        &temp.path().join("cache"),
+        &["check", "--offline", "--format", format],
+    );
+
+    // Assert
+    if format == "json" {
+        let report = json(&output);
+        let artifact = &report["packages"][0]["artifacts"][0];
+        assert_eq!(artifact["evidence"]["license_origin"], "legacy_supplement");
+        assert_eq!(
+            artifact["evidence"]["original_license"],
+            serde_json::json!(["BSD"])
+        );
+        assert_eq!(artifact["interpreted_expression"], "MIT");
+    } else {
+        let text = String::from_utf8(output.stdout).unwrap();
+        assert!(
+            text.contains("license source: legacy declaration supplemented by bundled files"),
+            "{text}"
+        );
+        assert!(text.contains("license: MIT"), "{text}");
+        assert!(text.contains("Reviewed synthetic artifact"), "{text}");
+    }
+    assert_eq!(output.status.code(), Some(0));
+}
+
+#[rstest::rstest]
+#[case::check_expression("check", "License-Expression: BSD-3-Clause", 0)]
+#[case::describe_expression("describe", "License-Expression: BSD-3-Clause", 0)]
+#[case::check_legacy("check", "License: BSD-3-Clause", 0)]
+#[case::describe_legacy("describe", "License: BSD-3-Clause", 0)]
+#[case::check_bundled("check", "", 0)]
+#[case::describe_bundled("describe", "", 0)]
+#[case::check_invalid_expression("check", "License-Expression: invalid\nLicense: BSD", 2)]
+#[case::describe_invalid_expression("describe", "License-Expression: invalid\nLicense: BSD", 2)]
+fn other_license_sources_do_not_claim_legacy_supplement(
+    #[case] command: &str,
+    #[case] fields: &str,
+    #[case] exit_code: i32,
+) {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    project_with_bsd_file(temp.path(), fields);
+    let mut args = vec![command];
+    if command == "describe" {
+        args.push("example");
+    }
+    args.extend(["--offline", "--format=text"]);
+
+    // Act
+    let output = invoke(temp.path(), &temp.path().join("cache"), &args);
+
+    // Assert
+    let text = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        !text.contains("legacy declaration supplemented by bundled files"),
+        "{text}"
+    );
+    assert_eq!(output.status.code(), Some(exit_code));
+}
