@@ -4,6 +4,10 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: creusot-image-adoption
+  resource: ../work/creusot-registry-image/adoption.md
+  working_tree: untracked
+  sha256: 20b729bc1a80d6a99cb54c50f2e5b6c437608a05ed4b549acb09adc434c00adf
 - id: creusot-registry-image
   resource: ../work/creusot-registry-image/review.md
   working_tree: modified
@@ -535,11 +539,15 @@ and mutations remain mandatory; no source outcomes are cached.
 
 The trusted-main environment workflow builds/pushes/attests actual image bytes,
 verifies the result and uploads a candidate pin without modifying the repository.
-Adoption is a reviewed normal commit. The initial pin honestly remains bootstrap
-until a first successful publish and adoption; current snapshot acquisition and
-workflow availability can block that first operation. GHCR publication and local
+Adoption is a reviewed normal commit. The first pin now adopts the actual digest from successful trusted-main
+publisher run 41450013770, binding its merged source and unchanged builder hash.
+Normal source CI selects registry mode; bootstrap remains an explicit option
+for future rotations. Initial environment publication still depends on upstream
+availability.[^creusot-image-adoption] GHCR publication and local
 synthetic tests are distinct evidence. This reduces ordinary proof jobs' snapshot
 acquisition dependency, not all network or trusted-service dependencies.
 [^creusot-registry-image]
 
 [^creusot-registry-image]: [Durable image design, provenance boundaries and staged verification](../work/creusot-registry-image/review.md).
+
+[^creusot-image-adoption]: [First published digest, source receipt and adoption checks](../work/creusot-registry-image/adoption.md).

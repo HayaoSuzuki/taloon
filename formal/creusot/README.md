@@ -35,7 +35,7 @@ two concurrent provers. This is not an aggregate container memory bound.
 Build from the repository root with Docker and authenticated gh:
 
 ```sh
-formal/creusot/build-image.sh          # Linux amd64, used by CI
+formal/creusot/build-image.sh          # Linux amd64, for publication/bootstrap
 formal/creusot/build-image.sh arm64    # optional ARM64 development image
 ```
 
@@ -52,8 +52,9 @@ Hosted CI selects the committed `formal/creusot/image.pin`. Its single line is
 `IMAGE SOURCE_COMMIT BUILDER_SHA256`, without shell evaluation. `IMAGE` is either
 `bootstrap` with source `-`, or exactly the taloon GHCR repository with a SHA-256
 digest. The builder hash must match the current build-image.sh bytes. Invalid,
-missing, multi-line or stale pins fail. The committed initial pin explicitly
-selects bootstrap because no registry image has yet been published.
+missing, multi-line or stale pins fail. The committed pin selects the first attested GHCR image. Its successful
+publication and exact adopted identities are recorded in the
+[adoption evidence](../../docs/development/work/creusot-registry-image/adoption.md).
 
 In bootstrap mode, CI reuses the exact-key Actions image cache or runs the pinned
 builder. The key binds the builder, preparation/registry helpers, pin and runner
@@ -92,8 +93,8 @@ Changing the builder requires a reviewed replacement pin (or explicit bootstrap
 with its new builder hash) and a newly validated image. Proof results are never
 part of this image or the cache.
 
-The first environment publication still needs the pinned upstream. Current
-snapshot outages therefore block initial bootstrap until acquisition recovers;
+The first environment publication still needs the pinned upstream. A sustained
+snapshot outage can block initial bootstrap until acquisition recovers;
 these workflow changes do not turn that failure into success. A workflow must be
 merged before its manual dispatch is available. Source CI and the application
 release gate remain required; recover failed main runs and their original release
