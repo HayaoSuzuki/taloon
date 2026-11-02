@@ -4,6 +4,7 @@ use serde::Serialize;
 use std::{collections::BTreeMap, fmt::Write as _, io::Write as _, path::Path};
 use taloon::{
     description::{Description, DescriptionReport, DescriptionStatus},
+    evidence::LicenseOrigin,
     model::Error,
     report::Diagnostic,
     resolution::{DependencyGraph, DependencyKind, GraphEdge, PackageIdentity, SelectionMode},
@@ -164,8 +165,18 @@ fn text(report: &DescriptionReport) -> String {
             );
         }
         for artifact in &package.artifacts {
-            if !artifact.diagnostics.is_empty() {
+            let supplemented = artifact
+                .evidence
+                .as_ref()
+                .is_some_and(|e| e.license_origin == Some(LicenseOrigin::LegacySupplement));
+            if supplemented || !artifact.diagnostics.is_empty() {
                 let _ = writeln!(out, "  artifact: {}", safe(&artifact.locator));
+                if supplemented {
+                    let _ = writeln!(
+                        out,
+                        "    license source: legacy declaration supplemented by bundled files"
+                    );
+                }
                 diagnostics(&mut out, &artifact.diagnostics, "    ");
             }
         }
