@@ -1,6 +1,7 @@
 //! Per-artifact declarations and validated proof strength; all readers use memory only.
 mod archive_files;
 mod file_observation;
+mod legacy;
 use file_observation::FileObservation;
 pub use file_observation::{LicenseFileKind, LicenseFileSummary};
 mod text_match;
@@ -469,6 +470,7 @@ impl Evidence {
             &self.metadata.expression
         };
         match values.as_slice() {
+            [value] if self.metadata.expression.is_empty() => legacy::interpret(value),
             [value] => LicenseExpression::parse(value),
             _ => Err(Error::new(
                 Code::UnknownLicense,
