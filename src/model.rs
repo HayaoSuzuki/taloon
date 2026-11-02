@@ -28,12 +28,28 @@ pub enum Code {
     MetadataVersion,
 }
 
+/// Interpretation failure independent of diagnostic wording or transport errors.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LicenseProblem {
+    MissingDeclaration,
+    RepeatedDeclaration,
+    InvalidExpression,
+    UnrecognizedLegacy,
+    LicenseFilesUnavailable,
+    UnrecognizedLicenseText,
+    ConflictingLicenseFiles,
+    LegacyFamilyMismatch,
+}
+
 /// A safe diagnostic message. Callers must not put credential-bearing locators in messages.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, thiserror::Error)]
 #[error("{code:?}: {message}")]
 pub struct Error {
     pub code: Code,
     pub message: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub license_problem: Option<LicenseProblem>,
 }
 impl Error {
     #[must_use]
@@ -41,6 +57,14 @@ impl Error {
         Self {
             code,
             message: message.into(),
+            license_problem: None,
+        }
+    }
+    pub(crate) fn license(problem: LicenseProblem, message: impl Into<String>) -> Self {
+        Self {
+            code: Code::UnknownLicense,
+            message: message.into(),
+            license_problem: Some(problem),
         }
     }
 }
