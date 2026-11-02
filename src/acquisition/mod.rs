@@ -49,11 +49,11 @@ fn acquire_local(
         ));
     }
     match cache.get(req, observed) {
-        Ok(Some(e)) => {
+        Ok(Some(e)) if !e.needs_license_files() => {
             stats.cache_hits += 1;
             return Ok(e);
         }
-        Ok(None) => {}
+        Ok(_) => {}
         Err(_) => cache_warning(warnings, "cache read failed; acquiring evidence directly"),
     }
     stats.archive_extractions += 1;
@@ -250,14 +250,18 @@ impl Acquirer {
         warnings: &mut Vec<Diagnostic>,
     ) -> Result<Evidence, Error> {
         let hash = request.hash().ok_or_else(http::failure)?;
-        match self.cache.get(request, hash) {
+        let needs_archive = match self.cache.get(request, hash) {
+            Ok(Some(e)) if e.needs_license_files() && !self.options.offline => true,
             Ok(Some(e)) => {
                 stats.cache_hits += 1;
                 return Ok(e);
             }
-            Ok(None) => {}
-            Err(_) => cache_warning(warnings, "cache read failed; acquiring evidence directly"),
-        }
+            Ok(None) => false,
+            Err(_) => {
+                cache_warning(warnings, "cache read failed; acquiring evidence directly");
+                false
+            }
+        };
         if self.options.offline {
             return Err(Error::new(
                 Code::Acquisition,
@@ -268,11 +272,13 @@ impl Acquirer {
             return Err(http::failure());
         };
         let url = url::Url::parse(url).map_err(|_| http::failure())?;
-        if request.requirement() == EvidenceRequirement::IndexAssociated {
+        if !needs_archive && request.requirement() == EvidenceRequirement::IndexAssociated {
             match self.try_sidecar(request, indexes, stats) {
                 Ok(Some(evidence)) => {
                     self.persist(request, &evidence, warnings);
-                    return Ok(evidence);
+                    if !evidence.needs_license_files() {
+                        return Ok(evidence);
+                    }
                 }
                 Ok(None) => {}
                 Err(e) => {

@@ -1221,3 +1221,128 @@ fn malformed_json_index_does_not_reduce_coverage(#[case] advertisement: serde_js
         2
     );
 }
+
+fn bundled_fixture(fields: &str, text: &str) -> (Fixture, ArtifactRequest, Vec<u8>) {
+    let metadata = crate::testfixtures::metadata(fields);
+    let bytes = crate::testfixtures::wheel_with_files(
+        &metadata,
+        &[("example-1.0.dist-info/licenses/LICENSE", text.as_bytes())],
+    );
+    let request = fixture_inspection(&bytes, false).requests()[0].clone();
+    let fixture = Fixture::default();
+    fixture.add("https://example.test/simple/example/",200,&serde_json::to_vec(&serde_json::json!({"meta":{"api-version":"1.0"},"files":[{"url":"https://files.test/a.whl","hashes":{"sha256":ContentHash::digest(&bytes).to_string().replace("sha256:","")},"core-metadata":{"sha256":ContentHash::digest(&metadata).to_string().replace("sha256:","")}}]})).unwrap());
+    fixture.add("https://files.test/a.whl.metadata", 200, &metadata);
+    fixture.add("https://files.test/a.whl", 200, &bytes);
+    (fixture, request, metadata)
+}
+fn acquire_bundled(
+    acquirer: &Acquirer,
+    request: &ArtifactRequest,
+) -> (Evidence, AcquisitionSummary) {
+    let catalog = index::IndexCatalog::new(std::slice::from_ref(request), &acquirer.http);
+    let mut summary = AcquisitionSummary::default();
+    let evidence = acquirer
+        .acquire_remote(request, &catalog, &mut summary, &mut Vec::new())
+        .unwrap();
+    (evidence, summary)
+}
+#[rstest::rstest]
+#[case::declared("License-Expression: MIT\nLicense-File: LICENSE", 0)]
+#[case::absent("License-File: LICENSE", 1)]
+fn bundled_fallback_only_fetches_archives_for_absent_declarations(
+    #[case] fields: &str,
+    #[case] archives: u64,
+) {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let (fixture, request, _) = bundled_fixture(fields, spdx::license_id("MIT").unwrap().text());
+    let archive_size = fixture.routes.lock().unwrap()["https://files.test/a.whl"]
+        .body
+        .len() as u64;
+    let acquirer =
+        Acquirer::with_transport(AcquisitionOptions::testing(temp.path(), false), fixture).unwrap();
+    // Act
+    let (evidence, summary) = acquire_bundled(&acquirer, &request);
+    // Assert
+    assert_eq!(summary.http.index.requests, 1);
+    assert_eq!(summary.http.metadata.requests, 1);
+    assert_eq!(summary.http.archive.requests, archives);
+    assert_eq!(
+        summary.http.archive.downloaded_bytes,
+        archives * archive_size
+    );
+    assert_eq!(evidence.license().unwrap().text(), "MIT");
+}
+#[rstest::rstest]
+#[case::recognized(spdx::license_id("MIT").unwrap().text(),Some("MIT"))]
+#[case::unrecognized("custom terms", None)]
+fn completed_bundled_scan_uses_no_network_on_next_run(
+    #[case] text: &str,
+    #[case] expected: Option<&str>,
+) {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let (fixture, request, _) = bundled_fixture("License-File: LICENSE", text);
+    let acquirer = Acquirer::with_transport(
+        AcquisitionOptions::testing(temp.path(), false),
+        fixture.clone(),
+    )
+    .unwrap();
+    let _ = acquire_bundled(&acquirer, &request);
+    let before = fixture.count();
+    // Act
+    let (evidence, summary) = acquire_bundled(&acquirer, &request);
+    // Assert
+    assert_eq!(fixture.count(), before);
+    assert_eq!(summary.network_requests, 0);
+    assert_eq!(summary.cache_hits, 1);
+    assert_eq!(
+        evidence
+            .license()
+            .ok()
+            .as_ref()
+            .map(taloon::policy::LicenseExpression::text),
+        expected
+    );
+}
+#[rstest::rstest]
+#[case::online(false, 1, Some("MIT"))]
+#[case::offline(true, 0, None)]
+fn cached_sidecar_upgrade_does_not_refetch_metadata(
+    #[case] offline: bool,
+    #[case] archives: u64,
+    #[case] expected: Option<&str>,
+) {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let (fixture, request, metadata) = bundled_fixture(
+        "License-File: LICENSE",
+        spdx::license_id("MIT").unwrap().text(),
+    );
+    let acquirer =
+        Acquirer::with_transport(AcquisitionOptions::testing(temp.path(), offline), fixture)
+            .unwrap();
+    let hash = request.hash().unwrap();
+    let sidecar = Evidence::from_sidecar(
+        &request,
+        taloon::evidence::SidecarAssociation::new(hash, hash, ContentHash::digest(&metadata))
+            .unwrap(),
+        &metadata,
+    )
+    .unwrap();
+    acquirer.cache.put(&request, &sidecar).unwrap();
+    // Act
+    let (evidence, summary) = acquire_bundled(&acquirer, &request);
+    // Assert
+    assert_eq!(summary.http.index.requests, 0);
+    assert_eq!(summary.http.metadata.requests, 0);
+    assert_eq!(summary.http.archive.requests, archives);
+    assert_eq!(
+        evidence
+            .license()
+            .ok()
+            .as_ref()
+            .map(taloon::policy::LicenseExpression::text),
+        expected
+    );
+}
