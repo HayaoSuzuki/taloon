@@ -4,6 +4,10 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: creusot-build-retry
+  resource: ../work/creusot-build-retry/review.md
+  working_tree: untracked
+  sha256: 077bf91ab6b5f6737bb5f8361c61d3ffe453be60a63b244261baa0bf5b9c6413
 - id: legacy-license-review
   resource: ../work/legacy-license-interpretation/review.md
   working_tree: untracked
@@ -441,3 +445,15 @@ behavioral checks; existing Lean/Creusot claims do not expand to text matching,
 metadata parsing or legal equivalence.[^legacy-license-review]
 
 [^legacy-license-review]: [Legacy interpretation red/green and review evidence](../work/legacy-license-interpretation/review.md).
+
+# Pinned environment acquisition recovery
+
+Image construction retries once using the exact same verified recipe/context and
+architecture parameters. Only the Docker build is retried; source/checksum gates
+and all downstream proofs remain mandatory. Existing build/job deadlines cover
+both attempts. Synthetic orchestration and rejected mutations check the wrapper;
+actual hosted image/proof success is separate evidence. Reconsider on upstream
+recipe changes or sustained service outages; do not substitute unpinned sources
+to make a required context pass.[^creusot-build-retry]
+
+[^creusot-build-retry]: [Observed acquisition failures and bounded retry review](../work/creusot-build-retry/review.md).

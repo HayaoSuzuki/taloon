@@ -40,7 +40,23 @@ formal/creusot/build-image.sh arm64    # optional ARM64 development image
 ```
 
 The source archive and Docker build context stay temporary. No hoimin checkout
-is required. The image includes the upstream installation checker and its
+is required. A failed Docker build is retried once after 10 seconds using the
+same verified archive, exact context bytes, architecture arguments and layer
+cache. This allows recovery from transient upstream acquisition errors such as
+Ubuntu snapshot HTTP 502 responses. The wrapper retries any Docker build failure;
+it does not classify logs or bypass recipe checks. A second failure returns
+Docker's exit status. Source fetch, checksum and context creation failures are
+not retried. CI's existing image-build deadline covers both attempts together.
+
+Run the synthetic wrapper regressions without network access or Docker:
+
+```sh
+bash formal/creusot/test-build-image.sh
+```
+
+These checks use a local recipe archive and substitute its checksum in a temporary
+wrapper copy. They exercise orchestration, not the public recipe or real proofs.
+The image includes the upstream installation checker and its
 manifest; the application never imports those Python tools. The recipe's
 Elastic-2.0 attribution remains in the pinned source. Creusot and its standard
 contracts are LGPL-2.1-or-later; source and license are available at the pinned

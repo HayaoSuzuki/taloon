@@ -128,6 +128,8 @@ jobs:
           formal/TaloonOracle/.lake/build/bin/generate_index --check tests/fixtures/oracle/index.jsonl
           formal/TaloonOracle/.lake/build/bin/generate_selection --check tests/fixtures/oracle/selection.jsonl
       # Keep the existing required status context; both formal checks must pass.
+      - name: Check bounded Creusot build orchestration
+        run: bash formal/creusot/test-build-image.sh
       - name: Build checksum-pinned Creusot environment
         env:
           GH_TOKEN: ${{ github.token }}
