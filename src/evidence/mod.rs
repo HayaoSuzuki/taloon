@@ -1,4 +1,9 @@
 //! Per-artifact declarations and validated proof strength; all readers use memory only.
+mod archive_files;
+mod file_observation;
+use file_observation::FileObservation;
+pub use file_observation::{LicenseFileKind, LicenseFileSummary};
+mod text_match;
 use crate::{
     model::{
         ArtifactFormat, ArtifactLocator, ArtifactRequest, Code, ContentHash, Error,
@@ -16,6 +21,8 @@ use taloon_decisions::evidence::{ProofBinding, content_matches, request_matches,
 
 /// Maximum observed metadata bytes, shared with bounded acquisition and persistence.
 pub const MAX_METADATA_BYTES: u64 = 4 * 1024 * 1024;
+/// Maximum total bundled license text retained per observation.
+pub const MAX_LICENSE_OBSERVATION_BYTES: usize = archive_files::MAX_LICENSE_TOTAL;
 const MAX_TAR_EXPANSION: u64 = 1024 * 1024 * 1024;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,6 +55,8 @@ struct RecordData {
     headers_hash: ContentHash,
     proof: Proof,
     metadata: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    license_files: Option<FileObservation>,
 }
 /// A versioned, integrity-checked observation from the trusted local cache.
 /// This is not a signature proving that an arbitrary third party inspected bytes.
@@ -63,6 +72,7 @@ struct Metadata {
     version: String,
     expression: Vec<String>,
     legacy: Vec<String>,
+    files: Vec<String>,
     warnings: Vec<Error>,
 }
 /// Observed declarations remain available even when their license is unknown.
@@ -82,6 +92,8 @@ pub struct EvidenceSummary {
     pub metadata_version: String,
     pub original_expression: Vec<String>,
     pub original_license: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub license_files: Vec<LicenseFileSummary>,
     pub warnings: Vec<Error>,
 }
 /// Association advertised by the locked registry; it does not verify archive bytes.
@@ -141,7 +153,7 @@ fn member_path(name: &str, format: ArtifactFormat) -> bool {
         ArtifactFormat::Sdist => file == "PKG-INFO",
     }
 }
-fn wheel_metadata(bytes: &[u8]) -> Result<Vec<u8>, Error> {
+fn wheel_metadata(bytes: &[u8]) -> Result<(Vec<u8>, String), Error> {
     let mut archive = zip::ZipArchive::new(Cursor::new(bytes))
         .map_err(|_| failure("invalid wheel ZIP archive"))?;
     if archive.has_duplicate_names() {
@@ -152,12 +164,11 @@ fn wheel_metadata(bytes: &[u8]) -> Result<Vec<u8>, Error> {
         let file = archive
             .by_index(i)
             .map_err(|_| failure("invalid ZIP member"))?;
-        let is_metadata = {
-            let name = file
-                .name()
-                .map_err(|_| failure("invalid ZIP member name"))?;
-            member_path(name.as_ref(), ArtifactFormat::Wheel)
-        };
+        let path = file
+            .name()
+            .map_err(|_| failure("invalid ZIP member name"))?
+            .into_owned();
+        let is_metadata = member_path(&path, ArtifactFormat::Wheel);
         if is_metadata {
             if metadata.is_some() {
                 return Err(failure("multiple wheel metadata members"));
@@ -168,12 +179,16 @@ fn wheel_metadata(bytes: &[u8]) -> Result<Vec<u8>, Error> {
             {
                 return Err(failure("metadata member is not a regular file"));
             }
-            metadata = Some(read_metadata(file)?);
+            let root = format!(
+                "{}/",
+                path.split_once('/').expect("validated metadata path").0
+            );
+            metadata = Some((read_metadata(file)?, root));
         }
     }
     metadata.ok_or_else(|| failure("wheel has no unique dist-info/METADATA"))
 }
-fn sdist_metadata(bytes: &[u8]) -> Result<Vec<u8>, Error> {
+fn sdist_metadata(bytes: &[u8]) -> Result<(Vec<u8>, String), Error> {
     let decoder = flate2::read::MultiGzDecoder::new(Cursor::new(bytes));
     let mut archive = tar::Archive::new(decoder.take(MAX_TAR_EXPANSION + 1));
     let mut metadata = None;
@@ -191,7 +206,14 @@ fn sdist_metadata(bytes: &[u8]) -> Result<Vec<u8>, Error> {
             if !entry.header().entry_type().is_file() {
                 return Err(failure("source metadata is not a regular file"));
             }
-            metadata = Some(read_metadata(entry)?);
+            let root = format!(
+                "{}/",
+                name.trim_start_matches("./")
+                    .split_once('/')
+                    .expect("validated metadata path")
+                    .0
+            );
+            metadata = Some((read_metadata(entry)?, root));
         }
     }
     let mut limited = archive.into_inner();
@@ -293,6 +315,7 @@ fn parse_metadata(request: &ArtifactRequest, text: &str) -> Result<Metadata, Err
             .cloned()
             .unwrap_or_default(),
         legacy: headers.get("license").cloned().unwrap_or_default(),
+        files: headers.get("license-file").cloned().unwrap_or_default(),
         warnings,
     })
 }
@@ -353,6 +376,7 @@ impl Evidence {
             headers_hash: ContentHash::digest(headers.as_bytes()),
             proof,
             metadata: headers.to_owned(),
+            license_files: None,
         };
         let record = EvidenceRecord {
             checksum: checksum(&data)?,
@@ -379,11 +403,19 @@ impl Evidence {
                 "archive digest differs from locked content",
             ));
         }
-        let metadata = match request.format() {
+        let (metadata, root) = match request.format() {
             ArtifactFormat::Wheel => wheel_metadata(bytes)?,
             ArtifactFormat::Sdist => sdist_metadata(bytes)?,
         };
-        Self::new(request, metadata, content, Proof::ArchiveVerified)
+        let mut evidence = Self::new(request, metadata, content, Proof::ArchiveVerified)?;
+        if evidence.needs_license_files() {
+            let files =
+                FileObservation::read(bytes, request.format(), &evidence.metadata.files, &root);
+            let data = Arc::make_mut(&mut evidence.record.data);
+            data.license_files = Some(files);
+            evidence.record.checksum = checksum(data)?;
+        }
+        Ok(evidence)
     }
     /// Validate metadata bytes and the registry association without claiming archive verification.
     /// # Errors
@@ -423,8 +455,14 @@ impl Evidence {
         )
     }
     /// # Errors
-    /// Returns unknown-license for missing, duplicate, or invalid declarations; never infers from classifiers.
+    /// Returns unknown-license for duplicate/invalid declarations or unrecognized bundled text; never infers from classifiers.
     pub fn license(&self) -> Result<LicenseExpression, Error> {
+        if self.metadata.expression.is_empty()
+            && self.metadata.legacy.is_empty()
+            && let Some(files) = &self.record.data.license_files
+        {
+            return files.license();
+        }
         let values = if self.metadata.expression.is_empty() {
             &self.metadata.legacy
         } else {
@@ -437,6 +475,14 @@ impl Evidence {
                 "missing or repeated license declaration",
             )),
         }
+    }
+    /// Whether absent declarations still need an archive-file observation.
+    /// Completed unknown scans return false, avoiding repeated archive fetches.
+    #[must_use]
+    pub fn needs_license_files(&self) -> bool {
+        self.metadata.expression.is_empty()
+            && self.metadata.legacy.is_empty()
+            && self.record.data.license_files.is_none()
     }
     #[must_use]
     pub fn requirement_satisfied(&self, need: EvidenceRequirement) -> bool {
@@ -465,6 +511,12 @@ impl Evidence {
                 .iter()
                 .map(|s| crate::declaration::redact_urls(s))
                 .collect(),
+            license_files: self
+                .record
+                .data
+                .license_files
+                .as_ref()
+                .map_or_else(Vec::new, FileObservation::summary),
             warnings: self.metadata.warnings.clone(),
         }
     }
@@ -499,6 +551,9 @@ impl Evidence {
     pub fn from_record(request: &ArtifactRequest, record: EvidenceRecord) -> Result<Self, Error> {
         let data = &record.data;
         if data.metadata.len() > usize::try_from(MAX_METADATA_BYTES).unwrap_or(usize::MAX)
+            || data.license_files.as_ref().is_some_and(|files| {
+                !files.valid() || !matches!(data.proof, Proof::ArchiveVerified)
+            })
             || data.schema != 1
             || data.format != request.format()
             || checksum(data)? != record.checksum
@@ -540,3 +595,6 @@ impl Evidence {
         })
     }
 }
+
+#[cfg(test)]
+mod tests;
