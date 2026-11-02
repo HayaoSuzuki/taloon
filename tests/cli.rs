@@ -239,17 +239,25 @@ proptest::proptest! {
  }
 }
 
-#[test]
-fn documented_policies_use_the_implemented_schema() {
+#[rstest::rstest]
+#[case::allow(1)]
+#[case::deny(2)]
+#[case::scoped_overrides(3)]
+fn documented_policy_uses_the_implemented_schema(#[case] example: usize) {
+    // Arrange
     let guide = include_str!("../docs/user/configuration.md");
     let date = taloon::model::EvaluationDate::parse("2026-10-31").unwrap();
-    let mut count = 0;
-    for rest in guide.split("```toml\n").skip(1) {
-        let code = rest.split("```").next().unwrap();
-        taloon::policy::Policy::from_pyproject(code, date).unwrap();
-        count += 1;
-    }
-    assert_eq!(count, 2);
+    let code = guide
+        .split("```toml\n")
+        .nth(example)
+        .unwrap()
+        .split("```")
+        .next()
+        .unwrap();
+    // Act
+    let policy = taloon::policy::Policy::from_pyproject(code, date);
+    // Assert
+    assert!(policy.is_ok(), "{policy:?}");
 }
 
 #[test]
@@ -799,4 +807,118 @@ fn other_license_sources_do_not_claim_legacy_supplement(
         "{text}"
     );
     assert_eq!(output.status.code(), Some(exit_code));
+}
+
+#[rstest::rstest]
+#[case::allow("allow=['MIT']", "allow", "License-Expression: MIT", 0)]
+#[case::deny("deny=['Apache-2.0']", "deny", "License-Expression: MIT", 0)]
+#[case::violation("deny=['MIT']", "deny", "License-Expression: MIT", 1)]
+#[case::incomplete("deny=[]", "deny", "License-Expression: MIT OR", 2)]
+fn cli_json_identifies_selected_policy_mode(
+    #[case] settings: &str,
+    #[case] mode: &str,
+    #[case] fields: &str,
+    #[case] exit: i32,
+) {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path();
+    project(root, fields);
+    std::fs::write(
+        root.join("pyproject.toml"),
+        format!("[tool.taloon]\nschema-version=1\n{settings}"),
+    )
+    .unwrap();
+    // Act
+    let output = invoke(
+        root,
+        &root.join("cache"),
+        &["check", "--offline", "--format", "json"],
+    );
+    // Assert
+    let report = json(&output);
+    assert_eq!(output.status.code(), Some(exit));
+    assert_eq!(report["policy_mode"], mode);
+    if exit != 2 {
+        assert_eq!(
+            report["packages"][0]["artifacts"][0]["decision"]["mode"],
+            mode
+        );
+    }
+    assert!(report.get("allow").is_none());
+    assert!(report.get("deny").is_none());
+}
+
+#[rstest::rstest]
+#[case::allow("allow=[]", "allow")]
+#[case::deny("deny=[]", "deny")]
+fn cli_text_identifies_policy_on_empty_inventory(#[case] settings: &str, #[case] mode: &str) {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path();
+    std::fs::write(root.join("uv.lock"), "version=1\nrevision=5").unwrap();
+    std::fs::write(
+        root.join("pyproject.toml"),
+        format!("[tool.taloon]\nschema-version=1\n{settings}"),
+    )
+    .unwrap();
+    // Act
+    let output = invoke(root, &root.join("cache"), &["check", "--offline"]);
+    // Assert
+    assert_eq!(output.status.code(), Some(0));
+    assert!(
+        String::from_utf8(output.stdout)
+            .unwrap()
+            .contains(&format!("policy: {mode}"))
+    );
+}
+
+#[test]
+fn cli_rejects_both_empty_modes_as_configuration_error() {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path();
+    project(root, "License-Expression: MIT");
+    std::fs::write(
+        root.join("pyproject.toml"),
+        "[tool.taloon]\nschema-version=1\nallow=[]\ndeny=[]",
+    )
+    .unwrap();
+    // Act
+    let output = invoke(
+        root,
+        &root.join("cache"),
+        &["check", "--offline", "--format", "json"],
+    );
+    // Assert
+    assert_eq!(output.status.code(), Some(2));
+    assert_eq!(json(&output)["diagnostics"][0]["code"], "configuration");
+}
+
+#[test]
+fn describe_ignores_deny_policy_and_omits_permission_mode() {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path();
+    project(root, "License-Expression: MIT");
+    std::fs::write(
+        root.join("pyproject.toml"),
+        "[tool.taloon]\nschema-version=1\ndeny=['MIT']",
+    )
+    .unwrap();
+    // Act
+    let output = invoke(
+        root,
+        &root.join("cache"),
+        &["describe", "example", "--offline", "--format", "json"],
+    );
+    // Assert
+    let report = json(&output);
+    assert_eq!(output.status.code(), Some(0));
+    assert!(report.get("policy_mode").is_none());
+    assert!(
+        report["packages"][0]["artifacts"][0]
+            .get("decision")
+            .is_none()
+    );
 }

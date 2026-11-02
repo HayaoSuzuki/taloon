@@ -4,6 +4,10 @@ title: Pure core and acquisition boundary
 description: Approved deep modules and request/result API for license inspection without core I/O.
 status: accepted
 sources:
+- id: deny-policy
+  resource: ../work/deny-policy/plan.md
+  working_tree: untracked
+  sha256: 63afb2f7f520a264139fbb52aa03b1a3b6ec8decc1f803a4c1de804035d27193
 - id: actionable-diagnostics-review
   resource: ../work/actionable-license-diagnostics/review.md
   working_tree: untracked
@@ -385,7 +389,8 @@ and evaluation, not setup or whole-CLI costs.[^policy-evaluation-review]
 Policy stores validated PermissionUnit values, with private canonical text and
 Standard/CustomReference classification. Construction reuses the expression
 owner and requires one atomic license/WITH term. Scope remains a policy rule:
-custom references require hash-bound exceptions. Equality, ordering and borrowed
+custom permissions require hash-bound exceptions; custom denials do not grant
+permission. Equality, ordering and borrowed
 lookup use canonical spelling; native requirement comparison does not implicitly
 change the application's GNU/plus distinctions. No duplicate SPDX catalogue or
 AST is introduced. The existing expression units() API is a cached canonical
@@ -559,3 +564,17 @@ cost justifies a separate structural grouping key.
 [^actionable-diagnostics-review]
 
 [^actionable-diagnostics-review]: [Actionable diagnostic assessment and staged review](../work/actionable-license-diagnostics/review.md).
+
+# Explicit global policy mode
+
+Policy owns one immutable validated atomic-unit set and an Allow/Deny enum.
+This avoids contradictory sets and two independent evaluators. Deny applies its
+membership predicate per parsed standard SPDX requirement before the existing
+Boolean expression evaluator; complementing the final expression would reverse
+AND/OR semantics. Parsed custom references require explicit scoped permission,
+and listed denials win over exceptions. Clarification and evidence owners retain
+their existing contracts. Check reports expose selected mode without serializing
+configuration; describe stays policy free. Reconsider this representation if
+policy composition or precedence becomes configurable.[^deny-policy]
+
+[^deny-policy]: [Deny policy design, alternatives and reviews](../work/deny-policy/plan.md).

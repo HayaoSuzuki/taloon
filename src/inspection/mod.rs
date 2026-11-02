@@ -101,7 +101,7 @@ impl Inspection {
                 ))
             })
             .collect();
-        let report = Report::new(packages, diagnostics);
+        let report = Report::new(packages, diagnostics).with_policy_mode(self.policy.mode());
         if report.status() == Status::Incomplete {
             report
         } else {
