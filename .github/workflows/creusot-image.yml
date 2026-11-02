@@ -1,0 +1,67 @@
+name: Publish pinned Creusot environment
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/creusot-image.yml
+      - formal/creusot/build-image.sh
+      - formal/creusot/prepare-image.sh
+      - formal/creusot/publish-image.sh
+
+permissions:
+  contents: read
+
+concurrency:
+  group: creusot-image-publication
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'HayaoSuzuki/taloon' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check publication boundaries
+        run: |
+          bash formal/creusot/test-build-image.sh
+          bash formal/creusot/test-prepare-image.sh
+          bash formal/creusot/test-registry-image.sh
+          bash formal/creusot/test-publish-image.sh
+      - name: Authenticate to this repository's image registry
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Build, validate and publish the pinned tool environment
+        id: image
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          timeout 1200s bash formal/creusot/publish-image.sh "$RUNNER_TEMP/creusot-image.pin"
+          read -r image _source _builder < "$RUNNER_TEMP/creusot-image.pin"
+          echo "digest=${image##*@}" >> "$GITHUB_OUTPUT"
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-name: ghcr.io/hayaosuzuki/taloon-creusot
+          subject-digest: ${{ steps.image.outputs.digest }}
+          push-to-registry: true
+      - name: Verify provenance and published builder identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash formal/creusot/registry-image.sh "$RUNNER_TEMP/creusot-image.pin" formal/creusot/build-image.sh
+      - name: Retain the actual candidate pin for review
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: creusot-image-pin
+          path: ${{ runner.temp }}/creusot-image.pin
+          if-no-files-found: error
+          retention-days: 90

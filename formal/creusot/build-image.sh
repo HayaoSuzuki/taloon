@@ -3,6 +3,7 @@
 set -euo pipefail
 recipe_revision=7d473e08ec5ebb871e5df541369f247c20ea6c5a
 recipe_archive_sha256=ea4d2ade34657026551c36411b64bb4e8cb3591e9a28919e448a8e456d72d1f3
+builder_hash=$(shasum -a 256 "${BASH_SOURCE[0]}"); builder_hash=${builder_hash%% *}
 build_dir=$(mktemp -d "${TMPDIR:-/tmp}/taloon-creusot-build.XXXXXX")
 trap 'rm -rf "$build_dir"' EXIT
 
@@ -22,6 +23,8 @@ case "${1:-amd64}" in
         ;;
     *) echo 'usage: build-image.sh [amd64|arm64]' >&2; exit 2 ;;
 esac
+build_args+=(--label "io.taloon.creusot.builder-sha256=$builder_hash"
+    --label org.opencontainers.image.source=https://github.com/HayaoSuzuki/taloon)
 # Retry the unchanged build once for transient upstream acquisition failures.
 # Keep Docker's layer cache and one exact context; fetch/checksum failures above
 # remain fatal. CI's existing outer deadline bounds both attempts together.
