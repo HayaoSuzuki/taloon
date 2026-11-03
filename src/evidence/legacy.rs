@@ -45,6 +45,22 @@ impl FileConstraint {
 
 // Whole-value precise names only. Generic family labels are ambiguous.
 const ALIASES: &[(&str, &str)] = &[
+    // Additional spellings: docs/development/work/license-interpretation-extensions/plan.md.
+    ("Mozilla Public License v1.0", "MPL-1.0"),
+    ("Mozilla Public License v1.1", "MPL-1.1"),
+    ("Mozilla Public License v2.0", "MPL-2.0"),
+    ("Mozilla Public License Version 2.0", "MPL-2.0"),
+    ("ZPL 1.1", "ZPL-1.1"),
+    ("Zope Public License Version 1.1", "ZPL-1.1"),
+    ("ZPL 2.0", "ZPL-2.0"),
+    ("Zope Public License Version 2.0", "ZPL-2.0"),
+    ("ZPL 2.1", "ZPL-2.1"),
+    ("Zope Public License Version 2.1", "ZPL-2.1"),
+    ("BSL 1.0", "BSL-1.0"),
+    ("Boost Software License Version 1.0", "BSL-1.0"),
+    ("Eclipse Public License Version 2.0", "EPL-2.0"),
+    ("CDDL v1.0", "CDDL-1.0"),
+    ("CDDL v1.1", "CDDL-1.1"),
     ("Apache License, Version 2.0", "Apache-2.0"),
     ("Apache 2.0", "Apache-2.0"),
     ("BSD 2-Clause License", "BSD-2-Clause"),

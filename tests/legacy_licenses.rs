@@ -84,6 +84,21 @@ fn legacy(value: &str) -> Evidence {
     "GNU Lesser General Public License (LGPL), version 3.0 or later",
     "LGPL-3.0-or-later"
 )]
+#[case::mpl10_v("Mozilla Public License v1.0", "MPL-1.0")]
+#[case::mpl11_v("Mozilla Public License v1.1", "MPL-1.1")]
+#[case::mpl20_v("Mozilla Public License v2.0", "MPL-2.0")]
+#[case::mpl20_version("Mozilla Public License Version 2.0", "MPL-2.0")]
+#[case::zpl11_short("ZPL 1.1", "ZPL-1.1")]
+#[case::zpl11_version("Zope Public License Version 1.1", "ZPL-1.1")]
+#[case::zpl20_short("ZPL 2.0", "ZPL-2.0")]
+#[case::zpl20_version("Zope Public License Version 2.0", "ZPL-2.0")]
+#[case::zpl21_short("ZPL 2.1", "ZPL-2.1")]
+#[case::zpl21_version("Zope Public License Version 2.1", "ZPL-2.1")]
+#[case::bsl10_short("BSL 1.0", "BSL-1.0")]
+#[case::bsl10_version("Boost Software License Version 1.0", "BSL-1.0")]
+#[case::epl20_version("Eclipse Public License Version 2.0", "EPL-2.0")]
+#[case::cddl10_v("CDDL v1.0", "CDDL-1.0")]
+#[case::cddl11_v("CDDL v1.1", "CDDL-1.1")]
 fn precise_legacy_names_are_interpreted_without_archive_proof(
     #[case] value: &str,
     #[case] expected: &str,
@@ -121,6 +136,10 @@ fn precise_legacy_names_are_interpreted_without_archive_proof(
 #[case::mpl_prefix("Modified MPL 2.0")]
 #[case::mpl_inner_spacing("MPL  2.0")]
 #[case::dual_unspecified("Dual License")]
+#[case::zpl_unspecified("ZPL")]
+#[case::zpl_unknown_version("ZPL 9.0")]
+#[case::zpl_additional_conditions("ZPL 2.1, noncommercial use only")]
+#[case::psfl_unspecified("PSFL")]
 #[case::gpl_version_only("GPL v2")]
 #[case::lgpl_version_only("LGPL 2.1")]
 #[case::cddl_unspecified("CDDL")]
@@ -234,6 +253,7 @@ fn complete_legacy_variants_preserve_sidecar_proof(
     "License-Expression: MIT\nLicense-Expression: MIT\nLicense: MPL 2.0",
     None
 )]
+#[case::zpl_invalid_expression("License-Expression: ZPL 2.1\nLicense: ZPL 2.1", None)]
 fn field_priority_and_cardinality_remain_strict(
     #[case] fields: &str,
     #[case] expected: Option<&str>,
@@ -276,6 +296,8 @@ fn field_priority_and_cardinality_remain_strict(
 #[case::mpl_text_deny(spdx::license_id("MPL-2.0").unwrap().text(), "deny=['MPL-2.0']", 1)]
 #[case::mit_bare_allow(&common::license_text::Variant::MitBare.text(), "allow=['MIT']", 0)]
 #[case::mit_bare_deny(&common::license_text::Variant::MitBare.text(), "deny=['MIT']", 1)]
+#[case::zpl_allowed("ZPL 2.1", "allow=['ZPL-2.1']", 0)]
+#[case::zpl_denied("ZPL 2.1", "deny=['ZPL-2.1']", 1)]
 fn interpreted_legacy_declaration_obeys_policy(
     #[case] value: &str,
     #[case] policy: &str,
@@ -308,6 +330,35 @@ fn interpreted_legacy_declaration_obeys_policy(
 }
 
 proptest! {
+    #[test]
+    fn additional_versioned_aliases_ignore_outer_whitespace_and_ascii_case(
+        (name, expected) in prop::sample::select(vec![
+            ("ZPL 2.1", "ZPL-2.1"), ("BSL 1.0", "BSL-1.0"),
+            ("Mozilla Public License v1.0", "MPL-1.0"), ("CDDL v1.1", "CDDL-1.1"),
+        ]),
+        before in "[ \t]{0,8}", after in "[ \t]{0,8}",
+    ) {
+        // Arrange
+        let evidence = legacy(&format!("{before}{}{after}", name.to_ascii_lowercase()));
+        // Act
+        let actual = evidence.license().unwrap();
+        // Assert
+        prop_assert_eq!(actual.text(), expected);
+    }
+
+    #[test]
+    fn additional_versioned_aliases_do_not_hide_conditions(
+        name in prop::sample::select(vec!["ZPL 2.1", "BSL 1.0", "Mozilla Public License v1.0", "CDDL v1.1"]),
+        condition in "[a-z]{1,24}",
+    ) {
+        // Arrange
+        let evidence = legacy(&format!("{name}, additional condition: {condition}"));
+        // Act
+        let result = evidence.license();
+        // Assert
+        prop_assert!(result.is_err());
+    }
+
     #[test]
     fn reviewed_alias_case_and_outer_whitespace_preserve_identity(
         (name, expected) in prop::sample::select(vec![

@@ -26,6 +26,11 @@ version/clause aliases include `Apache 2.0`, `BSD 2-Clause License`, `MPL 1.1`
 and `MPL 2.0`. The Mozilla names `Mozilla Public License Version 1.1` and
 `Mozilla Public License, Version 2.0` are also supported. The MPL names resolve to
 MPL-1.1 and MPL-2.0 respectively and undergo the normal allow/deny policy check.
+Additional reviewed versions include `Mozilla Public License v1.0` / `v1.1` /
+`v2.0`, `ZPL 1.1` / `2.0` / `2.1`, `BSL 1.0` and `CDDL v1.0` / `v1.1`.
+The full versioned names `Zope Public License Version 2.1`,
+`Boost Software License Version 1.0` and `Eclipse Public License Version 2.0`
+are supported as well. Versionless family names do not acquire a default version.
 Name matching uses the whole value, trims outer whitespace and ignores ASCII
 case; it does not collapse internal spaces or remove additional terms.
 Other reviewed names include `The MIT License`, `Apache License (v2.0)`,

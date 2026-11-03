@@ -1447,6 +1447,9 @@ fn cached_sidecar_upgrade_does_not_refetch_metadata(
 #[case::cc0("CC0 1.0 Universal", "CC0-1.0")]
 #[case::gpl_later("GNU General Public License v2 or later", "GPL-2.0-or-later")]
 #[case::lgpl_later("LGPL, v2.1 or later", "LGPL-2.1-or-later")]
+#[case::zpl_versioned("ZPL 2.1", "ZPL-2.1")]
+#[case::bsl_versioned("BSL 1.0", "BSL-1.0")]
+#[case::mpl_v_prefix("Mozilla Public License v1.0", "MPL-1.0")]
 fn cached_legacy_names_need_no_new_evidence(
     #[case] value: &str,
     #[case] expected: &str,

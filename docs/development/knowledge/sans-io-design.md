@@ -4,6 +4,10 @@ title: Pure core and acquisition boundary
 description: Approved deep modules and request/result API for license inspection without core I/O.
 status: accepted
 sources:
+- id: interpretation-extensions
+  resource: ../work/license-interpretation-extensions/review.md
+  working_tree: untracked
+  sha256: eef6f787f0ab8acfc6e2594e5ab63a06d9727f52eaed4f94fc041c11fb2cdcdb
 - id: complete-text-variants
   resource: ../work/license-text-variants/review.md
   working_tree: modified
@@ -533,6 +537,11 @@ representation change.[^bundled-license-review]
 
 # Legacy-field interpretation ownership
 
+Additional fixed versioned aliases remain owned by the private legacy module.
+They reuse current evidence interpretation without a registry, configuration
+switch or extra acquisition. The finite accepted/rejected follow-up set is
+documented with its released SPDX reference.[^interpretation-extensions]
+
 Complete-template recognition is shared by legacy fields and bundled files.
 It keeps license-specific mandatory/optional sections and exact variants behind
 the existing expression result, using process-local pinned canonical strings.
@@ -575,6 +584,7 @@ expression priority and raw line boundaries.[^legacy-license-review]
 
 [^legacy-license-review]: [Legacy interpretation design and staged review](../work/legacy-license-interpretation/review.md).
 [^versioned-license-aliases]: [Versioned alias scope and design](../work/versioned-license-aliases/plan.md).
+[^interpretation-extensions]: [Additional interpretation design and reviews](../work/license-interpretation-extensions/review.md).
 [^complete-text-variants]: [Complete-template variant design and review](../work/license-text-variants/review.md).
 
 [^constrained-supplement-review]: [Constrained supplementation staged review](../work/constrained-license-supplementation/review.md).

@@ -4,6 +4,10 @@ title: License inspection specification
 description: Approved design for uv.lock coverage, Python license policy, evidence, and command behavior.
 status: accepted
 sources:
+- id: interpretation-extensions
+  resource: ../work/license-interpretation-extensions/review.md
+  working_tree: untracked
+  sha256: eef6f787f0ab8acfc6e2594e5ab63a06d9727f52eaed4f94fc041c11fb2cdcdb
 - id: complete-text-variants
   resource: ../work/license-text-variants/review.md
   working_tree: modified
@@ -159,6 +163,11 @@ The subset is checked against a pinned public mapping rather than importing
 ambiguous upstream entries. Reconsider individual aliases if their identity
 becomes disputed or conflicts with the pinned SPDX catalog.
 [^versioned-license-aliases]
+
+The finite follow-up alias set includes additional explicit MPL, ZPL, BSL, EPL
+and CDDL version spellings reviewed against released SPDX v3.29.0 identifiers.
+The table, accepted list and rejected ambiguous families are recorded together;
+no runtime version inference or source lookup is added.[^interpretation-extensions]
 
 The same fixed table includes individually reviewed variants for MIT,
 Apache-2.0, clause-specific BSD, versioned CDDL/EPL and CC0-1.0.
@@ -572,6 +581,7 @@ Issue #15; parser and cryptographic correctness are separate boundaries.
 
 [^legacy-license-review]: [Legacy-field interpretation and structured-notice reviews](../work/legacy-license-interpretation/review.md).
 [^versioned-license-aliases]: [Versioned alias design and reference](../work/versioned-license-aliases/plan.md).
+[^interpretation-extensions]: [Additional interpretation design and staged reviews](../work/license-interpretation-extensions/review.md).
 [^complete-text-variants]: [Complete-text variant scope, staged review and verification](../work/license-text-variants/review.md).
 
 [^constrained-supplement-review]: [Constrained supplementation staged review](../work/constrained-license-supplementation/review.md).
