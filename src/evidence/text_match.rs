@@ -2,6 +2,9 @@
 
 use std::sync::LazyLock;
 
+#[cfg(test)]
+mod variants_tests;
+
 // SPDX canonical texts are supplied by the `spdx` crate's `text` feature
 // (https://github.com/EmbarkStudios/spdx); no copied text catalog is maintained here.
 const SUPPORTED: [&str; 5] = ["MIT", "BSD-2-Clause", "BSD-3-Clause", "ISC", "Apache-2.0"];
@@ -29,7 +32,7 @@ pub(super) fn identify(text: &str) -> Option<&'static str> {
                 return true;
             }
             if *id == "Apache-2.0" {
-                return false;
+                return apache_matches(original, &text, canonical);
             }
             let start = if id.starts_with("BSD-") {
                 "Redistribution and use"
@@ -47,6 +50,46 @@ pub(super) fn identify(text: &str) -> Option<&'static str> {
                 && body_matches(body, expected, id)
         })
         .map(|(id, _)| *id)
+}
+
+/// SPDX marks the application appendix optional and its identifying field
+/// replaceable. Every mandatory term and every other appendix word stays exact.
+fn apache_matches(original: &str, text: &str, canonical: &str) -> bool {
+    let (terms, _) = canonical.split_once(" APPENDIX:").expect("Apache appendix");
+    if text == terms {
+        return true;
+    }
+    let (before, after) = canonical
+        .split_once("[yyyy] [name of copyright owner]")
+        .expect("Apache identifying field");
+    let Some(field) = text
+        .strip_prefix(before)
+        .and_then(|s| s.strip_suffix(after))
+    else {
+        return false;
+    };
+    // A field cannot consume extra lines of conditions, even after unfolding.
+    let mut notices = original
+        .lines()
+        .filter_map(|line| line.trim().strip_prefix("Copyright "));
+    let Some(notice) = notices.next() else {
+        return false;
+    };
+    if notices.next().is_some() || field != words(notice) {
+        return false;
+    }
+    let identifying = if let Some(bracketed) = notice.strip_prefix('[') {
+        let Some((year, holder)) = bracketed
+            .strip_suffix(']')
+            .and_then(|s| s.split_once("] ["))
+        else {
+            return false;
+        };
+        format!("Copyright {year} {holder}")
+    } else {
+        format!("Copyright {notice}")
+    };
+    copyright_line(&identifying)
 }
 
 fn words(text: &str) -> String {
