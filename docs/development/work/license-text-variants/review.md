@@ -33,3 +33,17 @@ The [design](plan.md) records pinned sources, alternatives and scope.
 5. Design/source accuracy: one shared attribution owner avoids different holder
    rules in each license branch. Existing corporate/role cases still pass; fixed
    reserved terms prevent common condition phrases from becoming personal names.
+
+## MPL stage: five self-review passes
+
+1. Semantics: complete pinned MPL-2.0 text, including both exhibits; only the
+   historical HTTP locator in its canonical position differs from HTTPS.
+2. Whole-input boundary: removed exhibits, changed grant/secondary-license
+   wording, different locators and generated appended conditions remain unknown.
+3. Evidence/I/O: pure string comparison, no URL resolution, new observations or
+   permission inference. Existing metadata spans and proof remain unchanged.
+4. Tests: both complete-text cases failed first; all eight new cases passed
+   after connection. Text tests: 121 passed. Workspace: 929 passed, 18 ignored.
+5. Design/source accuracy: array length derives from the supported template set;
+   unknown future templates no longer implicitly use ISC's body marker. No full
+   SPDX enum or generic template language is introduced for six supported texts.

@@ -7,9 +7,16 @@ mod variants_tests;
 
 // SPDX canonical texts are supplied by the `spdx` crate's `text` feature
 // (https://github.com/EmbarkStudios/spdx); no copied text catalog is maintained here.
-const SUPPORTED: [&str; 5] = ["MIT", "BSD-2-Clause", "BSD-3-Clause", "ISC", "Apache-2.0"];
+const SUPPORTED: [&str; 6] = [
+    "MIT",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Apache-2.0",
+    "MPL-2.0",
+];
 
-static CANONICAL: LazyLock<[(&str, String); 5]> = LazyLock::new(|| {
+static CANONICAL: LazyLock<[(&str, String); SUPPORTED.len()]> = LazyLock::new(|| {
     SUPPORTED.map(|id| {
         let text = spdx::text::LICENSE_TEXTS
             .iter()
@@ -34,12 +41,22 @@ pub(super) fn identify(text: &str) -> Option<&'static str> {
             if *id == "Apache-2.0" {
                 return apache_matches(original, &text, canonical);
             }
-            let start = if id.starts_with("BSD-") {
-                "Redistribution and use"
-            } else if *id == "MIT" {
-                "Permission is hereby granted"
-            } else {
-                "Permission to use"
+            if *id == "MPL-2.0" {
+                // Only this locator's scheme varies. All terms and both
+                // exhibits, including secondary-license wording, stay exact.
+                let (before, after) = canonical
+                    .split_once("https://mozilla.org/MPL/2.0/.")
+                    .expect("MPL exhibit locator");
+                return text
+                    .strip_prefix(before)
+                    .and_then(|s| s.strip_prefix("http://mozilla.org/MPL/2.0/."))
+                    == Some(after);
+            }
+            let start = match *id {
+                "BSD-2-Clause" | "BSD-3-Clause" => "Redistribution and use",
+                "MIT" => "Permission is hereby granted",
+                "ISC" => "Permission to use",
+                _ => return false,
             };
             let Some((header, body)) = text.split_once(start) else {
                 return false;

@@ -137,7 +137,68 @@ fn mit_rejects_material_disguised_as_attribution(#[case] header: &str) {
     assert_eq!(actual, None);
 }
 
+#[rstest]
+#[case::canonical(false)]
+#[case::historical_url(true)]
+fn mpl_accepts_complete_text_with_reviewed_locator(#[case] historical_url: bool) {
+    // Arrange
+    let text = if historical_url {
+        canonical("MPL-2.0").replace(
+            "https://mozilla.org/MPL/2.0/.",
+            "http://mozilla.org/MPL/2.0/.",
+        )
+    } else {
+        canonical("MPL-2.0").to_owned()
+    };
+    // Act
+    let actual = identify(&text);
+    // Assert
+    assert_eq!(actual, Some("MPL-2.0"));
+}
+
+#[rstest]
+#[case::missing_both("Exhibit A - Source Code Form License Notice")]
+#[case::missing_exhibit_b("Exhibit B - \"Incompatible With Secondary Licenses\" Notice")]
+fn mpl_rejects_missing_exhibits(#[case] boundary: &str) {
+    // Arrange
+    let text = canonical("MPL-2.0").split_once(boundary).unwrap().0;
+    // Act
+    let actual = identify(text);
+    // Assert
+    assert_eq!(actual, None);
+}
+
+#[rstest]
+#[case::changed_grant("royalty-free", "royalty-bearing")]
+#[case::changed_secondary_licenses(
+    "Incompatible With Secondary Licenses",
+    "Compatible With Secondary Licenses"
+)]
+#[case::unreviewed_locator("https://mozilla.org/MPL/2.0/.", "https://example.test/MPL/2.0/.")]
+fn mpl_rejects_changed_complete_text(#[case] from: &str, #[case] to: &str) {
+    // Arrange
+    let text = canonical("MPL-2.0").replace(from, to);
+    assert_ne!(text, canonical("MPL-2.0"));
+    // Act
+    let actual = identify(&text);
+    // Assert
+    assert_eq!(actual, None);
+}
+
 proptest! {
+    #[test]
+    fn mpl_additional_conditions_remain_unknown(word in "[a-z]{1,30}", historical_url in any::<bool>()) {
+        // Arrange
+        let source = if historical_url {
+            canonical("MPL-2.0").replace("https://mozilla.org/MPL/2.0/.", "http://mozilla.org/MPL/2.0/.")
+        } else { canonical("MPL-2.0").to_owned() };
+        let text = format!("{source}\nAdditional condition: {word}");
+        // Act
+        let actual = identify(&text);
+        // Assert
+        prop_assert_eq!(actual, None);
+    }
+
     #[test]
     fn contact_paths_cannot_be_normalized_into_origins(path in "[a-z]{1,24}") {
         // Arrange
