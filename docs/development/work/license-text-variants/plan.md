@@ -24,10 +24,13 @@ The pinned SPDX XML reference is
   single-line structured copyright year/holder (including paired bracket form).
   Do not accept a truncated appendix, changed terms or appended material.
 - MIT retains the complete existing body. Permit the exact alternate title
-  `The MIT License (MIT)`, bounded comma-separated two-word personal names and
+  `The MIT License (MIT)`, exactly two comma-separated two-word personal names and
   a final parenthesized HTTP(S) origin as contact attribution. Origins must have
   no credentials, query, fragment or non-root path. Holder validation and raw
-  line boundaries remain authoritative; no arbitrary prose is removed.
+  line boundaries remain authoritative; no arbitrary prose is removed. The shared
+  copyright validator also applies those attribution forms to existing BSD/ISC
+  and Apache notices; only the title extension is MIT-specific. This is a bounded
+  lexical grammar, not proof of a holder's identity or licensing completeness.
 - MPL-2.0 uses the full pinned SPDX text, including both exhibits. Accept the
   single historical `http://mozilla.org/MPL/2.0/.` spelling in the same position
   as canonical HTTPS. No exhibit, secondary-license condition or other wording

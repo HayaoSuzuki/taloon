@@ -120,7 +120,7 @@ fn attribution(original: &str, normalized_header: &str, id: &str) -> bool {
     };
     if matches!(
         (id, header),
-        ("MIT", "MIT License") | ("ISC", "ISC License")
+        ("MIT", "MIT License" | "The MIT License (MIT)") | ("ISC", "ISC License")
     ) {
         let Some(copyright) = lines.next() else {
             return false;
@@ -183,6 +183,12 @@ fn corporate_abbreviation(token: &str) -> bool {
 
 fn holder_name(holder: &str) -> bool {
     let holder = holder.strip_suffix('.').unwrap_or(holder);
+    let Some(holder) = without_contact_origin(holder) else {
+        return false;
+    };
+    if two_person_names(holder) {
+        return true;
+    }
     let mut tokens = holder.split_whitespace().peekable();
     let mut named = false;
     let mut final_connector = false;
@@ -219,6 +225,44 @@ fn holder_name(holder: &str) -> bool {
     named && !final_connector
 }
 
+/// A narrow two-person attribution, not an arbitrary comma-delimited clause.
+fn two_person_names(holder: &str) -> bool {
+    let Some((first, second)) = holder.split_once(',') else {
+        return false;
+    };
+    [first, second].into_iter().all(|person| {
+        let mut words = person.split_whitespace();
+        matches!((words.next(), words.next(), words.next()), (Some(given), Some(family), None)
+            if !given.starts_with('<') && !family.starts_with('<')
+                && holder_token(given) && holder_token(family))
+    })
+}
+
+/// Accept a final parenthesized web origin as contact notation, never fetch it.
+/// Paths, credentials and parameters cannot carry extra terms through this rule.
+fn without_contact_origin(holder: &str) -> Option<&str> {
+    let Some((name, contact)) = holder.rsplit_once(" (") else {
+        return Some(holder);
+    };
+    let contact = contact.strip_suffix(')')?;
+    if contact.chars().any(char::is_whitespace) {
+        return None;
+    }
+    let url = url::Url::parse(contact).ok()?;
+    // Require a literal origin spelling: URL parsing can erase dot segments or
+    // normalize backslashes, which must not conceal a non-root input path.
+    let origin = url.origin().ascii_serialization();
+    (matches!(url.scheme(), "http" | "https")
+        && contact.strip_suffix('/').unwrap_or(contact) == origin
+        && url.host_str().is_some()
+        && url.username().is_empty()
+        && url.password().is_none()
+        && url.path() == "/"
+        && url.query().is_none()
+        && url.fragment().is_none())
+    .then_some(name)
+}
+
 fn holder_token(token: &str) -> bool {
     if let Some(email) = token.strip_prefix('<').and_then(|s| s.strip_suffix('>')) {
         return email.contains('@')
@@ -251,6 +295,14 @@ fn holder_token(token: &str) -> bool {
                 | "prohibited"
                 | "except"
                 | "without"
+                | "consent"
+                | "required"
+                | "requires"
+                | "redistribution"
+                | "restricted"
+                | "restrictions"
+                | "must"
+                | "shall"
         )
 }
 

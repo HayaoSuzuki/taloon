@@ -82,7 +82,92 @@ fn apache_rejects_changed_mandatory_terms(#[case] appendix: bool) {
     assert_eq!(actual, None);
 }
 
+fn mit_with_header(header: &str) -> String {
+    let (_, body) = canonical("MIT")
+        .split_once("Permission is hereby granted")
+        .unwrap();
+    format!("{header}\n\nPermission is hereby granted{body}")
+}
+
+#[rstest]
+#[case::alternate_title("The MIT License (MIT)\nCopyright (c) 2026 Example Author")]
+#[case::two_persons("Copyright (c) 2026 Example Author, Other Writer.")]
+#[case::https_contact("Copyright (c) 2026 Example Author (https://author.example/)")]
+#[case::http_contact("Copyright (c) 2026 Example Author (http://author.example/)")]
+#[case::email_and_contact(
+    "Copyright (c) 2026 Example Author <author@example.org> (https://author.example/)"
+)]
+fn mit_accepts_reviewed_attribution_formats(#[case] header: &str) {
+    // Arrange
+    let text = mit_with_header(header);
+    // Act
+    let actual = identify(&text);
+    // Assert
+    assert_eq!(actual, Some("MIT"));
+}
+
+#[rstest]
+#[case::title_condition(
+    "The MIT License (MIT) for noncommercial use\nCopyright (c) 2026 Example Author"
+)]
+#[case::comma_condition("Copyright (c) 2026 Example Author, Redistribution Requires Consent")]
+#[case::short_condition("Copyright (c) 2026 Example Author, Consent Required")]
+#[case::third_clause("Copyright (c) 2026 Example Author, Other Writer, Consent Required")]
+#[case::url_condition(
+    "Copyright (c) 2026 Example Author (https://author.example/) noncommercial use only"
+)]
+#[case::url_path("Copyright (c) 2026 Example Author (https://author.example/extra-terms)")]
+#[case::url_dot_path("Copyright (c) 2026 Example Author (https://author.example/extra-terms/..)")]
+#[case::url_encoded_dot_path("Copyright (c) 2026 Example Author (https://author.example/%2e/)")]
+#[case::url_backslashes(
+    "Copyright (c) 2026 Example Author (https://author.example\\extra-terms\\..)"
+)]
+#[case::url_query("Copyright (c) 2026 Example Author (https://author.example/?terms=restricted)")]
+#[case::url_fragment("Copyright (c) 2026 Example Author (https://author.example/#conditions)")]
+#[case::url_credentials("Copyright (c) 2026 Example Author (https://user@host.example/)")]
+#[case::url_wrong_scheme("Copyright (c) 2026 Example Author (file:///author)")]
+#[case::url_without_holder("Copyright (c) 2026 (https://author.example/)")]
+#[case::url_on_extra_line("Copyright (c) 2026 Example Author\n(https://author.example/)")]
+fn mit_rejects_material_disguised_as_attribution(#[case] header: &str) {
+    // Arrange
+    let text = mit_with_header(header);
+    // Act
+    let actual = identify(&text);
+    // Assert
+    assert_eq!(actual, None);
+}
+
 proptest! {
+    #[test]
+    fn contact_paths_cannot_be_normalized_into_origins(path in "[a-z]{1,24}") {
+        // Arrange
+        let text = mit_with_header(&format!("Copyright (c) 2026 Example Author (https://author.example/{path}/..)"));
+        // Act
+        let actual = identify(&text);
+        // Assert
+        prop_assert_eq!(actual, None);
+    }
+
+    #[test]
+    fn mit_two_person_notices_preserve_complete_body(first in "Given[a-z]{2,10}", second in "Other[a-z]{2,10}", year in 1900_u16..2100) {
+        // Arrange
+        let text = mit_with_header(&format!("Copyright (c) {year} {first} Family, {second} Writer."));
+        // Act
+        let actual = identify(&text);
+        // Assert
+        prop_assert_eq!(actual, Some("MIT"));
+    }
+
+    #[test]
+    fn mit_contact_origins_do_not_hide_following_terms(word in "[a-z]{1,30}") {
+        // Arrange
+        let text = mit_with_header(&format!("Copyright (c) 2026 Example Author (https://author.example/) {word}"));
+        // Act
+        let actual = identify(&text);
+        // Assert
+        prop_assert_eq!(actual, None);
+    }
+
     #[test]
     fn apache_appendix_identifying_information_is_variable(year in 1900_u16..2100, name in "Author[a-z]{2,15}") {
         // Arrange
