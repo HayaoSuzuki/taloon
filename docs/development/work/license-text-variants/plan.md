@@ -69,3 +69,33 @@ generated variants belong in strategies. Five self-review passes per stage cover
 whole-input boundaries, proof/I/O, independent tests and source/document accuracy.
 Final independent review covers the whole stacked diff. Existing formal proofs
 do not prove license identities; no decision algorithm changes in this work.
+
+## MIT preamble extension
+
+The [released SPDX v3.29.0 MIT data](https://github.com/spdx/license-list-data/blob/v3.29.0/json/details/MIT.json)
+and [normative matching guidelines](https://spdx.github.io/spdx-spec/v3.0.1/annexes/license-matching-guidelines-and-templates/)
+permit title/copyright variations while prohibiting additional substantive text.
+Retain exact mandatory-body matching and validate every preceding raw line.
+Do not execute the template's unrestricted copyright wildcard.
+
+A private MIT-only preamble module owns these additional forms: no preamble;
+known MIT titles, optionally prefixed with one Markdown heading marker;
+yearless structured holder notices; comma-separated dated holder groups; a
+single name-shaped parenthesized alias followed by `and contributors`; and up
+to two final bare contact domains following a valid copyright notice.
+Year ranges may contain whitespace around their dash. A named corporate group
+may be followed by the exact role `and affiliates` or `and contributors`.
+Use an explicit notice/contact state and retain the existing shared holder
+validator. Unknown lines, notices after contacts, title restrictions, non-domain
+contact text, excess counts and changed/extra mandatory-body text stay unknown.
+The preamble is limited to 5,000 bytes, at most 32 notices and 32 dated groups
+per notice. Earlier accepted attribution rules remain available unchanged.
+
+Broaden only MIT: loosening the shared copyright grammar or treating all text
+before the grant as replaceable would hide conditions in unrelated templates.
+No new dependency, transport, proof, policy, field eligibility or cache schema.
+
+Execution: write independent named/proptest synthetic regressions and observe
+their failures; implement the bounded parser; exercise public evidence/cache
+paths; run checks and five self-review passes; update the current owners and
+the existing PR. Fixtures use invented holders and reserved example domains.

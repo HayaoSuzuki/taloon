@@ -127,3 +127,31 @@ separate reviewed evidence/design rather than a more permissive substring rule.
 A single final debug CLI run took about 0.80 seconds, including report rendering
 but excluding uv startup. This is a warm-cache observation, not a controlled
 performance comparison or an initial-download measurement.
+
+## MIT preamble extension: five self-review passes
+
+This addendum is based on `4932769c69ca18f3e4cdb72b667d6e40f7c79219`.
+Fixtures and rationale below use released SPDX data and invented attributions.
+
+1. Semantics: compared the pinned mandatory MIT body with released v3.29.0;
+   verified the normative distinction between replaceable notices/titles and
+   additional substantive text. Do not implement the copyright wildcard.
+2. Whole-input boundaries: mandatory body equality precedes the MIT fallback.
+   Every raw prefix line must be a known title, structured notice or bounded
+   final contact; changed bodies and unknown/additional material stay unknown.
+3. Types and limits: an explicit Notices/Contacts phase rejects notices after
+   contacts and contacts without a notice. Bounds are 5,000 prefix bytes, 32
+   notices, 32 dated groups and two domains. Other license branches are unchanged.
+4. Tests: initial ten new positive/property cases failed before connection;
+   two further named range/role cases failed before their narrow extensions.
+   All 45 synthetic preamble cases/properties now pass, including negative and
+   maximum/excess boundaries. New test bodies have no fixture-selection branches.
+5. Design and proof: private MIT ownership avoids expanding shared heuristics.
+   Original metadata/file bytes, hashes, priority, evidence strength and policy
+   evaluation remain unchanged. The independent reviewer found no actionable
+   issues; attribution grammar remains lexical rather than authorship proof.
+
+The scoped design retains 10/10 across the eight design diagnostics: meaningful
+private ownership and state, unchanged deep interface, hidden license-specific
+rules, documented boundaries, implementation replaceability and explicit review
+and design work. No diagnostic failed for this extension.

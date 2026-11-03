@@ -1,7 +1,10 @@
 //! Conservative, complete-text matching of selected SPDX license texts.
 
 use std::sync::LazyLock;
+mod mit_preamble;
 
+#[cfg(test)]
+mod mit_preamble_tests;
 #[cfg(test)]
 mod variants_tests;
 
@@ -63,8 +66,11 @@ pub(super) fn identify(text: &str) -> Option<&'static str> {
             };
             let (canonical_header, expected) =
                 canonical.split_once(start).expect("canonical body marker");
-            (header == canonical_header || attribution(original, header, id))
-                && body_matches(body, expected, id)
+            body_matches(body, expected, id)
+                && (header == canonical_header
+                    || attribution(original, header, id)
+                    || (*id == "MIT"
+                        && raw_header(original, header).is_some_and(mit_preamble::matches)))
         })
         .map(|(id, _)| *id)
 }
@@ -113,7 +119,7 @@ fn words(text: &str) -> String {
     text.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-fn attribution(original: &str, normalized_header: &str, id: &str) -> bool {
+fn raw_header<'a>(original: &'a str, normalized_header: &str) -> Option<&'a str> {
     // Locate the body by token count, preserving the original header's line
     // boundaries even when whitespace inside the body has been reformatted.
     let mut in_word = false;
@@ -125,10 +131,14 @@ fn attribution(original: &str, normalized_header: &str, id: &str) -> bool {
             starts_word.then_some(offset)
         })
         .nth(normalized_header.split_whitespace().count());
-    let Some(body_offset) = body_offset else {
+    Some(&original[..body_offset?])
+}
+
+fn attribution(original: &str, normalized_header: &str, id: &str) -> bool {
+    let Some(header) = raw_header(original, normalized_header) else {
         return false;
     };
-    let mut lines = original[..body_offset]
+    let mut lines = header
         .lines()
         .map(str::trim)
         .filter(|line| !line.is_empty());
