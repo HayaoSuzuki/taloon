@@ -1290,6 +1290,12 @@ fn bundled_fallback_only_fetches_archives_for_absent_declarations(
 #[rstest::rstest]
 #[case::recognized(spdx::license_id("MIT").unwrap().text(),Some("MIT"))]
 #[case::unrecognized("custom terms", None)]
+#[case::apache_terms(&crate::testfixtures::license_text::Variant::ApacheTerms.text(), Some("Apache-2.0"))]
+#[case::apache_appendix(&crate::testfixtures::license_text::Variant::ApacheAppendix.text(), Some("Apache-2.0"))]
+#[case::mit_names(&crate::testfixtures::license_text::Variant::MitNames.text(), Some("MIT"))]
+#[case::mit_contact(&crate::testfixtures::license_text::Variant::MitContact.text(), Some("MIT"))]
+#[case::mpl_locator(&crate::testfixtures::license_text::Variant::MplLocator.text(), Some("MPL-2.0"))]
+#[case::bsd_plural(&crate::testfixtures::license_text::Variant::BsdPlural.text(), Some("BSD-3-Clause"))]
 fn completed_bundled_scan_uses_no_network_on_next_run(
     #[case] text: &str,
     #[case] expected: Option<&str>,
@@ -1310,6 +1316,8 @@ fn completed_bundled_scan_uses_no_network_on_next_run(
     assert_eq!(fixture.count(), before);
     assert_eq!(summary.network_requests, 0);
     assert_eq!(summary.cache_hits, 1);
+    assert_eq!(summary.downloaded_bytes, 0);
+    assert_eq!(summary.archive_extractions, 0);
     assert_eq!(
         evidence
             .license()
@@ -1318,6 +1326,57 @@ fn completed_bundled_scan_uses_no_network_on_next_run(
             .map(taloon::policy::LicenseExpression::text),
         expected
     );
+}
+
+#[rstest::rstest]
+#[case::apache_terms(crate::testfixtures::license_text::Variant::ApacheTerms, "Apache-2.0")]
+#[case::apache_appendix(
+    crate::testfixtures::license_text::Variant::ApacheAppendix,
+    "Apache-2.0"
+)]
+#[case::mit_names(crate::testfixtures::license_text::Variant::MitNames, "MIT")]
+#[case::mit_contact(crate::testfixtures::license_text::Variant::MitContact, "MIT")]
+#[case::mpl_locator(crate::testfixtures::license_text::Variant::MplLocator, "MPL-2.0")]
+#[case::bsd_plural(crate::testfixtures::license_text::Variant::BsdPlural, "BSD-3-Clause")]
+fn complete_legacy_text_cache_needs_no_new_acquisition(
+    #[case] variant: crate::testfixtures::license_text::Variant,
+    #[case] expected: &str,
+    #[values(false, true)] offline: bool,
+) {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let fields = format!("License: {}", variant.text().replace('\n', "\n "));
+    let (fixture, request, metadata) = bundled_fixture(&fields, "unused file");
+    let acquirer = Acquirer::with_transport(
+        AcquisitionOptions::testing(temp.path(), offline),
+        fixture.clone(),
+    )
+    .unwrap();
+    let hash = request.hash().unwrap();
+    let evidence = Evidence::from_sidecar(
+        &request,
+        taloon::evidence::SidecarAssociation::new(hash, hash, ContentHash::digest(&metadata))
+            .unwrap(),
+        &metadata,
+    )
+    .unwrap();
+    acquirer.cache.put(&request, &evidence).unwrap();
+    // Act
+    let (restored, summary) = acquire_bundled(&acquirer, &request);
+    // Assert
+    assert_eq!(restored.license().unwrap().text(), expected);
+    assert_eq!(restored.content_hash(), hash);
+    assert_eq!(
+        restored.summary().metadata_hash,
+        ContentHash::digest(&metadata)
+    );
+    assert!(restored.requirement_satisfied(EvidenceRequirement::IndexAssociated));
+    assert!(!restored.requirement_satisfied(EvidenceRequirement::ArchiveVerified));
+    assert_eq!(summary.network_requests, 0);
+    assert_eq!(summary.downloaded_bytes, 0);
+    assert_eq!(summary.archive_extractions, 0);
+    assert_eq!(summary.cache_hits, 1);
+    assert_eq!(fixture.count(), 0);
 }
 #[rstest::rstest]
 #[case::online(false, 1, Some("MIT"))]

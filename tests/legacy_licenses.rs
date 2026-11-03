@@ -173,6 +173,7 @@ fn valid_legacy_expressions_keep_their_semantics(#[case] text: &str) {
 #[case::bsd3("BSD-3-Clause")]
 #[case::isc("ISC")]
 #[case::apache("Apache-2.0")]
+#[case::mpl("MPL-2.0")]
 fn complete_legacy_text_is_interpreted_from_metadata(#[case] id: &str) {
     // Arrange
     let text = spdx::license_id(id).unwrap().text();
@@ -185,6 +186,31 @@ fn complete_legacy_text_is_interpreted_from_metadata(#[case] id: &str) {
     assert!(!evidence.requirement_satisfied(EvidenceRequirement::ArchiveVerified));
     assert_eq!(evidence.summary().original_expression, Vec::<String>::new());
     assert_ne!(evidence.summary().original_license[0], "");
+}
+
+#[rstest]
+#[case::apache_terms(common::license_text::Variant::ApacheTerms, "Apache-2.0")]
+#[case::apache_appendix(common::license_text::Variant::ApacheAppendix, "Apache-2.0")]
+#[case::mit_names(common::license_text::Variant::MitNames, "MIT")]
+#[case::mit_contact(common::license_text::Variant::MitContact, "MIT")]
+#[case::mpl_locator(common::license_text::Variant::MplLocator, "MPL-2.0")]
+#[case::bsd_plural(common::license_text::Variant::BsdPlural, "BSD-3-Clause")]
+fn complete_legacy_variants_preserve_sidecar_proof(
+    #[case] variant: common::license_text::Variant,
+    #[case] expected: &str,
+) {
+    // Arrange
+    let evidence = legacy(&variant.text());
+    // Act
+    let expression = evidence.license().unwrap();
+    // Assert
+    assert_eq!(expression.text(), expected);
+    assert!(evidence.requirement_satisfied(EvidenceRequirement::IndexAssociated));
+    assert!(!evidence.requirement_satisfied(EvidenceRequirement::ArchiveVerified));
+    assert_eq!(
+        evidence.summary().license_origin,
+        Some(taloon::evidence::LicenseOrigin::LegacyDeclaration)
+    );
 }
 #[rstest]
 #[case::authoritative("License-Expression: MIT\nLicense: Apache 2.0", Some("MIT"))]
@@ -241,9 +267,18 @@ fn field_priority_and_cardinality_remain_strict(
     1
 )]
 #[case::later_deny_other("GNU General Public License v2 or later", "deny=['MIT']", 0)]
-fn resolved_alias_obeys_policy(#[case] value: &str, #[case] policy: &str, #[case] exit_code: u8) {
+#[case::mpl_text_allow(spdx::license_id("MPL-2.0").unwrap().text(), "allow=['MPL-2.0']", 0)]
+#[case::mpl_text_deny(spdx::license_id("MPL-2.0").unwrap().text(), "deny=['MPL-2.0']", 1)]
+fn interpreted_legacy_declaration_obeys_policy(
+    #[case] value: &str,
+    #[case] policy: &str,
+    #[case] exit_code: u8,
+) {
     // Arrange
-    let bytes = wheel(&metadata(&format!("License: {value}")));
+    let bytes = wheel(&metadata(&format!(
+        "License: {}",
+        value.replace('\n', "\n ")
+    )));
     let hash = ContentHash::digest(&bytes);
     let lock = format!(
         "version=1\nrevision=5\n[[package]]\nname='example'\nversion='1.0'\nsource={{registry='https://pypi.org/simple'}}\nwheels=[{{url='https://files.example.test/example.whl',hash='{hash}'}}]"

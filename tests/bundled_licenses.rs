@@ -58,6 +58,46 @@ fn mit() -> &'static str {
 }
 
 #[rstest]
+#[case::apache_terms(common::license_text::Variant::ApacheTerms, "Apache-2.0")]
+#[case::apache_appendix(common::license_text::Variant::ApacheAppendix, "Apache-2.0")]
+#[case::mit_names(common::license_text::Variant::MitNames, "MIT")]
+#[case::mit_contact(common::license_text::Variant::MitContact, "MIT")]
+#[case::mpl_locator(common::license_text::Variant::MplLocator, "MPL-2.0")]
+#[case::bsd_plural(common::license_text::Variant::BsdPlural, "BSD-3-Clause")]
+fn complete_text_variants_survive_verified_archive_cache(
+    #[case] variant: common::license_text::Variant,
+    #[case] expected: &str,
+    #[values(ArtifactFormat::Wheel, ArtifactFormat::Sdist)] format: ArtifactFormat,
+) {
+    // Arrange
+    let text = variant.text();
+    let bytes = archive(format, "License-File: LICENSE", &[("LICENSE", &text)]);
+    let request = request(&bytes, format);
+    let evidence = Evidence::from_archive(&request, &bytes).unwrap();
+    let encoded = serde_json::to_vec(&evidence.to_record()).unwrap();
+    let decoded = serde_json::from_slice(&encoded).unwrap();
+    // Act
+    let restored = Evidence::from_record(&request, decoded).unwrap();
+    // Assert
+    assert_eq!(restored.license().unwrap().text(), expected);
+    assert!(restored.requirement_satisfied(taloon::model::EvidenceRequirement::ArchiveVerified));
+    assert_eq!(
+        restored.content_hash(),
+        taloon::model::ContentHash::digest(&bytes)
+    );
+    assert_eq!(
+        restored.summary().license_files[0].matched_expression,
+        Some(expected)
+    );
+    assert_eq!(restored.summary().original_expression, Vec::<String>::new());
+    assert_eq!(restored.summary().original_license, Vec::<String>::new());
+    assert_eq!(
+        restored.summary().license_origin,
+        Some(taloon::evidence::LicenseOrigin::BundledFiles)
+    );
+}
+
+#[rstest]
 #[case::wheel(ArtifactFormat::Wheel)]
 #[case::sdist(ArtifactFormat::Sdist)]
 fn missing_declaration_uses_verified_license_file(#[case] format: ArtifactFormat) {

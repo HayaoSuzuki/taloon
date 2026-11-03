@@ -78,12 +78,26 @@ names (optionally `.txt`
 or `.md`) in the source archive root or wheel metadata directory. Arbitrary
 source files and external repositories are not searched.
 
-The initial matcher recognizes complete MIT, BSD-2-Clause, BSD-3-Clause, ISC and
-Apache-2.0 texts. It accepts whitespace and a narrow set of copyright/holder
-variants for the shorter licenses; Apache requires the complete canonical text.
+The matcher recognizes complete MIT, BSD-2-Clause, BSD-3-Clause, ISC,
+Apache-2.0 and MPL-2.0 texts. It accepts whitespace and a narrow set of
+copyright/holder variants for the shorter licenses.
+Apache requires every canonical mandatory term through `END OF TERMS AND
+CONDITIONS`. Its application appendix can be absent or complete; within a
+complete appendix, one structured copyright year/holder line can vary.
+Partial appendices, changed terms and appended conditions remain Unknown.
+MPL requires the entire canonical text, including both exhibits. Its exhibit's
+historical HTTP locator is accepted alongside canonical HTTPS; neither URL is
+fetched. BSD-3-Clause also accepts the reviewed plural-holder third-clause
+wording while retaining every other term.
 Structured variants include multiple copyright notices, year lists and selected
 corporate/author-role spellings. Separate lines and sentences remain meaningful;
 additional conditions cannot be discarded as copyright formatting.
+The exact MIT title `The MIT License (MIT)` is supported. Shared attribution
+rules also accept two comma-separated two-word personal names and a final
+parenthesized web contact origin. A contact origin must use a literal HTTP(S)
+origin spelling with no credentials, non-root path, query or fragment; URL
+normalization cannot erase extra path material. This remains a narrow lexical
+grammar, not an assertion about a holder's identity.
 This is template recognition, not fuzzy similarity or legal analysis. Unknown
 variants, changed terms, appended text and differing license expressions across
 files remain Unknown. Valid declarations take precedence. Any present

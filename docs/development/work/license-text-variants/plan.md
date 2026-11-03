@@ -57,10 +57,10 @@ variants when the reference changes; do not import XML wildcard rules wholesale.
    conditions; implement narrow title/name/contact support and commit separately.
 3. MPL: write canonical/historical-URL tests and exhibit/altered-term negatives;
    add the exact complete template and commit separately.
-4. Exercise real wheel/sdist, legacy-field, policy and persisted-cache paths.
+4. Add and verify the fixed BSD third-clause variant in a separate commit.
+5. Exercise real wheel/sdist, legacy-field, policy and persisted-cache paths.
    Run all checks and public-lock comparison without network acquisition. Update
    the owning contracts/user guide and retain verification evidence.
-5. Add and verify the fixed BSD third-clause variant in a separate commit.
 
 Use AAA, named rstest cases and proptest; each test invocation covers one
 scenario or property. Keep test functions free of fixture-selection `if` branches:

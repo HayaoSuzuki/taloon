@@ -63,3 +63,67 @@ The [design](plan.md) records pinned sources, alternatives and scope.
    All newly added unit test bodies avoid fixture-selection `if` branches, as
    requested; separate Apache/MPL contexts and generator strategies preserve
    one test case/property per function invocation.
+
+## Final integration: five self-review passes
+
+1. Public boundary: synthetic typed fixtures exercise both wheel and sdist raw
+   record serialization/replay, legacy sidecars and normal allow/deny evaluation.
+2. Evidence: archive proof stays verified; sidecar proof stays index-associated.
+   Metadata/content hashes and original-field handling are checked independently.
+3. Acquisition: real fixture transports and disk caches verify no requests,
+   received bytes or extraction on replay, including online and offline legacy
+   paths. The implementation changes no eligibility or transport decisions.
+4. Verification: 974 workspace tests pass, 18 remain intentionally ignored.
+   Shuffle seed 2604 passes 602 selected library/binary/legacy/bundled tests,
+   with 11 binary fixtures intentionally ignored.
+   Strict Clippy, fmt and warnings-denied Rustdoc pass. Metadata fuzzing completes
+   1,000 runs with a 32,768-byte bound so complete folded Apache/MPL seeds fit.
+   CI uses that same metadata bound; the other five targets retain 4,096 bytes.
+   Workflow lint/security checks, documentation checker and strict site build pass.
+5. Documentation/design: update existing user, procedure and contract owners.
+   A separate read-only reviewer found no actionable Critical/Important/Minor
+   issues. No verdict cache, new runtime I/O, dependency or public API is added.
+
+The scoped design scores 10/10 on software-design-philosophy's eight diagnostics:
+coherent module purpose, deep unchanged interface, replaceable implementation,
+abstraction comments, explicit design review, hidden matching rules, documented
+boundaries and deliberate design work. No diagnostic failed for this change.
+This is not an assessment of the entire repository or a proof of license identity.
+Existing formal-correspondence tests pass; the decision crate is unchanged.
+
+## Public-lock validation
+
+The public hoimin checkout at `a11ce718ed4f79c677373faed2fae6c2bdaf6b89` supplies
+84 packages and 921 locked artifacts. The lock is unmodified relative to that
+revision, SHA-256 `7ad78d6e68c655115654c170d6b4c317d038520d5844abb2ca2100fec7171de8`.
+Its local pyproject differs from upstream, SHA-256
+`d40795f84252aa6d74b30a78ece535f6489550c4e05b91ccae08ecb5bec47d33`;
+both executions use those same bytes and deny policy. Do not attribute these
+local policy results to an unmodified upstream configuration.
+
+Compare the alias branch at `172ab2ea52b4eb29620aba5c3e0b75b8ca4d83bd` with
+this branch's complete matcher using `check --offline --format json`.
+Both reports contain identical request IDs and all 921 cached observations.
+Neither run performs requests, downloads or archive extractions. This validates
+retained evidence re-interpretation, not a live refresh of package indexes.
+
+| Outcome | Before body variants | After body variants |
+| --- | ---: | ---: |
+| Compliant artifacts | 861 | 888 |
+| Incomplete artifacts | 60 | 33 |
+| Packages with incomplete artifacts | 11 | 3 |
+
+Resolved artifacts: colorama 2 (BSD-3-Clause), ghp-import 2 (Apache-2.0),
+markdown-it-py 2 (MIT), mergedeep 2 (MIT), pathspec 2 (MPL-2.0),
+rfc3161-client 13 (Apache-2.0), rfc8785 2 (Apache-2.0) and
+sigstore-rekor-types 2 (Apache-2.0). The 27-artifact reduction is 45% of the
+previous incomplete set. No formerly recognized artifact regressed.
+
+Remaining: libcst 29 (multiple-license prose), mdurl 2 (multiple complete bodies
+with contextual text) and python-dateutil 2 (`Dual License` without a recognized
+expression). No combined expression is inferred from those inputs. Those require
+separate reviewed evidence/design rather than a more permissive substring rule.
+
+A single final debug CLI run took about 0.80 seconds, including report rendering
+but excluding uv startup. This is a warm-cache observation, not a controlled
+performance comparison or an initial-download measurement.
