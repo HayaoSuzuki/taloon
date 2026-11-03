@@ -132,7 +132,6 @@ fn precise_legacy_names_are_interpreted_without_archive_proof(
 #[case::mpl_unspecified("MPL")]
 #[case::mpl_unknown_version("MPL 9.0")]
 #[case::mpl_conditions("MPL 2.0 with additional restrictions")]
-#[case::mpl_conjunction("MPL 2.0 OR MIT")]
 #[case::mpl_prefix("Modified MPL 2.0")]
 #[case::mpl_inner_spacing("MPL  2.0")]
 #[case::dual_unspecified("Dual License")]

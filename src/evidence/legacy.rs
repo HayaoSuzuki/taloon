@@ -1,5 +1,6 @@
 //! Precise names and complete texts in legacy fields; SPDX expression syntax stays strict.
 use crate::{model::Error, policy::LicenseExpression};
+mod expression;
 
 /// The only incomplete declarations that verified file text may complete.
 /// Whole-value matching keeps added terms outside this extension.
@@ -146,6 +147,13 @@ fn unique_name<'a>(
     (!matches.any(|id| id != result)).then_some(result)
 }
 
+fn names() -> impl Iterator<Item = (&'static str, &'static str)> + Clone {
+    spdx::identifiers::LICENSES
+        .iter()
+        .map(|license| (license.full_name, license.name))
+        .chain(ALIASES.iter().copied())
+}
+
 /// Interpret one unfolded legacy value. Complete-text matching additionally
 /// requires the original value with continuation-line boundaries preserved.
 /// Names and expressions use the unfolded form; arbitrary prose is not guessed.
@@ -154,12 +162,11 @@ pub(super) fn interpret(value: &str, raw_text: Option<&str>) -> Result<LicenseEx
         Ok(expression) => return Ok(expression),
         Err(error) => error,
     };
-    let names = spdx::identifiers::LICENSES
-        .iter()
-        .map(|license| (license.full_name, license.name))
-        .chain(ALIASES.iter().copied());
-    if let Some(id) = unique_name(value, names) {
+    if let Some(id) = unique_name(value, names()) {
         return LicenseExpression::parse(id);
+    }
+    if let Some(expression) = expression::parse(value) {
+        return Ok(expression);
     }
     if let Some(id) = raw_text.and_then(super::text_match::identify) {
         return LicenseExpression::parse(id);

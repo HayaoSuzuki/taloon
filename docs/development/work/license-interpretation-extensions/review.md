@@ -24,3 +24,31 @@ Scoped design: 10/10 across the eight software-design-philosophy diagnostics;
 coherent ownership, deep unchanged interface, hidden naming data, documented
 boundaries, replaceable implementation and explicit design/review effort all
 hold. No diagnostic failed. This is not a score for the entire repository.
+
+## #30: five self-review passes
+
+1. Ownership: a private parser owns grammar/limits; the parent owns names.
+   Existing LicenseExpression validation owns strict atom/exception semantics
+   and final output. No replacement AST or policy evaluator is introduced.
+2. Semantics: preserve AND precedence, explicit groups, parentheses/operator
+   words inside names, and strict WITH identifiers. All input must be consumed;
+   no operator, exception name or additional condition is inferred or discarded.
+3. Bounds/ambiguity: 16 KiB, 64 leaves and 32 structural group levels. Longest
+   complete names are checked by the existing unique-ID lookup; synthetic
+   collisions and same-ID duplicates have independent cases. Raw slices use
+   checked UTF-8 boundaries; structural grouping is bounded before recursion.
+4. Tests: 15 initial expression/bound/property cases failed before connection.
+   Generated independent Boolean formula evaluation checks allow and deny;
+   literal precedence traps check unparenthesized forms. Metadata priority,
+   duplicate fields and strict Expression rejection remain independently tested.
+5. Evidence/source accuracy: online/offline compound cache cases retain original
+   declarations, hashes and index-associated proof with zero extra requests.
+   Existing malformed-expression diagnostics are retained. SPDX expression
+   grammar is a source for operators, not permission to broaden Python's
+   supported references or strict License-Expression field.
+
+The expression suite passes 42 independent cases/properties, including maximum
+and excess bounds. Workspace: 1,132 passed, 18 ignored, zero failed. Strict
+Clippy passes. An independent read-only parser review found no actionable
+issues. Existing formal permission models are unchanged; grammar correctness
+is behavioral evidence rather than a new formal proof.

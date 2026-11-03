@@ -50,6 +50,15 @@ valid hash-bound clarification.
 When both declaration fields are absent, or one eligible incomplete legacy value
 is present, taloon can inspect bundled license files as described below.
 Classifiers never supply a license expression.
+Legacy `License` values can also contain explicit AND/OR expressions whose
+leaves are recognized complete names, aliases or strict SPDX units, for example
+`The MIT License OR Apache 2.0`. AND binds more tightly than OR; parentheses
+preserve explicit grouping. WITH requires a strict SPDX exception identifier.
+The fallback consumes the whole value, accepts only uppercase operators and is
+limited to 16 KiB, 64 atomic leaves and 32 structural group levels. Existing
+valid strict SPDX expressions keep their current behavior. Missing operators,
+unknown leaves, ambiguous names and added terms remain Unknown; no AND/OR is
+inferred from prose or `Dual License`. `License-Expression` stays strict.
 This checks declarations; it does not establish that undeclared bundled software
 or future built wheels have the same license.
 

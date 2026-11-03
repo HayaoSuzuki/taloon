@@ -1450,6 +1450,15 @@ fn cached_sidecar_upgrade_does_not_refetch_metadata(
 #[case::zpl_versioned("ZPL 2.1", "ZPL-2.1")]
 #[case::bsl_versioned("BSL 1.0", "BSL-1.0")]
 #[case::mpl_v_prefix("Mozilla Public License v1.0", "MPL-1.0")]
+#[case::compound_or("The MIT License OR Apache 2.0", "MIT OR Apache-2.0")]
+#[case::compound_group(
+    "(The MIT License OR ISC) AND Apache 2.0",
+    "(MIT OR ISC) AND Apache-2.0"
+)]
+#[case::compound_with(
+    "Apache 2.0 WITH LLVM-exception OR The MIT License",
+    "Apache-2.0 WITH LLVM-exception OR MIT"
+)]
 fn cached_legacy_names_need_no_new_evidence(
     #[case] value: &str,
     #[case] expected: &str,

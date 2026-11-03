@@ -6,8 +6,8 @@ status: accepted
 sources:
 - id: interpretation-extensions
   resource: ../work/license-interpretation-extensions/review.md
-  working_tree: untracked
-  sha256: eef6f787f0ab8acfc6e2594e5ab63a06d9727f52eaed4f94fc041c11fb2cdcdb
+  working_tree: modified
+  sha256: 7c2ae233eeeb746b0b546c50c590017ac5535843c4c4ae3cb6663d6cad4fbda8
 - id: complete-text-variants
   resource: ../work/license-text-variants/review.md
   working_tree: modified
@@ -144,8 +144,9 @@ the check incomplete unless a valid hash-bound clarification supplies the
 expression; it must not trigger fallback to another field. When
 License-Expression is absent, interpret one complete legacy License value as a
 strict SPDX expression first, then a unique official SPDX full name or explicit
-versioned/clause-specific alias, then a supported complete license template.
-Only whole-name lookup ignores ASCII case; expressions stay strict. Reject names
+versioned/clause-specific alias, then a bounded explicit legacy expression,
+then a supported complete license template. Whole-leaf name lookup ignores
+ASCII case; operators and strict atom parsing retain their strict rules. Reject names
 mapping to differing identities, unsupported family labels, arbitrary extra terms
 and invented AND/OR relationships. This expands interpretation within the same
 legacy field and does not permit fallback from an invalid License-Expression or
@@ -168,6 +169,15 @@ The finite follow-up alias set includes additional explicit MPL, ZPL, BSL, EPL
 and CDDL version spellings reviewed against released SPDX v3.29.0 identifiers.
 The table, accepted list and rejected ambiguous families are recorded together;
 no runtime version inference or source lookup is added.[^interpretation-extensions]
+
+The explicit legacy grammar preserves AND precedence over OR and structural
+parentheses, resolves only longest complete unique name leaves, and validates
+strict atoms/WITH exceptions and the final normalized result with the existing
+SPDX parser. It consumes the whole input and caps this fallback at 16 KiB,
+64 leaves and 32 group levels. A missing operator or unknown/trailing material
+cannot be skipped. No operator or exception alias is inferred. Strict valid
+SPDX expressions and all field priority/cardinality rules remain authoritative.
+[^interpretation-extensions]
 
 The same fixed table includes individually reviewed variants for MIT,
 Apache-2.0, clause-specific BSD, versioned CDDL/EPL and CC0-1.0.

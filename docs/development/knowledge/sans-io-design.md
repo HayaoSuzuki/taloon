@@ -6,8 +6,8 @@ status: accepted
 sources:
 - id: interpretation-extensions
   resource: ../work/license-interpretation-extensions/review.md
-  working_tree: untracked
-  sha256: eef6f787f0ab8acfc6e2594e5ab63a06d9727f52eaed4f94fc041c11fb2cdcdb
+  working_tree: modified
+  sha256: 7c2ae233eeeb746b0b546c50c590017ac5535843c4c4ae3cb6663d6cad4fbda8
 - id: complete-text-variants
   resource: ../work/license-text-variants/review.md
   working_tree: modified
@@ -541,6 +541,14 @@ Additional fixed versioned aliases remain owned by the private legacy module.
 They reuse current evidence interpretation without a registry, configuration
 switch or extra acquisition. The finite accepted/rejected follow-up set is
 documented with its released SPDX reference.[^interpretation-extensions]
+
+A private legacy-expression parser owns operator boundaries, precedence,
+grouping and limits. The parent retains catalog/alias ownership and unique-name
+resolution. Bounded normalized strings are validated into the existing typed
+LicenseExpression; no competing public AST or permission evaluator is added.
+Whole-input consumption and strict atom validation retain additional terms and
+invalid references as failures. Raw observations and acquisition are unchanged.
+[^interpretation-extensions]
 
 Complete-template recognition is shared by legacy fields and bundled files.
 It keeps license-specific mandatory/optional sections and exact variants behind
