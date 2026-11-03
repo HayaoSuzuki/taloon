@@ -140,14 +140,43 @@ fn unique_name<'a>(
     candidates: impl Iterator<Item = (&'a str, &'a str)>,
 ) -> Option<&'a str> {
     let value = value.trim();
-    let mut matches = candidates
-        .filter(|(name, _)| name.eq_ignore_ascii_case(value))
-        .map(|(_, id)| id);
-    let result = matches.next()?;
-    (!matches.any(|id| id != result)).then_some(result)
+    longest_unique_name(
+        candidates
+            .filter(|(name, _)| name.eq_ignore_ascii_case(value))
+            .map(|(name, id)| (name.len(), id)),
+    )
+    .map(|(_, id)| id)
 }
 
-fn names() -> impl Iterator<Item = (&'static str, &'static str)> + Clone {
+enum NameIdentity<'a> {
+    Unique(&'a str),
+    Ambiguous,
+}
+
+/// Resolve the longest matching spelling in one pass. Ambiguity at that length
+/// cannot fall back to a shorter name; a longer spelling supersedes shorter conflicts.
+fn longest_unique_name<'a>(
+    candidates: impl Iterator<Item = (usize, &'a str)>,
+) -> Option<(usize, &'a str)> {
+    let mut best: Option<(usize, NameIdentity<'a>)> = None;
+    for (length, id) in candidates {
+        match &mut best {
+            Some((best_length, _)) if *best_length > length => {}
+            Some((best_length, identity)) if *best_length == length => {
+                if matches!(identity, NameIdentity::Unique(previous) if *previous != id) {
+                    *identity = NameIdentity::Ambiguous;
+                }
+            }
+            _ => best = Some((length, NameIdentity::Unique(id))),
+        }
+    }
+    match best? {
+        (length, NameIdentity::Unique(id)) => Some((length, id)),
+        (_, NameIdentity::Ambiguous) => None,
+    }
+}
+
+fn names() -> impl Iterator<Item = (&'static str, &'static str)> {
     spdx::identifiers::LICENSES
         .iter()
         .map(|license| (license.full_name, license.name))
@@ -176,7 +205,8 @@ pub(super) fn interpret(value: &str, raw_text: Option<&str>) -> Result<LicenseEx
 
 #[cfg(test)]
 mod tests {
-    use super::unique_name;
+    use super::{longest_unique_name, unique_name};
+    use proptest::prelude::*;
     use rstest::rstest;
     #[rstest]
     #[case::unique(&[("Example License","MIT")],Some("MIT"))]
@@ -193,5 +223,33 @@ mod tests {
         let matched = unique_name(input, names.iter().copied());
         // Assert
         assert_eq!(matched, expected);
+    }
+
+    // Independent batch oracle: select the maximum length, then collect all
+    // distinct identities at that length instead of using incremental state.
+    fn batch_resolution<'a>(candidates: &[(usize, &'a str)]) -> Option<(usize, &'a str)> {
+        let length = candidates.iter().map(|(length, _)| *length).max()?;
+        let ids: std::collections::BTreeSet<_> = candidates
+            .iter()
+            .filter(|(candidate_length, _)| *candidate_length == length)
+            .map(|(_, id)| *id)
+            .collect();
+        (ids.len() == 1).then(|| (length, *ids.first().unwrap()))
+    }
+
+    proptest! {
+        #[test]
+        fn incremental_resolution_agrees_with_batch_identity_sets(
+            entries in prop::collection::vec((0_usize..64, 0_usize..3), 0..128),
+        ) {
+            // Arrange
+            let candidates: Vec<_> = entries.into_iter()
+                .map(|(length, id)| (length, ["MIT", "ISC", "BSD-2-Clause"][id])).collect();
+            let expected = batch_resolution(&candidates);
+            // Act
+            let actual = longest_unique_name(candidates.into_iter());
+            // Assert
+            prop_assert_eq!(actual, expected);
+        }
     }
 }

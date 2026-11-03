@@ -97,19 +97,15 @@ fn boundary(rest: &str) -> bool {
 
 fn name_prefix<'a>(
     input: &str,
-    candidates: impl Iterator<Item = (&'a str, &'a str)> + Clone,
+    candidates: impl Iterator<Item = (&'a str, &'a str)>,
 ) -> Option<(usize, &'a str)> {
-    let length = candidates
-        .clone()
-        .filter_map(|(name, _)| {
-            (input
-                .get(..name.len())
-                .is_some_and(|prefix| prefix.eq_ignore_ascii_case(name))
-                && boundary(&input[name.len()..]))
-            .then_some(name.len())
-        })
-        .max()?;
-    super::unique_name(&input[..length], candidates).map(|id| (length, id))
+    super::longest_unique_name(candidates.filter_map(|(name, id)| {
+        (input
+            .get(..name.len())
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(name))
+            && boundary(&input[name.len()..]))
+        .then_some((name.len(), id))
+    }))
 }
 
 #[cfg(test)]
@@ -122,6 +118,9 @@ mod tests {
     #[case::same_identity(&[("Example License", "MIT"), ("example license", "MIT")], Some((15, "MIT")))]
     #[case::collision(&[("Example License", "MIT"), ("example license", "ISC")], None)]
     #[case::longest(&[("Example", "ISC"), ("Example License", "MIT")], Some((15, "MIT")))]
+    #[case::short_conflict_before(&[("Example", "ISC"), ("Example", "MIT"), ("Example License", "BSD-2-Clause")], Some((15, "BSD-2-Clause")))]
+    #[case::short_conflict_after(&[("Example License", "BSD-2-Clause"), ("Example", "ISC"), ("Example", "MIT")], Some((15, "BSD-2-Clause")))]
+    #[case::long_conflict(&[("Example", "ISC"), ("Example License", "MIT"), ("example license", "BSD-2-Clause")], None)]
     fn resolves_longest_unique_complete_name(
         #[case] names: &[(&str, &str)],
         #[case] expected: Option<(usize, &str)>,
@@ -132,5 +131,22 @@ mod tests {
         let actual = name_prefix(input, names.iter().copied());
         // Assert
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn prefix_resolution_visits_each_candidate_once() {
+        // Arrange
+        let names = [
+            ("Example", "ISC"),
+            ("Example License", "MIT"),
+            ("Other", "ISC"),
+        ];
+        let visits = std::cell::Cell::new(0);
+        let candidates = names.into_iter().inspect(|_| visits.set(visits.get() + 1));
+        // Act
+        let actual = name_prefix("Example License OR Apache 2.0", candidates);
+        // Assert
+        assert_eq!(actual, Some((15, "MIT")));
+        assert_eq!(visits.get(), names.len());
     }
 }
