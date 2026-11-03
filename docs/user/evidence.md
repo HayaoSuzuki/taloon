@@ -22,9 +22,22 @@ malformed identity, and hash mismatches yield exit 2.
 back to `License`. When absent, a single legacy `License` value is interpreted
 as a strict SPDX expression, a precise license name, or a complete recognized
 license text. Official full names come from the pinned SPDX list; explicit
-version/clause aliases include `Apache 2.0` and `BSD 2-Clause License`. Name
-matching uses the whole value and ignores ASCII case. Incomplete family labels
-can use verified bundled text under the narrow rules below; added conditions
+version/clause aliases include `Apache 2.0`, `BSD 2-Clause License`, `MPL 1.1`
+and `MPL 2.0`. The Mozilla names `Mozilla Public License Version 1.1` and
+`Mozilla Public License, Version 2.0` are also supported. The MPL names resolve to
+MPL-1.1 and MPL-2.0 respectively and undergo the normal allow/deny policy check.
+Name matching uses the whole value, trims outer whitespace and ignores ASCII
+case; it does not collapse internal spaces or remove additional terms.
+Other reviewed names include `The MIT License`, `Apache License (v2.0)`,
+`Apache Software License 2.0`, `BSD 2 Clause`, `The BSD 3-Clause License`,
+`CDDL 1.0`, `CDDL 1.1`, `EPL 1.0`, `EPL 2.0` and `CC0 1.0 Universal`.
+GNU names such as `GNU General Public License v2 or later` and
+`LGPL, v2.1 or later` preserve their explicit later-version permission.
+This is a fixed set of reviewed spellings, not arbitrary punctuation removal
+or fuzzy matching. `MPL`, `CDDL`, `EPL`, `GPL v2`, `LGPL 2.1`, unknown versions
+and `MPL 2.0 with additional restrictions` remain Unknown.
+Incomplete family labels can use verified bundled text under the narrow
+rules below; added conditions
 and other ambiguous names remain Unknown.
 This name/text handling applies only to `License`: `License-Expression: MIT
 License` is still invalid. Repeated values and unrecognized declarations need a

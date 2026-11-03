@@ -1247,13 +1247,25 @@ fn acquire_bundled(
     (evidence, summary)
 }
 #[rstest::rstest]
-#[case::declared("License-Expression: MIT\nLicense-File: LICENSE", 0)]
-#[case::legacy_name("License: MIT License\nLicense-File: LICENSE", 0)]
-#[case::legacy_text(&format!("License: {}\nLicense-File: LICENSE", spdx::license_id("MIT").unwrap().text().replace('\n', "\n ")), 0)]
-#[case::absent("License-File: LICENSE", 1)]
+#[case::declared("License-Expression: MIT\nLicense-File: LICENSE", 0, "MIT")]
+#[case::legacy_name("License: MIT License\nLicense-File: LICENSE", 0, "MIT")]
+#[case::mpl_alias("License: MPL 2.0\nLicense-File: LICENSE", 0, "MPL-2.0")]
+#[case::apache_alias(
+    "License: Apache License (v2.0)\nLicense-File: LICENSE",
+    0,
+    "Apache-2.0"
+)]
+#[case::gpl_later_alias(
+    "License: GNU General Public License v2 or later\nLicense-File: LICENSE",
+    0,
+    "GPL-2.0-or-later"
+)]
+#[case::legacy_text(&format!("License: {}\nLicense-File: LICENSE", spdx::license_id("MIT").unwrap().text().replace('\n', "\n ")), 0, "MIT")]
+#[case::absent("License-File: LICENSE", 1, "MIT")]
 fn bundled_fallback_only_fetches_archives_for_absent_declarations(
     #[case] fields: &str,
     #[case] archives: u64,
+    #[case] expected: &str,
 ) {
     // Arrange
     let temp = tempfile::tempdir().unwrap();
@@ -1273,7 +1285,7 @@ fn bundled_fallback_only_fetches_archives_for_absent_declarations(
         summary.http.archive.downloaded_bytes,
         archives * archive_size
     );
-    assert_eq!(evidence.license().unwrap().text(), "MIT");
+    assert_eq!(evidence.license().unwrap().text(), expected);
 }
 #[rstest::rstest]
 #[case::recognized(spdx::license_id("MIT").unwrap().text(),Some("MIT"))]
@@ -1350,13 +1362,28 @@ fn cached_sidecar_upgrade_does_not_refetch_metadata(
 }
 
 #[rstest::rstest]
-#[case::online(false)]
-#[case::offline(true)]
-fn cached_legacy_names_need_no_new_evidence(#[case] offline: bool) {
+#[case::mit("MIT License", "MIT")]
+#[case::mpl11("MPL 1.1", "MPL-1.1")]
+#[case::mpl11_title("Mozilla Public License Version 1.1", "MPL-1.1")]
+#[case::mpl20("MPL 2.0", "MPL-2.0")]
+#[case::mpl20_title("Mozilla Public License, Version 2.0", "MPL-2.0")]
+#[case::apache("Apache License (v2.0)", "Apache-2.0")]
+#[case::bsd2("BSD 2 Clause", "BSD-2-Clause")]
+#[case::bsd3("The BSD 3-Clause License", "BSD-3-Clause")]
+#[case::cddl("CDDL 1.1", "CDDL-1.1")]
+#[case::epl("EPL 2.0", "EPL-2.0")]
+#[case::cc0("CC0 1.0 Universal", "CC0-1.0")]
+#[case::gpl_later("GNU General Public License v2 or later", "GPL-2.0-or-later")]
+#[case::lgpl_later("LGPL, v2.1 or later", "LGPL-2.1-or-later")]
+fn cached_legacy_names_need_no_new_evidence(
+    #[case] value: &str,
+    #[case] expected: &str,
+    #[values(false, true)] offline: bool,
+) {
     // Arrange
     let temp = tempfile::tempdir().unwrap();
     let (fixture, request, metadata) = bundled_fixture(
-        "License: MIT License",
+        &format!("License: {value}"),
         spdx::license_id("MIT").unwrap().text(),
     );
     let acquirer = Acquirer::with_transport(
@@ -1376,10 +1403,26 @@ fn cached_legacy_names_need_no_new_evidence(#[case] offline: bool) {
     // Act
     let (restored, summary) = acquire_bundled(&acquirer, &request);
     // Assert
-    assert_eq!(restored.license().unwrap().text(), "MIT");
+    assert_eq!(restored.license().unwrap().text(), expected);
+    assert_eq!(restored.content_hash(), hash);
+    let summary_evidence = restored.summary();
+    assert_eq!(
+        summary_evidence.metadata_hash,
+        ContentHash::digest(&metadata)
+    );
+    assert_eq!(summary_evidence.original_license, vec![value.to_owned()]);
+    assert_eq!(
+        summary_evidence.strength,
+        EvidenceRequirement::IndexAssociated
+    );
+    assert_eq!(
+        summary_evidence.license_origin,
+        Some(taloon::evidence::LicenseOrigin::LegacyDeclaration)
+    );
     assert_eq!(summary.network_requests, 0);
     assert_eq!(summary.downloaded_bytes, 0);
     assert_eq!(summary.cache_hits, 1);
+    assert_eq!(summary.archive_extractions, 0);
     assert_eq!(fixture.count(), 0);
 }
 
