@@ -1250,6 +1250,16 @@ fn acquire_bundled(
 #[case::declared("License-Expression: MIT\nLicense-File: LICENSE", 0, "MIT")]
 #[case::legacy_name("License: MIT License\nLicense-File: LICENSE", 0, "MIT")]
 #[case::mpl_alias("License: MPL 2.0\nLicense-File: LICENSE", 0, "MPL-2.0")]
+#[case::apache_alias(
+    "License: Apache License (v2.0)\nLicense-File: LICENSE",
+    0,
+    "Apache-2.0"
+)]
+#[case::gpl_later_alias(
+    "License: GNU General Public License v2 or later\nLicense-File: LICENSE",
+    0,
+    "GPL-2.0-or-later"
+)]
 #[case::legacy_text(&format!("License: {}\nLicense-File: LICENSE", spdx::license_id("MIT").unwrap().text().replace('\n', "\n ")), 0, "MIT")]
 #[case::absent("License-File: LICENSE", 1, "MIT")]
 fn bundled_fallback_only_fetches_archives_for_absent_declarations(
@@ -1357,6 +1367,14 @@ fn cached_sidecar_upgrade_does_not_refetch_metadata(
 #[case::mpl11_title("Mozilla Public License Version 1.1", "MPL-1.1")]
 #[case::mpl20("MPL 2.0", "MPL-2.0")]
 #[case::mpl20_title("Mozilla Public License, Version 2.0", "MPL-2.0")]
+#[case::apache("Apache License (v2.0)", "Apache-2.0")]
+#[case::bsd2("BSD 2 Clause", "BSD-2-Clause")]
+#[case::bsd3("The BSD 3-Clause License", "BSD-3-Clause")]
+#[case::cddl("CDDL 1.1", "CDDL-1.1")]
+#[case::epl("EPL 2.0", "EPL-2.0")]
+#[case::cc0("CC0 1.0 Universal", "CC0-1.0")]
+#[case::gpl_later("GNU General Public License v2 or later", "GPL-2.0-or-later")]
+#[case::lgpl_later("LGPL, v2.1 or later", "LGPL-2.1-or-later")]
 fn cached_legacy_names_need_no_new_evidence(
     #[case] value: &str,
     #[case] expected: &str,

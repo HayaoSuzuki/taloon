@@ -6,8 +6,8 @@ status: accepted
 sources:
 - id: versioned-license-aliases
   resource: ../work/versioned-license-aliases/plan.md
-  working_tree: untracked
-  sha256: 05bfa252764cc3bab853eab1960ca010dfb836ff0258194c11b2554bd1a3bc6f
+  working_tree: modified
+  sha256: 4374edbfc28cf8a840abd91368c34327403b24e0068d309b6f37518aa9751ee8
 - id: deny-policy
   resource: ../work/deny-policy/plan.md
   working_tree: untracked
@@ -536,7 +536,7 @@ records the raw legacy value's byte range in already-retained immutable headers;
 folded values still serve expressions, names and reporting. This prevents line
 unfolding from erasing restrictions without adding duplicate owned text or a
 second metadata parser. Whole-name lookup trims once before catalog traversal.
-Versioned MPL aliases remain fixed data inside this same interpreter; no public
+Precise license aliases remain fixed data inside this same interpreter; no public
 resolver, dynamic alias registry or external service is added. Current raw-cache
 replay uses the same interpretation and retains observation hashes and strength,
 so alias additions require neither a cache migration nor a new acquisition.
