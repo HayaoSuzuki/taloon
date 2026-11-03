@@ -4,6 +4,10 @@ title: Pure core and acquisition boundary
 description: Approved deep modules and request/result API for license inspection without core I/O.
 status: accepted
 sources:
+- id: versioned-license-aliases
+  resource: ../work/versioned-license-aliases/plan.md
+  working_tree: untracked
+  sha256: 05bfa252764cc3bab853eab1960ca010dfb836ff0258194c11b2554bd1a3bc6f
 - id: deny-policy
   resource: ../work/deny-policy/plan.md
   working_tree: untracked
@@ -532,6 +536,11 @@ records the raw legacy value's byte range in already-retained immutable headers;
 folded values still serve expressions, names and reporting. This prevents line
 unfolding from erasing restrictions without adding duplicate owned text or a
 second metadata parser. Whole-name lookup trims once before catalog traversal.
+Versioned MPL aliases remain fixed data inside this same interpreter; no public
+resolver, dynamic alias registry or external service is added. Current raw-cache
+replay uses the same interpretation and retains observation hashes and strength,
+so alias additions require neither a cache migration nor a new acquisition.
+[^versioned-license-aliases]
 Existing cache bytes and proof requirements are unchanged. A private typed
 FileConstraint centralizes incomplete-value eligibility and exact family matching;
 acquisition asks only whether files are needed. Archive construction applies the
@@ -545,6 +554,7 @@ license templates require a different representation, preserving explicit
 expression priority and raw line boundaries.[^legacy-license-review]
 
 [^legacy-license-review]: [Legacy interpretation design and staged review](../work/legacy-license-interpretation/review.md).
+[^versioned-license-aliases]: [Versioned alias scope and design](../work/versioned-license-aliases/plan.md).
 
 [^constrained-supplement-review]: [Constrained supplementation staged review](../work/constrained-license-supplementation/review.md).
 

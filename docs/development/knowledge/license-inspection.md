@@ -4,6 +4,10 @@ title: License inspection specification
 description: Approved design for uv.lock coverage, Python license policy, evidence, and command behavior.
 status: accepted
 sources:
+- id: versioned-license-aliases
+  resource: ../work/versioned-license-aliases/plan.md
+  working_tree: untracked
+  sha256: 05bfa252764cc3bab853eab1960ca010dfb836ff0258194c11b2554bd1a3bc6f
 - id: deny-policy
   resource: ../work/deny-policy/plan.md
   working_tree: untracked
@@ -140,6 +144,17 @@ legacy field and does not permit fallback from an invalid License-Expression or
 from an arbitrary present legacy value to a different file. The narrow
 incomplete-value extension below supersedes the original absent-only rule.
 [^legacy-license-review][^constrained-supplement-review]
+
+Reviewed fixed MPL aliases include `MPL 1.1` and
+`Mozilla Public License Version 1.1` for MPL-1.1, and `MPL 2.0` and
+`Mozilla Public License, Version 2.0` for MPL-2.0. They apply only to the
+complete legacy value, with outer whitespace and ASCII case ignored. Unknown
+versions, additional terms and versionless `MPL` are not aliases. Normal
+allow/deny evaluation follows recognition; this does not grant permission.
+The subset is checked against a pinned public mapping rather than importing
+ambiguous upstream entries. Reconsider individual aliases if their identity
+becomes disputed or conflicts with the pinned SPDX catalog.
+[^versioned-license-aliases]
 
 The legacy text matcher reads the original field span in retained metadata;
 unfolded values remain the source for expression/name interpretation and original
@@ -517,6 +532,7 @@ Issue #15; parser and cryptographic correctness are separate boundaries.
 [^bundled-license-review]: [Bundled-file design, network evidence and reviews](../work/bundled-license-evidence/review.md).
 
 [^legacy-license-review]: [Legacy-field interpretation and structured-notice reviews](../work/legacy-license-interpretation/review.md).
+[^versioned-license-aliases]: [Versioned alias design and reference](../work/versioned-license-aliases/plan.md).
 
 [^constrained-supplement-review]: [Constrained supplementation staged review](../work/constrained-license-supplementation/review.md).
 

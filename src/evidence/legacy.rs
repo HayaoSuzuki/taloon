@@ -54,6 +54,12 @@ const ALIASES: &[(&str, &str)] = &[
     ("2-Clause BSD License", "BSD-2-Clause"),
     ("3-Clause BSD License", "BSD-3-Clause"),
     ("The MIT License (MIT)", "MIT"),
+    // Reviewed MPL subset of CycloneDX's mapping at 8e05e866d8073fc18b3b3c70a9316fd5a5999f81.
+    // See docs/development/work/versioned-license-aliases/plan.md for scope and source.
+    ("MPL 1.1", "MPL-1.1"),
+    ("Mozilla Public License Version 1.1", "MPL-1.1"),
+    ("MPL 2.0", "MPL-2.0"),
+    ("Mozilla Public License, Version 2.0", "MPL-2.0"),
 ];
 
 fn unique_name<'a>(
