@@ -7,7 +7,7 @@ sources:
 - id: complete-text-variants
   resource: ../work/license-text-variants/review.md
   working_tree: modified
-  sha256: 4ccda1db4b2fe57ea76c9ab641844bd3a4003ae75c242c9a6769bbf4c0642bbe
+  sha256: 20089d6e72ec7bf7c15296e998444180445ef88e73b26aec1cef2f8532a838a0
 - id: versioned-license-aliases
   resource: ../work/versioned-license-aliases/plan.md
   working_tree: modified
@@ -541,6 +541,13 @@ and attribution URL parsing only validates literal contact origins locally.
 MPL's historical locator does not trigger fetching. Raw observations and proof
 remain unchanged, so existing metadata/file caches use the current matcher
 without migration or extra acquisition.[^complete-text-variants]
+
+The MIT preamble extension lives in one private module with explicit notice and
+contact phases. It receives the retained raw prefix only after complete mandatory
+body equality; shared copyright validation remains unchanged for other licenses.
+Its bounded title/notice/domain rules hide formatting choices from callers and
+perform no I/O. Metadata/file evidence and the public expression interface remain
+unchanged.[^complete-text-variants]
 
 A private legacy interpreter hides exact catalog/alias lookup and complete text
 recognition behind the existing LicenseExpression result. Strict SPDX validation

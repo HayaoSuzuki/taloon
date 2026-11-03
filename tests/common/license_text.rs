@@ -8,11 +8,27 @@ pub enum Variant {
     MitContact,
     MplLocator,
     BsdPlural,
+    MitBare,
+    MitMarkdown,
+    MitYearless,
+    MitDatedOwners,
+    MitAttributionContacts,
 }
 
 impl Variant {
     pub fn text(self) -> String {
         match self {
+            Self::MitBare => mit_preamble(""),
+            Self::MitMarkdown => mit_preamble("# MIT License\nCopyright (c) 2026 Example Author"),
+            Self::MitYearless => {
+                mit_preamble("Copyright (c) Example Company, Inc. and affiliates.")
+            }
+            Self::MitDatedOwners => mit_preamble(
+                "Copyright (c) 2020 Example Author, 2021 Other Writer, 2022 Third Person",
+            ),
+            Self::MitAttributionContacts => mit_preamble(
+                "The MIT License (MIT)\nCopyright (c) 2020 - 2026 Example Author (Nickname) and contributors\nauthor.example\ncontact.example",
+            ),
             Self::BsdPlural => spdx::license_id("BSD-3-Clause").unwrap().text().replace(
                 "name of the copyright holder nor the names of its contributors",
                 "name of the copyright holders, nor those of its contributors",
@@ -47,4 +63,13 @@ impl Variant {
             ),
         }
     }
+}
+
+fn mit_preamble(header: &str) -> String {
+    let (_, body) = spdx::license_id("MIT")
+        .unwrap()
+        .text()
+        .split_once("Permission is hereby granted")
+        .unwrap();
+    format!("{header}\n\nPermission is hereby granted{body}")
 }

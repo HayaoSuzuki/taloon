@@ -7,7 +7,7 @@ sources:
 - id: complete-text-variants
   resource: ../work/license-text-variants/review.md
   working_tree: modified
-  sha256: 4ccda1db4b2fe57ea76c9ab641844bd3a4003ae75c242c9a6769bbf4c0642bbe
+  sha256: 20089d6e72ec7bf7c15296e998444180445ef88e73b26aec1cef2f8532a838a0
 - id: versioned-license-aliases
   resource: ../work/versioned-license-aliases/plan.md
   working_tree: modified
@@ -214,6 +214,18 @@ origin, excluding credentials, paths and parameters. Raw line boundaries and
 whole-input comparison must prevent extra material from becoming holder text.
 These rules are individually reviewed subsets, not a general SPDX XML engine;
 reconsider them only with full-text evidence and independent negative tests.
+[^complete-text-variants]
+
+MIT-specific preamble validation extends this subset using released SPDX
+v3.29.0 data and normative matching rules. The complete mandatory MIT body must
+match first. Only known titles (optionally one Markdown heading marker), absent
+preambles, structured yearless/dated notices, fixed role/alias forms and at most
+two final bare contact domains are accepted. The new parser preserves raw lines,
+enforces notice/contact ordering and bounds its prefix to 5,000 bytes, 32 notices
+and 32 dated groups per notice. Unknown prefix material and changed/appended
+terms are rejected; the general SPDX copyright wildcard is not implemented.
+Other licenses retain their existing notice rules. Reconsider only documented
+forms supported by complete-text evidence and independent negative cases.
 [^complete-text-variants]
 
 Use SPDX expression syntax and the identifiers allowed by Python's License

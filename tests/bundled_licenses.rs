@@ -64,6 +64,11 @@ fn mit() -> &'static str {
 #[case::mit_contact(common::license_text::Variant::MitContact, "MIT")]
 #[case::mpl_locator(common::license_text::Variant::MplLocator, "MPL-2.0")]
 #[case::bsd_plural(common::license_text::Variant::BsdPlural, "BSD-3-Clause")]
+#[case::mit_bare(common::license_text::Variant::MitBare, "MIT")]
+#[case::mit_markdown(common::license_text::Variant::MitMarkdown, "MIT")]
+#[case::mit_yearless(common::license_text::Variant::MitYearless, "MIT")]
+#[case::mit_dated_owners(common::license_text::Variant::MitDatedOwners, "MIT")]
+#[case::mit_attribution_contacts(common::license_text::Variant::MitAttributionContacts, "MIT")]
 fn complete_text_variants_survive_verified_archive_cache(
     #[case] variant: common::license_text::Variant,
     #[case] expected: &str,

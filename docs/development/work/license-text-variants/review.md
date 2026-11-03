@@ -155,3 +155,24 @@ The scoped design retains 10/10 across the eight design diagnostics: meaningful
 private ownership and state, unchanged deep interface, hidden license-specific
 rules, documented boundaries, implementation replaceability and explicit review
 and design work. No diagnostic failed for this extension.
+
+## MIT preamble integration: five self-review passes
+
+1. Public evidence: all additional preamble forms use synthetic typed fixtures
+   through wheel/sdist serialization and legacy sidecar paths, with literal
+   expected identities. Standard allow/deny tests include the omitted preamble.
+2. Cache/proof: online/offline replay retains metadata/content hashes and proof
+   strength, with no network requests, downloaded bytes or archive extraction.
+   Raw notices remain observations rather than persisted permission verdicts.
+3. Test design: separate contexts and named cases retain AAA and one scenario
+   per invocation; generated choices stay in strategies. All newly added test
+   bodies avoid fixture-selection branches. Corpus holders/domains are invented.
+4. Verification: 1,051 Rust tests pass, 18 intentionally ignored. Seed 2605 passes
+   679 selected library/binary/legacy/bundled tests, 11 ignored. Metadata fuzzing
+   completes 1,000 runs with the existing 32,768-byte limit and new omitted and
+   structured-preamble seeds. Fmt, strict Clippy, warnings-denied Rustdoc,
+   documentation/OKF validation and strict site build pass.
+5. Ownership/source accuracy: existing user and contract owners describe the
+   MIT-only extension and limits. The released SPDX reference and synthetic
+   regressions are the durable evidence. No public API, dependency, formal
+   decision model, acquisition behavior or configuration changes are needed.

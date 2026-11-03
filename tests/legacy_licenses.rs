@@ -195,6 +195,11 @@ fn complete_legacy_text_is_interpreted_from_metadata(#[case] id: &str) {
 #[case::mit_contact(common::license_text::Variant::MitContact, "MIT")]
 #[case::mpl_locator(common::license_text::Variant::MplLocator, "MPL-2.0")]
 #[case::bsd_plural(common::license_text::Variant::BsdPlural, "BSD-3-Clause")]
+#[case::mit_bare(common::license_text::Variant::MitBare, "MIT")]
+#[case::mit_markdown(common::license_text::Variant::MitMarkdown, "MIT")]
+#[case::mit_yearless(common::license_text::Variant::MitYearless, "MIT")]
+#[case::mit_dated_owners(common::license_text::Variant::MitDatedOwners, "MIT")]
+#[case::mit_attribution_contacts(common::license_text::Variant::MitAttributionContacts, "MIT")]
 fn complete_legacy_variants_preserve_sidecar_proof(
     #[case] variant: common::license_text::Variant,
     #[case] expected: &str,
@@ -269,6 +274,8 @@ fn field_priority_and_cardinality_remain_strict(
 #[case::later_deny_other("GNU General Public License v2 or later", "deny=['MIT']", 0)]
 #[case::mpl_text_allow(spdx::license_id("MPL-2.0").unwrap().text(), "allow=['MPL-2.0']", 0)]
 #[case::mpl_text_deny(spdx::license_id("MPL-2.0").unwrap().text(), "deny=['MPL-2.0']", 1)]
+#[case::mit_bare_allow(&common::license_text::Variant::MitBare.text(), "allow=['MIT']", 0)]
+#[case::mit_bare_deny(&common::license_text::Variant::MitBare.text(), "deny=['MIT']", 1)]
 fn interpreted_legacy_declaration_obeys_policy(
     #[case] value: &str,
     #[case] policy: &str,

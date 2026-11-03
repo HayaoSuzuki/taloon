@@ -98,6 +98,16 @@ parenthesized web contact origin. A contact origin must use a literal HTTP(S)
 origin spelling with no credentials, non-root path, query or fragment; URL
 normalization cannot erase extra path material. This remains a narrow lexical
 grammar, not an assertion about a holder's identity.
+MIT also accepts an omitted preamble, known MIT titles with an optional single
+Markdown heading marker, yearless structured notices, comma-separated dated
+holder groups, spaced year ranges and a name-shaped alias followed by
+`and contributors`. Corporate groups can include `and affiliates`.
+Up to two bare contact domains may follow valid copyright notices; domains are
+never fetched, and notices cannot resume afterward. These additional MIT forms
+require the entire mandatory body unchanged and validate every preceding raw
+line, with a 5,000-byte preamble limit, 32 notices and 32 dated groups per notice.
+They do not relax other licenses' attribution rules or permit arbitrary text
+before the grant.
 This is template recognition, not fuzzy similarity or legal analysis. Unknown
 variants, changed terms, appended text and differing license expressions across
 files remain Unknown. Valid declarations take precedence. Any present

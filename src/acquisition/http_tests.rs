@@ -1296,6 +1296,11 @@ fn bundled_fallback_only_fetches_archives_for_absent_declarations(
 #[case::mit_contact(&crate::testfixtures::license_text::Variant::MitContact.text(), Some("MIT"))]
 #[case::mpl_locator(&crate::testfixtures::license_text::Variant::MplLocator.text(), Some("MPL-2.0"))]
 #[case::bsd_plural(&crate::testfixtures::license_text::Variant::BsdPlural.text(), Some("BSD-3-Clause"))]
+#[case::mit_bare(&crate::testfixtures::license_text::Variant::MitBare.text(), Some("MIT"))]
+#[case::mit_markdown(&crate::testfixtures::license_text::Variant::MitMarkdown.text(), Some("MIT"))]
+#[case::mit_yearless(&crate::testfixtures::license_text::Variant::MitYearless.text(), Some("MIT"))]
+#[case::mit_dated_owners(&crate::testfixtures::license_text::Variant::MitDatedOwners.text(), Some("MIT"))]
+#[case::mit_attribution_contacts(&crate::testfixtures::license_text::Variant::MitAttributionContacts.text(), Some("MIT"))]
 fn completed_bundled_scan_uses_no_network_on_next_run(
     #[case] text: &str,
     #[case] expected: Option<&str>,
@@ -1338,6 +1343,14 @@ fn completed_bundled_scan_uses_no_network_on_next_run(
 #[case::mit_contact(crate::testfixtures::license_text::Variant::MitContact, "MIT")]
 #[case::mpl_locator(crate::testfixtures::license_text::Variant::MplLocator, "MPL-2.0")]
 #[case::bsd_plural(crate::testfixtures::license_text::Variant::BsdPlural, "BSD-3-Clause")]
+#[case::mit_bare(crate::testfixtures::license_text::Variant::MitBare, "MIT")]
+#[case::mit_markdown(crate::testfixtures::license_text::Variant::MitMarkdown, "MIT")]
+#[case::mit_yearless(crate::testfixtures::license_text::Variant::MitYearless, "MIT")]
+#[case::mit_dated_owners(crate::testfixtures::license_text::Variant::MitDatedOwners, "MIT")]
+#[case::mit_attribution_contacts(
+    crate::testfixtures::license_text::Variant::MitAttributionContacts,
+    "MIT"
+)]
 fn complete_legacy_text_cache_needs_no_new_acquisition(
     #[case] variant: crate::testfixtures::license_text::Variant,
     #[case] expected: &str,
