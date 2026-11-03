@@ -2,9 +2,23 @@
 //! Whole-body equality still checks every other word and all clause ordering.
 use std::borrow::Cow;
 
+/// A prepared BSD body. Construction and comparison share the same finite
+/// normalization rules; callers never receive or supply a normalized string.
+pub(super) struct Body(String);
+
+impl Body {
+    pub(super) fn new(canonical: &str) -> Self {
+        Self(normalize(canonical).into_owned())
+    }
+
+    pub(super) fn matches(&self, input: &str) -> bool {
+        normalize(input) == self.0
+    }
+}
+
 /// Canonicalize only reviewed generic roles and known clause markers. Arbitrary
 /// organizations and the upstream templates' wildcards are deliberately absent.
-pub(super) fn normalize(input: &str) -> Cow<'_, str> {
+fn normalize(input: &str) -> Cow<'_, str> {
     let mut text = Cow::Borrowed(input);
     for (from, to) in [
         (

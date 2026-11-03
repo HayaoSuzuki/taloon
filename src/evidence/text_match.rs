@@ -22,7 +22,29 @@ const SUPPORTED: [&str; 6] = [
     "MPL-2.0",
 ];
 
-static CANONICAL: LazyLock<[(&str, String); SUPPORTED.len()]> = LazyLock::new(|| {
+/// Preserve the original canonical text for exact matching and header handling.
+/// Only the BSD strategy owns a prepared body; its representation stays private.
+struct Template {
+    id: &'static str,
+    text: String,
+    body: BodyMatch,
+}
+
+enum BodyMatch {
+    Exact,
+    Bsd(bsd_body::Body),
+}
+
+impl BodyMatch {
+    fn matches(&self, input: &str, canonical: &str) -> bool {
+        match self {
+            Self::Exact => input == canonical,
+            Self::Bsd(body) => body.matches(input),
+        }
+    }
+}
+
+static CANONICAL: LazyLock<[Template; SUPPORTED.len()]> = LazyLock::new(|| {
     SUPPORTED.map(|id| {
         let text = spdx::text::LICENSE_TEXTS
             .iter()
@@ -30,12 +52,15 @@ static CANONICAL: LazyLock<[(&str, String); SUPPORTED.len()]> = LazyLock::new(||
             .expect("supported SPDX license has canonical text")
             .1;
         let text = words(text);
-        let text = if id.starts_with("BSD-") {
-            bsd_body::normalize(&text).into_owned()
+        let body = if id.starts_with("BSD-") {
+            let (_, body) = text
+                .split_once("Redistribution and use")
+                .expect("canonical BSD body marker");
+            BodyMatch::Bsd(bsd_body::Body::new(body))
         } else {
-            text
+            BodyMatch::Exact
         };
-        (id, text)
+        Template { id, text, body }
     })
 });
 
@@ -46,7 +71,12 @@ pub(super) fn identify(text: &str) -> Option<&'static str> {
     let text = words(text);
     CANONICAL
         .iter()
-        .find(|(id, canonical)| {
+        .find(|template| {
+            let Template {
+                id,
+                text: canonical,
+                body: pattern,
+            } = template;
             if text == *canonical {
                 return true;
             }
@@ -75,13 +105,13 @@ pub(super) fn identify(text: &str) -> Option<&'static str> {
             };
             let (canonical_header, expected) =
                 canonical.split_once(start).expect("canonical body marker");
-            body_matches(body, expected, id)
+            pattern.matches(body, expected)
                 && (header == canonical_header
                     || attribution(original, header, id)
                     || (*id == "MIT"
                         && raw_header(original, header).is_some_and(mit_preamble::matches)))
         })
-        .map(|(id, _)| *id)
+        .map(|template| template.id)
 }
 
 /// SPDX marks the application appendix optional and its identifying field
@@ -350,13 +380,6 @@ fn holder_token(token: &str) -> bool {
                 | "must"
                 | "shall"
         )
-}
-
-fn body_matches(body: &str, expected: &str, id: &str) -> bool {
-    if !id.starts_with("BSD-") {
-        return body == expected;
-    }
-    bsd_body::normalize(body) == expected
 }
 
 #[cfg(test)]
