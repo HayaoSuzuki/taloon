@@ -47,3 +47,19 @@ The [design](plan.md) records pinned sources, alternatives and scope.
 5. Design/source accuracy: array length derives from the supported template set;
    unknown future templates no longer implicitly use ISC's body marker. No full
    SPDX enum or generic template language is introduced for six supported texts.
+
+## BSD stage: five self-review passes
+
+1. Semantics: compare the complete observed third clause with canonical BSD-3;
+   only the fixed plural/pronoun phrase changes. All obligations remain present.
+2. Whole-input boundary: numbered/star cases fail first, then pass; negated use,
+   changed permission requirements and generated inserted conditions are rejected.
+3. Evidence/I/O: reuse the existing whole-body BSD variant path. No prefix-only
+   success, similarity score, extra retrieval or raw-evidence mutation.
+4. Tests: 127 text tests pass, including six new BSD cases. Public archive,
+   metadata and online/offline cache adapters also cover the BSD variant.
+5. Design/source accuracy: the source distinguishes explicit SPDX alternatives
+   from this separately reviewed exact wording. No generalized regex is copied.
+   All newly added unit test bodies avoid fixture-selection `if` branches, as
+   requested; separate Apache/MPL contexts and generator strategies preserve
+   one test case/property per function invocation.

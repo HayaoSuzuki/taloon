@@ -35,6 +35,14 @@ The pinned SPDX XML reference is
   single historical `http://mozilla.org/MPL/2.0/.` spelling in the same position
   as canonical HTTPS. No exhibit, secondary-license condition or other wording
   may be removed. The matcher never follows that URL.
+- BSD-3-Clause permits the exact third-clause phrase `name of the copyright
+  holders, nor those of its contributors` in place of the canonical singular
+  holder/name wording, with existing numbered/star markers. This is an explicitly
+  reviewed whole-body variant, not a general pronoun or holder-clause wildcard.
+  The [SPDX BSD-3-Clause reference](https://github.com/spdx/license-list-XML/blob/8791eda86b237dae9a956a55b207740de9000bd3/src/BSD-3-Clause.xml)
+  documents third-clause variation; its broad regex is not imported and does
+  not itself list this exact spelling. The fixed wording is separately reviewed
+  against the complete observed public text and canonical obligations.
 
 Keep the existing result type and private interpreter boundary. No dependency,
 cache schema, permission rule or metadata eligibility change. Canonical texts
@@ -52,9 +60,12 @@ variants when the reference changes; do not import XML wildcard rules wholesale.
 4. Exercise real wheel/sdist, legacy-field, policy and persisted-cache paths.
    Run all checks and public-lock comparison without network acquisition. Update
    the owning contracts/user guide and retain verification evidence.
+5. Add and verify the fixed BSD third-clause variant in a separate commit.
 
 Use AAA, named rstest cases and proptest; each test invocation covers one
-scenario or property. Five self-review passes per stage cover semantics,
+scenario or property. Keep test functions free of fixture-selection `if` branches:
+split distinct contexts into separate functions or supply explicit named cases;
+generated variants belong in strategies. Five self-review passes per stage cover semantics,
 whole-input boundaries, proof/I/O, independent tests and source/document accuracy.
 Final independent review covers the whole stacked diff. Existing formal proofs
 do not prove license identities; no decision algorithm changes in this work.

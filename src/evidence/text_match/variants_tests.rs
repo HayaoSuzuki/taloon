@@ -6,6 +6,40 @@ fn canonical(id: &str) -> &'static str {
     spdx::license_id(id).unwrap().text()
 }
 
+fn bsd_plural_holders() -> String {
+    canonical("BSD-3-Clause").replace(
+        "name of the copyright holder nor the names of its contributors",
+        "name of the copyright holders, nor those of its contributors",
+    )
+}
+
+#[rstest]
+#[case::numbered(bsd_plural_holders())]
+#[case::stars(bsd_plural_holders().replace("1. Redistributions", "* Redistributions").replace("2. Redistributions", "* Redistributions").replace("3. Neither", "* Neither"))]
+fn bsd_accepts_reviewed_plural_holder_clause(#[case] text: String) {
+    // Arrange
+    let expected = Some("BSD-3-Clause");
+    // Act
+    let actual = identify(&text);
+    // Assert
+    assert_eq!(actual, expected);
+}
+
+#[rstest]
+#[case::negated_permission("may be used", "may not be used")]
+#[case::removed_permission("without specific prior written permission", "without permission")]
+#[case::extra_condition("holders, nor those", "holders, for noncommercial use, nor those")]
+fn bsd_plural_clause_does_not_hide_changed_terms(#[case] from: &str, #[case] to: &str) {
+    // Arrange
+    let source = bsd_plural_holders();
+    let text = source.replace(from, to);
+    assert_ne!(text, source);
+    // Act
+    let actual = identify(&text);
+    // Assert
+    assert_eq!(actual, None);
+}
+
 fn apache_terms() -> &'static str {
     canonical("Apache-2.0")
         .split_once("APPENDIX:")
@@ -65,17 +99,20 @@ fn apache_rejects_material_after_complete_terms(#[case] suffix: &str) {
     assert_eq!(actual, None);
 }
 
-#[rstest]
-#[case::terms_only(false)]
-#[case::full_appendix(true)]
-fn apache_rejects_changed_mandatory_terms(#[case] appendix: bool) {
+#[test]
+fn apache_rejects_changed_terms_without_appendix() {
     // Arrange
-    let source = if appendix {
-        canonical("Apache-2.0")
-    } else {
-        apache_terms()
-    };
-    let text = source.replace("perpetual,", "temporary,");
+    let text = apache_terms().replace("perpetual,", "temporary,");
+    // Act
+    let actual = identify(&text);
+    // Assert
+    assert_eq!(actual, None);
+}
+
+#[test]
+fn apache_rejects_changed_terms_with_complete_appendix() {
+    // Arrange
+    let text = canonical("Apache-2.0").replace("perpetual,", "temporary,");
     // Act
     let actual = identify(&text);
     // Assert
@@ -137,19 +174,23 @@ fn mit_rejects_material_disguised_as_attribution(#[case] header: &str) {
     assert_eq!(actual, None);
 }
 
-#[rstest]
-#[case::canonical(false)]
-#[case::historical_url(true)]
-fn mpl_accepts_complete_text_with_reviewed_locator(#[case] historical_url: bool) {
+#[test]
+fn mpl_accepts_complete_canonical_text() {
     // Arrange
-    let text = if historical_url {
-        canonical("MPL-2.0").replace(
-            "https://mozilla.org/MPL/2.0/.",
-            "http://mozilla.org/MPL/2.0/.",
-        )
-    } else {
-        canonical("MPL-2.0").to_owned()
-    };
+    let text = canonical("MPL-2.0");
+    // Act
+    let actual = identify(text);
+    // Assert
+    assert_eq!(actual, Some("MPL-2.0"));
+}
+
+#[test]
+fn mpl_accepts_complete_text_with_historical_locator() {
+    // Arrange
+    let text = canonical("MPL-2.0").replace(
+        "https://mozilla.org/MPL/2.0/.",
+        "http://mozilla.org/MPL/2.0/.",
+    );
     // Act
     let actual = identify(&text);
     // Assert
@@ -187,11 +228,24 @@ fn mpl_rejects_changed_complete_text(#[case] from: &str, #[case] to: &str) {
 
 proptest! {
     #[test]
-    fn mpl_additional_conditions_remain_unknown(word in "[a-z]{1,30}", historical_url in any::<bool>()) {
+    fn bsd_plural_holders_do_not_hide_inserted_conditions(word in "[a-z]{1,30}") {
         // Arrange
-        let source = if historical_url {
-            canonical("MPL-2.0").replace("https://mozilla.org/MPL/2.0/.", "http://mozilla.org/MPL/2.0/.")
-        } else { canonical("MPL-2.0").to_owned() };
+        let text = bsd_plural_holders().replace("holders, nor those", &format!("holders, {word}, nor those"));
+        // Act
+        let actual = identify(&text);
+        // Assert
+        prop_assert_eq!(actual, None);
+    }
+
+    #[test]
+    fn mpl_additional_conditions_remain_unknown(
+        word in "[a-z]{1,30}",
+        source in prop::sample::select(vec![
+            canonical("MPL-2.0").to_owned(),
+            canonical("MPL-2.0").replace("https://mozilla.org/MPL/2.0/.", "http://mozilla.org/MPL/2.0/."),
+        ]),
+    ) {
+        // Arrange
         let text = format!("{source}\nAdditional condition: {word}");
         // Act
         let actual = identify(&text);

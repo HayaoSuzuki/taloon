@@ -327,9 +327,13 @@ fn body_matches(body: &str, expected: &str, id: &str) -> bool {
     if !id.starts_with("BSD-") {
         return body == expected;
     }
-    // BSD list markers and the sqlparse authors/owner spellings are explicit
+    // BSD list markers and reviewed authors/owner spellings are explicit
     // whole-body alternatives. No arbitrary holder or clause wildcard is used.
     let body = body
+        .replace(
+            "name of the copyright holders, nor those of its contributors",
+            "name of the copyright holder nor the names of its contributors",
+        )
         .replace(
             "name of the authors nor",
             "name of the copyright holder nor",
