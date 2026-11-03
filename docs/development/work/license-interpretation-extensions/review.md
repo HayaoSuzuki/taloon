@@ -98,3 +98,58 @@ MkDocs build pass on macOS arm64. A pinned nightly shuffled the relevant suites
 with seed 290031: 842 passed, 11 ignored (before the two final BSD policy cases). Metadata fuzzing completed 1,000 runs
 at a 32,768-byte bound against a temporary copy of the maintained corpus,
 including new synthetic alias/expression/BSD seeds; no crash was observed.
+
+## Design-review follow-up
+
+The subsequent software-design-philosophy review revised the earlier 10/10
+assessment to 8.8/10 (seven of eight diagnostics). It identified an implicit
+normalization contract between canonical initialization and comparison. It also
+identified two catalog traversals per successfully resolved expression leaf.
+The following changes address both findings without extending accepted syntax.
+
+### Prepared BSD bodies: five self-review passes
+
+1. Ownership: private Body construction and comparison own the same finite
+   normalization. The normalized field and helper cannot be accessed by callers.
+2. Types: a BodyMatch enum selects exact versus prepared BSD comparison, so the
+   comparison path does not infer string representation from the license ID.
+3. Exact text: Template retains the original canonical string; the fast exact
+   comparison and header split no longer operate on a rewritten canonical text.
+4. Semantics: all existing marker/role, mandatory-term, attribution, order and
+   additional-condition tests remain green. Neither the substitution list nor
+   raw-line/date/count constraints change.
+5. Evidence: existing archive/sidecar/cache/policy paths pass. This is private
+   representation ownership, with no new acquisition or evidence promotion.
+
+### Single-pass names: five self-review passes
+
+1. Ownership: complete and prefix lookup share one longest-unique resolver;
+   uniqueness semantics are not duplicated inside the expression parser.
+2. States: the NameIdentity enum preserves ambiguity at equal length. A longer
+   match replaces shorter ambiguity; a conflicting longest match cannot fall
+   back to a shorter spelling. Named cases cover both candidate orders.
+3. Work: before the change, a three-entry candidate source was visited six
+   times; the regression failed on that count. It now visits each entry once.
+   The Clone requirement disappears. This is a traversal measurement, not an
+   end-to-end runtime speed claim; successful lookup remains linear in catalog
+   size per leaf and no index or extra dependency is introduced.
+4. Independent oracle: generated candidate sets compare incremental resolution
+   against maximum-length selection plus a batch set of distinct identities.
+   Empty inputs, repeated IDs and conflicting identities are generated. AAA
+   and independently executed cases remain in place.
+5. Bounds: prefix token boundaries and checked UTF-8 slicing are unchanged;
+   expression byte/leaf/depth limits and strict field handling remain tested.
+
+Final follow-up checks on macOS arm64: full workspace 1,221 passed, 18 ignored,
+zero failed; focused nightly shuffle seed 330002: 849 passed, 11 ignored;
+strict Clippy, formatting, warnings-denied Rustdoc, documentation validation and
+strict MkDocs build passed. Metadata fuzz smoke completed 1,000 runs with a
+32,768-byte bound and a temporary corpus copy, without a crash.
+An independent read-only review found no actionable findings and ran 581
+focused tests. Existing formal decision models remain unchanged.
+
+Current scoped design score: 10/10, all eight diagnostics satisfied. The
+previously failed implementation-independence diagnostic is addressed by the
+opaque prepared body. User guidance requires no change because accepted inputs,
+CLI, policy and acquisition behavior are unchanged; the current design owner is
+updated to describe the new private representations and lookup strategy.

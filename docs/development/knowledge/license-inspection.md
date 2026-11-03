@@ -7,7 +7,7 @@ sources:
 - id: interpretation-extensions
   resource: ../work/license-interpretation-extensions/review.md
   working_tree: modified
-  sha256: 49e2586b835403f0b92e46af70da163b974522396869938e41e14ea2e31a8e32
+  sha256: cd1ef187a96264192da1ac9fdd60a131ebfacaee80e2a096a9543cd0f4239673
 - id: complete-text-variants
   resource: ../work/license-text-variants/review.md
   working_tree: modified
@@ -255,6 +255,8 @@ references in the third clause, normalize to the pinned canonical body.
 Other words, all clauses and their order still participate in whole-body equality.
 The released v3.29.0 BSD template fields justify these finite substitutions,
 not arbitrary organization names or broad attribution/clause wildcards.
+An opaque prepared BSD body owns normalization on both sides; the original
+canonical text remains available for exact equality and raw header handling.
 The existing proof, raw line, notice/date-count and policy rules are unchanged.
 Reconsider only independently reviewed complete-text variants.
 [^interpretation-extensions]

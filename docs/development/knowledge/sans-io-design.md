@@ -7,7 +7,7 @@ sources:
 - id: interpretation-extensions
   resource: ../work/license-interpretation-extensions/review.md
   working_tree: modified
-  sha256: 49e2586b835403f0b92e46af70da163b974522396869938e41e14ea2e31a8e32
+  sha256: cd1ef187a96264192da1ac9fdd60a131ebfacaee80e2a096a9543cd0f4239673
 - id: complete-text-variants
   resource: ../work/license-text-variants/review.md
   working_tree: modified
@@ -544,7 +544,12 @@ documented with its released SPDX reference.[^interpretation-extensions]
 
 A private legacy-expression parser owns operator boundaries, precedence,
 grouping and limits. The parent retains catalog/alias ownership and unique-name
-resolution. Bounded normalized strings are validated into the existing typed
+resolution. Both complete names and expression prefixes use one shared,
+single-pass longest-unique resolver. A typed identity state preserves conflicts
+at the longest length; longer spellings replace shorter conflicts, while a
+conflicting longest spelling cannot fall back to a shorter one. Prefix lookup
+consumes each candidate once and requires no cloneable iterator.
+Bounded normalized strings are validated into the existing typed
 LicenseExpression; no competing public AST or permission evaluator is added.
 Whole-input consumption and strict atom validation retain additional terms and
 invalid references as failures. Raw observations and acquisition are unchanged.
@@ -566,9 +571,13 @@ Its bounded title/notice/domain rules hide formatting choices from callers and
 perform no I/O. Metadata/file evidence and the public expression interface remain
 unchanged.[^complete-text-variants]
 
-A private BSD body normalizer owns the finite released-template role/marker
-substitutions. Canonical BSD strings are normalized once; other inputs allocate
-only for present substitutions. Complete body equality remains the authority,
+A private BSD Body type owns preparation and comparison using the finite
+released-template role/marker substitutions. Its normalized representation and
+normalizer are private; callers supply ordinary text. A typed BodyMatch strategy
+selects exact or BSD comparison, and the shared Template retains the original
+canonical text for exact equality and header handling. BSD bodies prepare once;
+other inputs allocate only for present substitutions.
+Complete body equality remains the authority,
 so callers cannot opt into wildcards or disregard conditions. Shared dated
 notice validation now accepts the listed equivalent copyright markers; its
 holder/date and raw-line constraints remain in force.
