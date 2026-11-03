@@ -200,9 +200,10 @@ jobs:
           cargo install cargo-fuzz --version 0.13.2 --locked
       - name: Run every bounded target
         run: |
-          for target in policy uv_lock metadata wheel sdist inspection; do
+          for target in policy uv_lock wheel sdist inspection; do
             cargo +nightly-2026-10-08 fuzz run "$target" -- -runs=1000 -max_len=4096
           done
+          cargo +nightly-2026-10-08 fuzz run metadata -- -runs=1000 -max_len=32768
       - name: Retain crash inputs
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

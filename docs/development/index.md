@@ -93,6 +93,10 @@ Apply these requirements to Rust and Python tests:
 - Use named `rstest` cases in Rust and `pytest.mark.parametrize` cases in Python
   for input variants. Each case must run independently; do not hide cases inside
   a loop in a test body. Fixture construction loops remain appropriate.
+- Prefer separate test functions for distinct contexts and explicit named
+  parameters for input variants instead of fixture-selection `if` branches
+  inside tests. Keep generated input choices in strategies and avoid branching
+  assertions. Test helpers may construct typed fixtures with normal control flow.
 - Generalize meaningful fixed case domains with `proptest` or Hypothesis and an
   independent oracle or invariant. Keep readable boundary regressions. Do not
   replace expected values with a duplicate of the implementation.
@@ -182,12 +186,16 @@ With cargo-fuzz 0.13.2 and nightly-2026-10-08 installed, run the initial smoke t
 ```sh
 cargo +nightly-2026-10-08 fuzz run policy -- -runs=1000 -max_len=4096
 cargo +nightly-2026-10-08 fuzz run uv_lock -- -runs=1000 -max_len=4096
-cargo +nightly-2026-10-08 fuzz run metadata -- -runs=1000 -max_len=4096
+cargo +nightly-2026-10-08 fuzz run metadata -- -runs=1000 -max_len=32768
 cargo +nightly-2026-10-08 fuzz run wheel -- -runs=1000 -max_len=4096
 cargo +nightly-2026-10-08 fuzz run sdist -- -runs=1000 -max_len=4096
 cargo +nightly-2026-10-08 fuzz run inspection -- -runs=1000 -max_len=4096
 tools/check_fuzz_licenses.sh
 ```
+
+Metadata uses the larger bound to retain complete Apache/MPL license seeds,
+including their folded header representation; the other smoke targets keep
+the smaller bound.
 
 The [core design measurement record](work/core-accounting-and-resolution/performance.md)
 documents opt-in release benchmarks for lock construction and shortest paths,

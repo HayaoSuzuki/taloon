@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+pub mod license_text;
 use std::io::{Cursor, Write};
 use taloon::model::{
     ArtifactFormat, ArtifactLocator, ArtifactRequest, ContentHash, PackageId, SourceId,

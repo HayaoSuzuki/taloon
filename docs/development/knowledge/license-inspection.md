@@ -4,6 +4,10 @@ title: License inspection specification
 description: Approved design for uv.lock coverage, Python license policy, evidence, and command behavior.
 status: accepted
 sources:
+- id: complete-text-variants
+  resource: ../work/license-text-variants/review.md
+  working_tree: modified
+  sha256: 20089d6e72ec7bf7c15296e998444180445ef88e73b26aec1cef2f8532a838a0
 - id: versioned-license-aliases
   resource: ../work/versioned-license-aliases/plan.md
   working_tree: modified
@@ -191,13 +195,38 @@ JSON license_origin records the evidence interpretation source before policy
 clarifications; text identifies successful legacy supplementation.
 [^constrained-supplement-review]
 
-The initial set is MIT, BSD-2-Clause,
-BSD-3-Clause, ISC and Apache-2.0; formatting/holder substitutions are narrow,
+The supported set is MIT, BSD-2-Clause,
+BSD-3-Clause, ISC, Apache-2.0 and MPL-2.0; formatting/holder substitutions are narrow,
 and mismatched/additional/ambiguous terms remain unknown. AUTHORS basenames are
 retained attribution observations, not license candidates; this is a scope rule,
 not proof about their legal contents. Other selected files must agree on one
 recognized expression. No OR/AND relationship is invented between differing
 files.[^core-metadata][^owner][^bundled-license-review]
+
+The complete-text variant extension supersedes Apache's canonical-only rule:
+all canonical terms through END remain mandatory, with either no application
+appendix or the complete appendix. Only one structured raw copyright line can
+vary inside an otherwise exact appendix. MPL-2.0 requires its full text and both
+exhibits; only the exhibit locator's HTTP/HTTPS spelling varies. BSD's fixed
+plural-holder wording retains complete-body comparison. Shared attribution
+grammar accepts exactly two two-word names and a final literal web contact
+origin, excluding credentials, paths and parameters. Raw line boundaries and
+whole-input comparison must prevent extra material from becoming holder text.
+These rules are individually reviewed subsets, not a general SPDX XML engine;
+reconsider them only with full-text evidence and independent negative tests.
+[^complete-text-variants]
+
+MIT-specific preamble validation extends this subset using released SPDX
+v3.29.0 data and normative matching rules. The complete mandatory MIT body must
+match first. Only known titles (optionally one Markdown heading marker), absent
+preambles, structured yearless/dated notices, fixed role/alias forms and at most
+two final bare contact domains are accepted. The new parser preserves raw lines,
+enforces notice/contact ordering and bounds its prefix to 5,000 bytes, 32 notices
+and 32 dated groups per notice. Unknown prefix material and changed/appended
+terms are rejected; the general SPDX copyright wildcard is not implemented.
+Other licenses retain their existing notice rules. Reconsider only documented
+forms supported by complete-text evidence and independent negative cases.
+[^complete-text-variants]
 
 Use SPDX expression syntax and the identifiers allowed by Python's License
 Expression specification. Pin the identifier database with the implementation
@@ -543,6 +572,7 @@ Issue #15; parser and cryptographic correctness are separate boundaries.
 
 [^legacy-license-review]: [Legacy-field interpretation and structured-notice reviews](../work/legacy-license-interpretation/review.md).
 [^versioned-license-aliases]: [Versioned alias design and reference](../work/versioned-license-aliases/plan.md).
+[^complete-text-variants]: [Complete-text variant scope, staged review and verification](../work/license-text-variants/review.md).
 
 [^constrained-supplement-review]: [Constrained supplementation staged review](../work/constrained-license-supplementation/review.md).
 

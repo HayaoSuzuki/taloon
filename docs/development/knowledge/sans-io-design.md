@@ -4,6 +4,10 @@ title: Pure core and acquisition boundary
 description: Approved deep modules and request/result API for license inspection without core I/O.
 status: accepted
 sources:
+- id: complete-text-variants
+  resource: ../work/license-text-variants/review.md
+  working_tree: modified
+  sha256: 20089d6e72ec7bf7c15296e998444180445ef88e73b26aec1cef2f8532a838a0
 - id: versioned-license-aliases
   resource: ../work/versioned-license-aliases/plan.md
   working_tree: modified
@@ -529,6 +533,22 @@ representation change.[^bundled-license-review]
 
 # Legacy-field interpretation ownership
 
+Complete-template recognition is shared by legacy fields and bundled files.
+It keeps license-specific mandatory/optional sections and exact variants behind
+the existing expression result, using process-local pinned canonical strings.
+Apache's variable appendix notice additionally checks the original raw line,
+and attribution URL parsing only validates literal contact origins locally.
+MPL's historical locator does not trigger fetching. Raw observations and proof
+remain unchanged, so existing metadata/file caches use the current matcher
+without migration or extra acquisition.[^complete-text-variants]
+
+The MIT preamble extension lives in one private module with explicit notice and
+contact phases. It receives the retained raw prefix only after complete mandatory
+body equality; shared copyright validation remains unchanged for other licenses.
+Its bounded title/notice/domain rules hide formatting choices from callers and
+perform no I/O. Metadata/file evidence and the public expression interface remain
+unchanged.[^complete-text-variants]
+
 A private legacy interpreter hides exact catalog/alias lookup and complete text
 recognition behind the existing LicenseExpression result. Strict SPDX validation
 and all field priority/cardinality rules remain evidence-owned. Metadata parsing
@@ -555,6 +575,7 @@ expression priority and raw line boundaries.[^legacy-license-review]
 
 [^legacy-license-review]: [Legacy interpretation design and staged review](../work/legacy-license-interpretation/review.md).
 [^versioned-license-aliases]: [Versioned alias scope and design](../work/versioned-license-aliases/plan.md).
+[^complete-text-variants]: [Complete-template variant design and review](../work/license-text-variants/review.md).
 
 [^constrained-supplement-review]: [Constrained supplementation staged review](../work/constrained-license-supplementation/review.md).
 

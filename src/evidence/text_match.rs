@@ -1,12 +1,25 @@
 //! Conservative, complete-text matching of selected SPDX license texts.
 
 use std::sync::LazyLock;
+mod mit_preamble;
+
+#[cfg(test)]
+mod mit_preamble_tests;
+#[cfg(test)]
+mod variants_tests;
 
 // SPDX canonical texts are supplied by the `spdx` crate's `text` feature
 // (https://github.com/EmbarkStudios/spdx); no copied text catalog is maintained here.
-const SUPPORTED: [&str; 5] = ["MIT", "BSD-2-Clause", "BSD-3-Clause", "ISC", "Apache-2.0"];
+const SUPPORTED: [&str; 6] = [
+    "MIT",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Apache-2.0",
+    "MPL-2.0",
+];
 
-static CANONICAL: LazyLock<[(&str, String); 5]> = LazyLock::new(|| {
+static CANONICAL: LazyLock<[(&str, String); SUPPORTED.len()]> = LazyLock::new(|| {
     SUPPORTED.map(|id| {
         let text = spdx::text::LICENSE_TEXTS
             .iter()
@@ -29,31 +42,84 @@ pub(super) fn identify(text: &str) -> Option<&'static str> {
                 return true;
             }
             if *id == "Apache-2.0" {
-                return false;
+                return apache_matches(original, &text, canonical);
             }
-            let start = if id.starts_with("BSD-") {
-                "Redistribution and use"
-            } else if *id == "MIT" {
-                "Permission is hereby granted"
-            } else {
-                "Permission to use"
+            if *id == "MPL-2.0" {
+                // Only this locator's scheme varies. All terms and both
+                // exhibits, including secondary-license wording, stay exact.
+                let (before, after) = canonical
+                    .split_once("https://mozilla.org/MPL/2.0/.")
+                    .expect("MPL exhibit locator");
+                return text
+                    .strip_prefix(before)
+                    .and_then(|s| s.strip_prefix("http://mozilla.org/MPL/2.0/."))
+                    == Some(after);
+            }
+            let start = match *id {
+                "BSD-2-Clause" | "BSD-3-Clause" => "Redistribution and use",
+                "MIT" => "Permission is hereby granted",
+                "ISC" => "Permission to use",
+                _ => return false,
             };
             let Some((header, body)) = text.split_once(start) else {
                 return false;
             };
             let (canonical_header, expected) =
                 canonical.split_once(start).expect("canonical body marker");
-            (header == canonical_header || attribution(original, header, id))
-                && body_matches(body, expected, id)
+            body_matches(body, expected, id)
+                && (header == canonical_header
+                    || attribution(original, header, id)
+                    || (*id == "MIT"
+                        && raw_header(original, header).is_some_and(mit_preamble::matches)))
         })
         .map(|(id, _)| *id)
+}
+
+/// SPDX marks the application appendix optional and its identifying field
+/// replaceable. Every mandatory term and every other appendix word stays exact.
+fn apache_matches(original: &str, text: &str, canonical: &str) -> bool {
+    let (terms, _) = canonical.split_once(" APPENDIX:").expect("Apache appendix");
+    if text == terms {
+        return true;
+    }
+    let (before, after) = canonical
+        .split_once("[yyyy] [name of copyright owner]")
+        .expect("Apache identifying field");
+    let Some(field) = text
+        .strip_prefix(before)
+        .and_then(|s| s.strip_suffix(after))
+    else {
+        return false;
+    };
+    // A field cannot consume extra lines of conditions, even after unfolding.
+    let mut notices = original
+        .lines()
+        .filter_map(|line| line.trim().strip_prefix("Copyright "));
+    let Some(notice) = notices.next() else {
+        return false;
+    };
+    if notices.next().is_some() || field != words(notice) {
+        return false;
+    }
+    let identifying = if let Some(bracketed) = notice.strip_prefix('[') {
+        let Some((year, holder)) = bracketed
+            .strip_suffix(']')
+            .and_then(|s| s.split_once("] ["))
+        else {
+            return false;
+        };
+        format!("Copyright {year} {holder}")
+    } else {
+        format!("Copyright {notice}")
+    };
+    copyright_line(&identifying)
 }
 
 fn words(text: &str) -> String {
     text.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-fn attribution(original: &str, normalized_header: &str, id: &str) -> bool {
+fn raw_header<'a>(original: &'a str, normalized_header: &str) -> Option<&'a str> {
     // Locate the body by token count, preserving the original header's line
     // boundaries even when whitespace inside the body has been reformatted.
     let mut in_word = false;
@@ -65,10 +131,14 @@ fn attribution(original: &str, normalized_header: &str, id: &str) -> bool {
             starts_word.then_some(offset)
         })
         .nth(normalized_header.split_whitespace().count());
-    let Some(body_offset) = body_offset else {
+    Some(&original[..body_offset?])
+}
+
+fn attribution(original: &str, normalized_header: &str, id: &str) -> bool {
+    let Some(header) = raw_header(original, normalized_header) else {
         return false;
     };
-    let mut lines = original[..body_offset]
+    let mut lines = header
         .lines()
         .map(str::trim)
         .filter(|line| !line.is_empty());
@@ -77,7 +147,7 @@ fn attribution(original: &str, normalized_header: &str, id: &str) -> bool {
     };
     if matches!(
         (id, header),
-        ("MIT", "MIT License") | ("ISC", "ISC License")
+        ("MIT", "MIT License" | "The MIT License (MIT)") | ("ISC", "ISC License")
     ) {
         let Some(copyright) = lines.next() else {
             return false;
@@ -140,6 +210,12 @@ fn corporate_abbreviation(token: &str) -> bool {
 
 fn holder_name(holder: &str) -> bool {
     let holder = holder.strip_suffix('.').unwrap_or(holder);
+    let Some(holder) = without_contact_origin(holder) else {
+        return false;
+    };
+    if two_person_names(holder) {
+        return true;
+    }
     let mut tokens = holder.split_whitespace().peekable();
     let mut named = false;
     let mut final_connector = false;
@@ -176,6 +252,44 @@ fn holder_name(holder: &str) -> bool {
     named && !final_connector
 }
 
+/// A narrow two-person attribution, not an arbitrary comma-delimited clause.
+fn two_person_names(holder: &str) -> bool {
+    let Some((first, second)) = holder.split_once(',') else {
+        return false;
+    };
+    [first, second].into_iter().all(|person| {
+        let mut words = person.split_whitespace();
+        matches!((words.next(), words.next(), words.next()), (Some(given), Some(family), None)
+            if !given.starts_with('<') && !family.starts_with('<')
+                && holder_token(given) && holder_token(family))
+    })
+}
+
+/// Accept a final parenthesized web origin as contact notation, never fetch it.
+/// Paths, credentials and parameters cannot carry extra terms through this rule.
+fn without_contact_origin(holder: &str) -> Option<&str> {
+    let Some((name, contact)) = holder.rsplit_once(" (") else {
+        return Some(holder);
+    };
+    let contact = contact.strip_suffix(')')?;
+    if contact.chars().any(char::is_whitespace) {
+        return None;
+    }
+    let url = url::Url::parse(contact).ok()?;
+    // Require a literal origin spelling: URL parsing can erase dot segments or
+    // normalize backslashes, which must not conceal a non-root input path.
+    let origin = url.origin().ascii_serialization();
+    (matches!(url.scheme(), "http" | "https")
+        && contact.strip_suffix('/').unwrap_or(contact) == origin
+        && url.host_str().is_some()
+        && url.username().is_empty()
+        && url.password().is_none()
+        && url.path() == "/"
+        && url.query().is_none()
+        && url.fragment().is_none())
+    .then_some(name)
+}
+
 fn holder_token(token: &str) -> bool {
     if let Some(email) = token.strip_prefix('<').and_then(|s| s.strip_suffix('>')) {
         return email.contains('@')
@@ -208,6 +322,14 @@ fn holder_token(token: &str) -> bool {
                 | "prohibited"
                 | "except"
                 | "without"
+                | "consent"
+                | "required"
+                | "requires"
+                | "redistribution"
+                | "restricted"
+                | "restrictions"
+                | "must"
+                | "shall"
         )
 }
 
@@ -215,9 +337,13 @@ fn body_matches(body: &str, expected: &str, id: &str) -> bool {
     if !id.starts_with("BSD-") {
         return body == expected;
     }
-    // BSD list markers and the sqlparse authors/owner spellings are explicit
+    // BSD list markers and reviewed authors/owner spellings are explicit
     // whole-body alternatives. No arbitrary holder or clause wildcard is used.
     let body = body
+        .replace(
+            "name of the copyright holders, nor those of its contributors",
+            "name of the copyright holder nor the names of its contributors",
+        )
         .replace(
             "name of the authors nor",
             "name of the copyright holder nor",
