@@ -61,7 +61,7 @@ Apply the [normative matching guidelines](https://spdx.github.io/spdx-spec/v3.0.
 and released [BSD-2-Clause](https://github.com/spdx/license-list-data/blob/v3.29.0/json/details/BSD-2-Clause.json)
 and [BSD-3-Clause](https://github.com/spdx/license-list-data/blob/v3.29.0/json/details/BSD-3-Clause.json)
 templates to a finite first batch: equivalent leading copyright markers
-`Copyright (c)`, `Copyright (C)`, `(c)` and `©` in short-template notices;
+`Copyright (c)`, `Copyright (C)`, `(c)`, `(C)` and `©` in short-template notices;
 number/star/dash/absent markers on the recognized BSD clauses; and fixed generic
 author/owner/holder role variants in BSD third clauses and disclaimers.
 Do not wildcard arbitrary organization names, delete general punctuation,

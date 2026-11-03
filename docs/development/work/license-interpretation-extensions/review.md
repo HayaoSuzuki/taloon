@@ -52,3 +52,49 @@ and excess bounds. Workspace: 1,132 passed, 18 ignored, zero failed. Strict
 Clippy passes. An independent read-only parser review found no actionable
 issues. Existing formal permission models are unchanged; grammar correctness
 is behavioral evidence rather than a new formal proof.
+
+## #31: five self-review passes
+
+1. Scope/sources: reviewed the BSD-2-Clause and BSD-3-Clause template fields
+   in SPDX v3.29.0 and the normative matching guidelines linked in the plan.
+   Adopt only listed generic role/marker substitutions and copyright symbols;
+   arbitrary organization substitutions and upstream wildcards remain excluded.
+2. Ownership/performance: a private BSD body normalizer hides its finite table.
+   Canonical strings normalize once. A borrowed result avoids allocation when
+   no substitution is present. Acquisition and public interfaces stay unchanged.
+3. Whole-input/bounds: all remaining body words and clause order compare exactly.
+   Shared date/holder/count checks and raw lines still constrain attribution.
+   Review caught and removed a potential doubled-symbol acceptance; a separate
+   regression rejects it. No missing terms, extra conditions or multiple bodies
+   are discarded. Existing mandatory-term and prefix/suffix negatives remain.
+4. Independent tests: 45 new positive/property cases failed before production
+   changes. The final 64 matcher cases/properties cover symbol, role and marker
+   combinations, negation, altered/deleted terms, unknown roles/markers, extra
+   conditions, reversed clauses and two bodies. Test bodies use AAA and avoid
+   scenario branches. Literal IDs and rejection expectations are independent
+   of the normalizer table.
+5. Evidence/policy: three representative variants exercise wheel and sdist,
+   legacy sidecars, cache record roundtrips, archive-cache replay and online/
+   offline raw metadata caches. Hashes/proof stay fixed, with no requests,
+   bytes or extraction on replay. Complete BSD role text also follows ordinary
+   allow/deny evaluation. No new dependency, runtime service or URL fetch.
+
+Scoped design: 10/10 on the eight software-design-philosophy diagnostics; no
+failed diagnostic. Fixed interpretation knowledge stays private behind existing
+interfaces, with explicit boundaries and independent review. This score applies
+to this change, not every module in the repository.
+
+## Final verification
+
+An independent read-only review of all three extensions found no actionable
+issues and ran 522 focused tests successfully. The existing formal decision
+models and their adapters are unchanged; these interpretation extensions are
+covered by behavioral/property/fuzz checks, not a claimed new formal proof.
+
+The final full workspace passed 1,216 tests (18 ignored), including both final
+BSD policy cases.
+Strict Clippy, warnings-denied Rustdoc, documentation validation and strict
+MkDocs build pass on macOS arm64. A pinned nightly shuffled the relevant suites
+with seed 290031: 842 passed, 11 ignored (before the two final BSD policy cases). Metadata fuzzing completed 1,000 runs
+at a 32,768-byte bound against a temporary copy of the maintained corpus,
+including new synthetic alias/expression/BSD seeds; no crash was observed.

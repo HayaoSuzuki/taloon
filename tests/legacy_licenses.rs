@@ -213,6 +213,9 @@ fn complete_legacy_text_is_interpreted_from_metadata(#[case] id: &str) {
 #[case::mit_contact(common::license_text::Variant::MitContact, "MIT")]
 #[case::mpl_locator(common::license_text::Variant::MplLocator, "MPL-2.0")]
 #[case::bsd_plural(common::license_text::Variant::BsdPlural, "BSD-3-Clause")]
+#[case::bsd_authors(common::license_text::Variant::BsdAuthors, "BSD-3-Clause")]
+#[case::bsd_dash(common::license_text::Variant::BsdDash, "BSD-2-Clause")]
+#[case::isc_symbol(common::license_text::Variant::IscSymbol, "ISC")]
 #[case::mit_bare(common::license_text::Variant::MitBare, "MIT")]
 #[case::mit_markdown(common::license_text::Variant::MitMarkdown, "MIT")]
 #[case::mit_yearless(common::license_text::Variant::MitYearless, "MIT")]
@@ -297,6 +300,8 @@ fn field_priority_and_cardinality_remain_strict(
 #[case::mit_bare_deny(&common::license_text::Variant::MitBare.text(), "deny=['MIT']", 1)]
 #[case::zpl_allowed("ZPL 2.1", "allow=['ZPL-2.1']", 0)]
 #[case::zpl_denied("ZPL 2.1", "deny=['ZPL-2.1']", 1)]
+#[case::bsd_roles_allowed(&common::license_text::Variant::BsdAuthors.text(), "allow=['BSD-3-Clause']", 0)]
+#[case::bsd_roles_denied(&common::license_text::Variant::BsdAuthors.text(), "deny=['BSD-3-Clause']", 1)]
 fn interpreted_legacy_declaration_obeys_policy(
     #[case] value: &str,
     #[case] policy: &str,

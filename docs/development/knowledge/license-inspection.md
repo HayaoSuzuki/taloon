@@ -7,7 +7,7 @@ sources:
 - id: interpretation-extensions
   resource: ../work/license-interpretation-extensions/review.md
   working_tree: modified
-  sha256: 7c2ae233eeeb746b0b546c50c590017ac5535843c4c4ae3cb6663d6cad4fbda8
+  sha256: 49e2586b835403f0b92e46af70da163b974522396869938e41e14ea2e31a8e32
 - id: complete-text-variants
   resource: ../work/license-text-variants/review.md
   working_tree: modified
@@ -243,9 +243,22 @@ two final bare contact domains are accepted. The new parser preserves raw lines,
 enforces notice/contact ordering and bounds its prefix to 5,000 bytes, 32 notices
 and 32 dated groups per notice. Unknown prefix material and changed/appended
 terms are rejected; the general SPDX copyright wildcard is not implemented.
-Other licenses retain their existing notice rules. Reconsider only documented
+At that stage other licenses retained their existing notice rules. Reconsider only documented
 forms supported by complete-text evidence and independent negative cases.
 [^complete-text-variants]
+
+The next finite subset accepts equivalent copyright markers in validated dated
+MIT/ISC/BSD notices (`Copyright (C)`, `(c)`, `(C)`, `©`). BSD known clause markers
+can be numbered, star, dash or absent independently. Fixed author/owner/holder
+roles in disclaimers and third clauses, and `its`/`their`/`any` contributor
+references in the third clause, normalize to the pinned canonical body.
+Other words, all clauses and their order still participate in whole-body equality.
+The released v3.29.0 BSD template fields justify these finite substitutions,
+not arbitrary organization names or broad attribution/clause wildcards.
+The existing proof, raw line, notice/date-count and policy rules are unchanged.
+Reconsider only independently reviewed complete-text variants.
+[^interpretation-extensions]
+
 
 Use SPDX expression syntax and the identifiers allowed by Python's License
 Expression specification. Pin the identifier database with the implementation

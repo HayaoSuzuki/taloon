@@ -1,10 +1,13 @@
 //! Conservative, complete-text matching of selected SPDX license texts.
 
 use std::sync::LazyLock;
+mod bsd_body;
 mod mit_preamble;
 
 #[cfg(test)]
 mod mit_preamble_tests;
+#[cfg(test)]
+mod spdx_variants_tests;
 #[cfg(test)]
 mod variants_tests;
 
@@ -26,7 +29,13 @@ static CANONICAL: LazyLock<[(&str, String); SUPPORTED.len()]> = LazyLock::new(||
             .find(|(name, _)| *name == id)
             .expect("supported SPDX license has canonical text")
             .1;
-        (id, words(text))
+        let text = words(text);
+        let text = if id.starts_with("BSD-") {
+            bsd_body::normalize(&text).into_owned()
+        } else {
+            text
+        };
+        (id, text)
     })
 });
 
@@ -173,10 +182,20 @@ fn attribution(original: &str, normalized_header: &str, id: &str) -> bool {
 }
 
 fn copyright_line(line: &str) -> bool {
-    let Some(notice) = line.strip_prefix("Copyright ") else {
-        return false;
+    let notice = if let Some(notice) = line.strip_prefix("Copyright ") {
+        notice
+            .strip_prefix("(c) ")
+            .or_else(|| notice.strip_prefix("(C) "))
+            .unwrap_or(notice)
+    } else {
+        let Some(notice) = ["(c) ", "(C) ", "© "]
+            .iter()
+            .find_map(|prefix| line.strip_prefix(prefix))
+        else {
+            return false;
+        };
+        notice
     };
-    let notice = notice.strip_prefix("(c) ").unwrap_or(notice);
     let Some(holder_offset) =
         notice.find(|c: char| !(c.is_ascii_digit() || c == '-' || c == ',' || c.is_whitespace()))
     else {
@@ -337,27 +356,7 @@ fn body_matches(body: &str, expected: &str, id: &str) -> bool {
     if !id.starts_with("BSD-") {
         return body == expected;
     }
-    // BSD list markers and reviewed authors/owner spellings are explicit
-    // whole-body alternatives. No arbitrary holder or clause wildcard is used.
-    let body = body
-        .replace(
-            "name of the copyright holders, nor those of its contributors",
-            "name of the copyright holder nor the names of its contributors",
-        )
-        .replace(
-            "name of the authors nor",
-            "name of the copyright holder nor",
-        )
-        .replace(
-            "COPYRIGHT OWNER OR CONTRIBUTORS",
-            "COPYRIGHT HOLDER OR CONTRIBUTORS",
-        );
-    body == expected
-        || body
-            == expected
-                .replace("1. Redistributions", "* Redistributions")
-                .replace("2. Redistributions", "* Redistributions")
-                .replace("3. Neither", "* Neither")
+    bsd_body::normalize(body) == expected
 }
 
 #[cfg(test)]
@@ -536,7 +535,7 @@ mod tests {
         assert_eq!(actual, Some("MIT"));
     }
 
-    fn with_attribution(id: &str, header: &str) -> String {
+    pub(super) fn with_attribution(id: &str, header: &str) -> String {
         let marker = match id {
             "MIT" => "Permission is hereby granted",
             "ISC" => "Permission to use",

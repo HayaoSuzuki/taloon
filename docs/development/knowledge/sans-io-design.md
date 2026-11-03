@@ -7,7 +7,7 @@ sources:
 - id: interpretation-extensions
   resource: ../work/license-interpretation-extensions/review.md
   working_tree: modified
-  sha256: 7c2ae233eeeb746b0b546c50c590017ac5535843c4c4ae3cb6663d6cad4fbda8
+  sha256: 49e2586b835403f0b92e46af70da163b974522396869938e41e14ea2e31a8e32
 - id: complete-text-variants
   resource: ../work/license-text-variants/review.md
   working_tree: modified
@@ -565,6 +565,14 @@ body equality; shared copyright validation remains unchanged for other licenses.
 Its bounded title/notice/domain rules hide formatting choices from callers and
 perform no I/O. Metadata/file evidence and the public expression interface remain
 unchanged.[^complete-text-variants]
+
+A private BSD body normalizer owns the finite released-template role/marker
+substitutions. Canonical BSD strings are normalized once; other inputs allocate
+only for present substitutions. Complete body equality remains the authority,
+so callers cannot opt into wildcards or disregard conditions. Shared dated
+notice validation now accepts the listed equivalent copyright markers; its
+holder/date and raw-line constraints remain in force.
+[^interpretation-extensions]
 
 A private legacy interpreter hides exact catalog/alias lookup and complete text
 recognition behind the existing LicenseExpression result. Strict SPDX validation

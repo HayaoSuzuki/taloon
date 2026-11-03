@@ -101,11 +101,18 @@ complete appendix, one structured copyright year/holder line can vary.
 Partial appendices, changed terms and appended conditions remain Unknown.
 MPL requires the entire canonical text, including both exhibits. Its exhibit's
 historical HTTP locator is accepted alongside canonical HTTPS; neither URL is
-fetched. BSD-3-Clause also accepts the reviewed plural-holder third-clause
-wording while retaining every other term.
+fetched. BSD-2-Clause and BSD-3-Clause accept numbered, star, dash or absent
+markers on their known clauses, including mixed markers. Fixed generic
+author/authors and copyright owner/owners/holder/holders references are supported
+in their disclaimers. BSD-3-Clause also accepts corresponding third-clause roles,
+`its`/`their`/`any` contributor references and the reviewed plural-holder wording.
+Every other term and clause order must still match; arbitrary organization names
+and template wildcards are unsupported.
 Structured variants include multiple copyright notices, year lists and selected
 corporate/author-role spellings. Separate lines and sentences remain meaningful;
 additional conditions cannot be discarded as copyright formatting.
+Dated MIT, ISC and BSD notices also accept `Copyright (C)`, `(c)`, `(C)` and `©`
+in place of `Copyright (c)`; dates and holders must pass the same validation.
 The exact MIT title `The MIT License (MIT)` is supported. Shared attribution
 rules also accept two comma-separated two-word personal names and a final
 parenthesized web contact origin. A contact origin must use a literal HTTP(S)
