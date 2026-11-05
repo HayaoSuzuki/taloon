@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
 pub(super) enum FileObservation {
+    NotRead,
     Complete { files: Vec<LicenseFile> },
     Unavailable { message: String },
 }
@@ -63,6 +64,7 @@ impl FileObservation {
     }
     pub(super) fn valid(&self) -> bool {
         match self {
+            Self::NotRead => true,
             Self::Unavailable { message } => message.len() <= 4096,
             Self::Complete { files } => {
                 files.len() <= archive_files::MAX_LICENSE_FILES
@@ -77,6 +79,12 @@ impl FileObservation {
     }
     pub(super) fn license(&self) -> Result<LicenseExpression, Error> {
         let files = match self {
+            Self::NotRead => {
+                return Err(unknown(
+                    LicenseProblem::LicenseFilesUnavailable,
+                    "bundled license files have not been read",
+                ));
+            }
             Self::Complete { files } => files,
             Self::Unavailable { message } => {
                 return Err(unknown(
