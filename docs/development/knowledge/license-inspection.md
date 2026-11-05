@@ -4,6 +4,10 @@ title: License inspection specification
 description: Approved design for uv.lock coverage, Python license policy, evidence, and command behavior.
 status: accepted
 sources:
+- id: obsolete-compatibility
+  resource: ../work/obsolete-compatibility/review.md
+  working_tree: untracked
+  sha256: 0aefc4a5130a979651f51050a338197e6fa7032eb9341c70f07f8f5bf0fe1a96
 - id: interpretation-extensions
   resource: ../work/license-interpretation-extensions/review.md
   working_tree: modified
@@ -411,6 +415,14 @@ Corrupt or incompatible records are cache misses. Online execution can fetch
 replacement evidence; offline execution reports incompleteness if it cannot
 obtain sufficient cached or local evidence.[^owner]
 
+Evidence payload schema 2 stores an explicit required file state (NotRead,
+Complete or Unavailable). Payload schema 1, omitted file state and null file
+state are rejected rather than migrated. Online acquisition obtains fresh
+observations; offline acquisition preserves scope and reports insufficiency.
+The disk envelope and canonical filenames are unchanged, allowing ordinary
+cache clear to remove obsolete payloads without an old-format reader.
+[^obsolete-compatibility]
+
 Default execution fetches missing evidence. `--offline` performs no network
 requests and keeps the same target scope. A sidecar cache record cannot satisfy
 an archive-verification requirement. Hot runs with remote evidence fully cached
@@ -634,3 +646,5 @@ contract; incompatible future layouts require a new schema version.
 [^actionable-diagnostics-review]: [Actionable diagnostic assessment and staged review](../work/actionable-license-diagnostics/review.md).
 
 [^deny-policy]: [Deny policy design, implementation and staged reviews](../work/deny-policy/plan.md).
+
+[^obsolete-compatibility]: [Obsolete compatibility design and review](../work/obsolete-compatibility/review.md).
