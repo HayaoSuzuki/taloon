@@ -1,5 +1,6 @@
 //! Precise names and complete texts in legacy fields; SPDX expression syntax stays strict.
 use crate::{model::Error, policy::LicenseExpression};
+mod expression;
 
 /// The only incomplete declarations that verified file text may complete.
 /// Whole-value matching keeps added terms outside this extension.
@@ -45,6 +46,22 @@ impl FileConstraint {
 
 // Whole-value precise names only. Generic family labels are ambiguous.
 const ALIASES: &[(&str, &str)] = &[
+    // Additional spellings: docs/development/work/license-interpretation-extensions/plan.md.
+    ("Mozilla Public License v1.0", "MPL-1.0"),
+    ("Mozilla Public License v1.1", "MPL-1.1"),
+    ("Mozilla Public License v2.0", "MPL-2.0"),
+    ("Mozilla Public License Version 2.0", "MPL-2.0"),
+    ("ZPL 1.1", "ZPL-1.1"),
+    ("Zope Public License Version 1.1", "ZPL-1.1"),
+    ("ZPL 2.0", "ZPL-2.0"),
+    ("Zope Public License Version 2.0", "ZPL-2.0"),
+    ("ZPL 2.1", "ZPL-2.1"),
+    ("Zope Public License Version 2.1", "ZPL-2.1"),
+    ("BSL 1.0", "BSL-1.0"),
+    ("Boost Software License Version 1.0", "BSL-1.0"),
+    ("Eclipse Public License Version 2.0", "EPL-2.0"),
+    ("CDDL v1.0", "CDDL-1.0"),
+    ("CDDL v1.1", "CDDL-1.1"),
     ("Apache License, Version 2.0", "Apache-2.0"),
     ("Apache 2.0", "Apache-2.0"),
     ("BSD 2-Clause License", "BSD-2-Clause"),
@@ -123,11 +140,47 @@ fn unique_name<'a>(
     candidates: impl Iterator<Item = (&'a str, &'a str)>,
 ) -> Option<&'a str> {
     let value = value.trim();
-    let mut matches = candidates
-        .filter(|(name, _)| name.eq_ignore_ascii_case(value))
-        .map(|(_, id)| id);
-    let result = matches.next()?;
-    (!matches.any(|id| id != result)).then_some(result)
+    longest_unique_name(
+        candidates
+            .filter(|(name, _)| name.eq_ignore_ascii_case(value))
+            .map(|(name, id)| (name.len(), id)),
+    )
+    .map(|(_, id)| id)
+}
+
+enum NameIdentity<'a> {
+    Unique(&'a str),
+    Ambiguous,
+}
+
+/// Resolve the longest matching spelling in one pass. Ambiguity at that length
+/// cannot fall back to a shorter name; a longer spelling supersedes shorter conflicts.
+fn longest_unique_name<'a>(
+    candidates: impl Iterator<Item = (usize, &'a str)>,
+) -> Option<(usize, &'a str)> {
+    let mut best: Option<(usize, NameIdentity<'a>)> = None;
+    for (length, id) in candidates {
+        match &mut best {
+            Some((best_length, _)) if *best_length > length => {}
+            Some((best_length, identity)) if *best_length == length => {
+                if matches!(identity, NameIdentity::Unique(previous) if *previous != id) {
+                    *identity = NameIdentity::Ambiguous;
+                }
+            }
+            _ => best = Some((length, NameIdentity::Unique(id))),
+        }
+    }
+    match best? {
+        (length, NameIdentity::Unique(id)) => Some((length, id)),
+        (_, NameIdentity::Ambiguous) => None,
+    }
+}
+
+fn names() -> impl Iterator<Item = (&'static str, &'static str)> {
+    spdx::identifiers::LICENSES
+        .iter()
+        .map(|license| (license.full_name, license.name))
+        .chain(ALIASES.iter().copied())
 }
 
 /// Interpret one unfolded legacy value. Complete-text matching additionally
@@ -138,12 +191,11 @@ pub(super) fn interpret(value: &str, raw_text: Option<&str>) -> Result<LicenseEx
         Ok(expression) => return Ok(expression),
         Err(error) => error,
     };
-    let names = spdx::identifiers::LICENSES
-        .iter()
-        .map(|license| (license.full_name, license.name))
-        .chain(ALIASES.iter().copied());
-    if let Some(id) = unique_name(value, names) {
+    if let Some(id) = unique_name(value, names()) {
         return LicenseExpression::parse(id);
+    }
+    if let Some(expression) = expression::parse(value) {
+        return Ok(expression);
     }
     if let Some(id) = raw_text.and_then(super::text_match::identify) {
         return LicenseExpression::parse(id);
@@ -153,7 +205,8 @@ pub(super) fn interpret(value: &str, raw_text: Option<&str>) -> Result<LicenseEx
 
 #[cfg(test)]
 mod tests {
-    use super::unique_name;
+    use super::{longest_unique_name, unique_name};
+    use proptest::prelude::*;
     use rstest::rstest;
     #[rstest]
     #[case::unique(&[("Example License","MIT")],Some("MIT"))]
@@ -170,5 +223,33 @@ mod tests {
         let matched = unique_name(input, names.iter().copied());
         // Assert
         assert_eq!(matched, expected);
+    }
+
+    // Independent batch oracle: select the maximum length, then collect all
+    // distinct identities at that length instead of using incremental state.
+    fn batch_resolution<'a>(candidates: &[(usize, &'a str)]) -> Option<(usize, &'a str)> {
+        let length = candidates.iter().map(|(length, _)| *length).max()?;
+        let ids: std::collections::BTreeSet<_> = candidates
+            .iter()
+            .filter(|(candidate_length, _)| *candidate_length == length)
+            .map(|(_, id)| *id)
+            .collect();
+        (ids.len() == 1).then(|| (length, *ids.first().unwrap()))
+    }
+
+    proptest! {
+        #[test]
+        fn incremental_resolution_agrees_with_batch_identity_sets(
+            entries in prop::collection::vec((0_usize..64, 0_usize..3), 0..128),
+        ) {
+            // Arrange
+            let candidates: Vec<_> = entries.into_iter()
+                .map(|(length, id)| (length, ["MIT", "ISC", "BSD-2-Clause"][id])).collect();
+            let expected = batch_resolution(&candidates);
+            // Act
+            let actual = longest_unique_name(candidates.into_iter());
+            // Assert
+            prop_assert_eq!(actual, expected);
+        }
     }
 }

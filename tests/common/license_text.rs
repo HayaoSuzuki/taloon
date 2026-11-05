@@ -13,11 +13,42 @@ pub enum Variant {
     MitYearless,
     MitDatedOwners,
     MitAttributionContacts,
+    BsdAuthors,
+    BsdDash,
+    IscSymbol,
 }
 
 impl Variant {
     pub fn text(self) -> String {
         match self {
+            Self::IscSymbol => {
+                let (_, body) = spdx::license_id("ISC")
+                    .unwrap()
+                    .text()
+                    .split_once("Permission to use")
+                    .unwrap();
+                format!("© 2026 Example Author\n\nPermission to use{body}")
+            }
+            Self::BsdAuthors => spdx::license_id("BSD-3-Clause")
+                .unwrap()
+                .text()
+                .replace(
+                    "name of the copyright holder nor the names of its contributors",
+                    "name of the authors nor the names of their contributors",
+                )
+                .replace(
+                    "BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS",
+                    "BY THE AUTHORS AND CONTRIBUTORS",
+                )
+                .replace(
+                    "THE COPYRIGHT HOLDER OR CONTRIBUTORS",
+                    "THE AUTHORS OR CONTRIBUTORS",
+                ),
+            Self::BsdDash => spdx::license_id("BSD-2-Clause")
+                .unwrap()
+                .text()
+                .replace("1. Redistributions", "- Redistributions")
+                .replace("2. Redistributions", "- Redistributions"),
             Self::MitBare => mit_preamble(""),
             Self::MitMarkdown => mit_preamble("# MIT License\nCopyright (c) 2026 Example Author"),
             Self::MitYearless => {

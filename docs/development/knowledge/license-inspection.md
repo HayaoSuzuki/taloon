@@ -4,6 +4,10 @@ title: License inspection specification
 description: Approved design for uv.lock coverage, Python license policy, evidence, and command behavior.
 status: accepted
 sources:
+- id: interpretation-extensions
+  resource: ../work/license-interpretation-extensions/review.md
+  working_tree: modified
+  sha256: cd1ef187a96264192da1ac9fdd60a131ebfacaee80e2a096a9543cd0f4239673
 - id: complete-text-variants
   resource: ../work/license-text-variants/review.md
   working_tree: modified
@@ -140,8 +144,9 @@ the check incomplete unless a valid hash-bound clarification supplies the
 expression; it must not trigger fallback to another field. When
 License-Expression is absent, interpret one complete legacy License value as a
 strict SPDX expression first, then a unique official SPDX full name or explicit
-versioned/clause-specific alias, then a supported complete license template.
-Only whole-name lookup ignores ASCII case; expressions stay strict. Reject names
+versioned/clause-specific alias, then a bounded explicit legacy expression,
+then a supported complete license template. Whole-leaf name lookup ignores
+ASCII case; operators and strict atom parsing retain their strict rules. Reject names
 mapping to differing identities, unsupported family labels, arbitrary extra terms
 and invented AND/OR relationships. This expands interpretation within the same
 legacy field and does not permit fallback from an invalid License-Expression or
@@ -159,6 +164,20 @@ The subset is checked against a pinned public mapping rather than importing
 ambiguous upstream entries. Reconsider individual aliases if their identity
 becomes disputed or conflicts with the pinned SPDX catalog.
 [^versioned-license-aliases]
+
+The finite follow-up alias set includes additional explicit MPL, ZPL, BSL, EPL
+and CDDL version spellings reviewed against released SPDX v3.29.0 identifiers.
+The table, accepted list and rejected ambiguous families are recorded together;
+no runtime version inference or source lookup is added.[^interpretation-extensions]
+
+The explicit legacy grammar preserves AND precedence over OR and structural
+parentheses, resolves only longest complete unique name leaves, and validates
+strict atoms/WITH exceptions and the final normalized result with the existing
+SPDX parser. It consumes the whole input and caps this fallback at 16 KiB,
+64 leaves and 32 group levels. A missing operator or unknown/trailing material
+cannot be skipped. No operator or exception alias is inferred. Strict valid
+SPDX expressions and all field priority/cardinality rules remain authoritative.
+[^interpretation-extensions]
 
 The same fixed table includes individually reviewed variants for MIT,
 Apache-2.0, clause-specific BSD, versioned CDDL/EPL and CC0-1.0.
@@ -224,9 +243,24 @@ two final bare contact domains are accepted. The new parser preserves raw lines,
 enforces notice/contact ordering and bounds its prefix to 5,000 bytes, 32 notices
 and 32 dated groups per notice. Unknown prefix material and changed/appended
 terms are rejected; the general SPDX copyright wildcard is not implemented.
-Other licenses retain their existing notice rules. Reconsider only documented
+At that stage other licenses retained their existing notice rules. Reconsider only documented
 forms supported by complete-text evidence and independent negative cases.
 [^complete-text-variants]
+
+The next finite subset accepts equivalent copyright markers in validated dated
+MIT/ISC/BSD notices (`Copyright (C)`, `(c)`, `(C)`, `©`). BSD known clause markers
+can be numbered, star, dash or absent independently. Fixed author/owner/holder
+roles in disclaimers and third clauses, and `its`/`their`/`any` contributor
+references in the third clause, normalize to the pinned canonical body.
+Other words, all clauses and their order still participate in whole-body equality.
+The released v3.29.0 BSD template fields justify these finite substitutions,
+not arbitrary organization names or broad attribution/clause wildcards.
+An opaque prepared BSD body owns normalization on both sides; the original
+canonical text remains available for exact equality and raw header handling.
+The existing proof, raw line, notice/date-count and policy rules are unchanged.
+Reconsider only independently reviewed complete-text variants.
+[^interpretation-extensions]
+
 
 Use SPDX expression syntax and the identifiers allowed by Python's License
 Expression specification. Pin the identifier database with the implementation
@@ -572,6 +606,7 @@ Issue #15; parser and cryptographic correctness are separate boundaries.
 
 [^legacy-license-review]: [Legacy-field interpretation and structured-notice reviews](../work/legacy-license-interpretation/review.md).
 [^versioned-license-aliases]: [Versioned alias design and reference](../work/versioned-license-aliases/plan.md).
+[^interpretation-extensions]: [Additional interpretation design and staged reviews](../work/license-interpretation-extensions/review.md).
 [^complete-text-variants]: [Complete-text variant scope, staged review and verification](../work/license-text-variants/review.md).
 
 [^constrained-supplement-review]: [Constrained supplementation staged review](../work/constrained-license-supplementation/review.md).

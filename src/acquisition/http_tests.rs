@@ -1296,6 +1296,9 @@ fn bundled_fallback_only_fetches_archives_for_absent_declarations(
 #[case::mit_contact(&crate::testfixtures::license_text::Variant::MitContact.text(), Some("MIT"))]
 #[case::mpl_locator(&crate::testfixtures::license_text::Variant::MplLocator.text(), Some("MPL-2.0"))]
 #[case::bsd_plural(&crate::testfixtures::license_text::Variant::BsdPlural.text(), Some("BSD-3-Clause"))]
+#[case::bsd_authors(&crate::testfixtures::license_text::Variant::BsdAuthors.text(), Some("BSD-3-Clause"))]
+#[case::bsd_dash(&crate::testfixtures::license_text::Variant::BsdDash.text(), Some("BSD-2-Clause"))]
+#[case::isc_symbol(&crate::testfixtures::license_text::Variant::IscSymbol.text(), Some("ISC"))]
 #[case::mit_bare(&crate::testfixtures::license_text::Variant::MitBare.text(), Some("MIT"))]
 #[case::mit_markdown(&crate::testfixtures::license_text::Variant::MitMarkdown.text(), Some("MIT"))]
 #[case::mit_yearless(&crate::testfixtures::license_text::Variant::MitYearless.text(), Some("MIT"))]
@@ -1343,6 +1346,9 @@ fn completed_bundled_scan_uses_no_network_on_next_run(
 #[case::mit_contact(crate::testfixtures::license_text::Variant::MitContact, "MIT")]
 #[case::mpl_locator(crate::testfixtures::license_text::Variant::MplLocator, "MPL-2.0")]
 #[case::bsd_plural(crate::testfixtures::license_text::Variant::BsdPlural, "BSD-3-Clause")]
+#[case::bsd_authors(crate::testfixtures::license_text::Variant::BsdAuthors, "BSD-3-Clause")]
+#[case::bsd_dash(crate::testfixtures::license_text::Variant::BsdDash, "BSD-2-Clause")]
+#[case::isc_symbol(crate::testfixtures::license_text::Variant::IscSymbol, "ISC")]
 #[case::mit_bare(crate::testfixtures::license_text::Variant::MitBare, "MIT")]
 #[case::mit_markdown(crate::testfixtures::license_text::Variant::MitMarkdown, "MIT")]
 #[case::mit_yearless(crate::testfixtures::license_text::Variant::MitYearless, "MIT")]
@@ -1447,6 +1453,18 @@ fn cached_sidecar_upgrade_does_not_refetch_metadata(
 #[case::cc0("CC0 1.0 Universal", "CC0-1.0")]
 #[case::gpl_later("GNU General Public License v2 or later", "GPL-2.0-or-later")]
 #[case::lgpl_later("LGPL, v2.1 or later", "LGPL-2.1-or-later")]
+#[case::zpl_versioned("ZPL 2.1", "ZPL-2.1")]
+#[case::bsl_versioned("BSL 1.0", "BSL-1.0")]
+#[case::mpl_v_prefix("Mozilla Public License v1.0", "MPL-1.0")]
+#[case::compound_or("The MIT License OR Apache 2.0", "MIT OR Apache-2.0")]
+#[case::compound_group(
+    "(The MIT License OR ISC) AND Apache 2.0",
+    "(MIT OR ISC) AND Apache-2.0"
+)]
+#[case::compound_with(
+    "Apache 2.0 WITH LLVM-exception OR The MIT License",
+    "Apache-2.0 WITH LLVM-exception OR MIT"
+)]
 fn cached_legacy_names_need_no_new_evidence(
     #[case] value: &str,
     #[case] expected: &str,

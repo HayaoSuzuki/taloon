@@ -1,10 +1,13 @@
 //! Conservative, complete-text matching of selected SPDX license texts.
 
 use std::sync::LazyLock;
+mod bsd_body;
 mod mit_preamble;
 
 #[cfg(test)]
 mod mit_preamble_tests;
+#[cfg(test)]
+mod spdx_variants_tests;
 #[cfg(test)]
 mod variants_tests;
 
@@ -19,14 +22,45 @@ const SUPPORTED: [&str; 6] = [
     "MPL-2.0",
 ];
 
-static CANONICAL: LazyLock<[(&str, String); SUPPORTED.len()]> = LazyLock::new(|| {
+/// Preserve the original canonical text for exact matching and header handling.
+/// Only the BSD strategy owns a prepared body; its representation stays private.
+struct Template {
+    id: &'static str,
+    text: String,
+    body: BodyMatch,
+}
+
+enum BodyMatch {
+    Exact,
+    Bsd(bsd_body::Body),
+}
+
+impl BodyMatch {
+    fn matches(&self, input: &str, canonical: &str) -> bool {
+        match self {
+            Self::Exact => input == canonical,
+            Self::Bsd(body) => body.matches(input),
+        }
+    }
+}
+
+static CANONICAL: LazyLock<[Template; SUPPORTED.len()]> = LazyLock::new(|| {
     SUPPORTED.map(|id| {
         let text = spdx::text::LICENSE_TEXTS
             .iter()
             .find(|(name, _)| *name == id)
             .expect("supported SPDX license has canonical text")
             .1;
-        (id, words(text))
+        let text = words(text);
+        let body = if id.starts_with("BSD-") {
+            let (_, body) = text
+                .split_once("Redistribution and use")
+                .expect("canonical BSD body marker");
+            BodyMatch::Bsd(bsd_body::Body::new(body))
+        } else {
+            BodyMatch::Exact
+        };
+        Template { id, text, body }
     })
 });
 
@@ -37,7 +71,12 @@ pub(super) fn identify(text: &str) -> Option<&'static str> {
     let text = words(text);
     CANONICAL
         .iter()
-        .find(|(id, canonical)| {
+        .find(|template| {
+            let Template {
+                id,
+                text: canonical,
+                body: pattern,
+            } = template;
             if text == *canonical {
                 return true;
             }
@@ -66,13 +105,13 @@ pub(super) fn identify(text: &str) -> Option<&'static str> {
             };
             let (canonical_header, expected) =
                 canonical.split_once(start).expect("canonical body marker");
-            body_matches(body, expected, id)
+            pattern.matches(body, expected)
                 && (header == canonical_header
                     || attribution(original, header, id)
                     || (*id == "MIT"
                         && raw_header(original, header).is_some_and(mit_preamble::matches)))
         })
-        .map(|(id, _)| *id)
+        .map(|template| template.id)
 }
 
 /// SPDX marks the application appendix optional and its identifying field
@@ -173,10 +212,20 @@ fn attribution(original: &str, normalized_header: &str, id: &str) -> bool {
 }
 
 fn copyright_line(line: &str) -> bool {
-    let Some(notice) = line.strip_prefix("Copyright ") else {
-        return false;
+    let notice = if let Some(notice) = line.strip_prefix("Copyright ") {
+        notice
+            .strip_prefix("(c) ")
+            .or_else(|| notice.strip_prefix("(C) "))
+            .unwrap_or(notice)
+    } else {
+        let Some(notice) = ["(c) ", "(C) ", "© "]
+            .iter()
+            .find_map(|prefix| line.strip_prefix(prefix))
+        else {
+            return false;
+        };
+        notice
     };
-    let notice = notice.strip_prefix("(c) ").unwrap_or(notice);
     let Some(holder_offset) =
         notice.find(|c: char| !(c.is_ascii_digit() || c == '-' || c == ',' || c.is_whitespace()))
     else {
@@ -331,33 +380,6 @@ fn holder_token(token: &str) -> bool {
                 | "must"
                 | "shall"
         )
-}
-
-fn body_matches(body: &str, expected: &str, id: &str) -> bool {
-    if !id.starts_with("BSD-") {
-        return body == expected;
-    }
-    // BSD list markers and reviewed authors/owner spellings are explicit
-    // whole-body alternatives. No arbitrary holder or clause wildcard is used.
-    let body = body
-        .replace(
-            "name of the copyright holders, nor those of its contributors",
-            "name of the copyright holder nor the names of its contributors",
-        )
-        .replace(
-            "name of the authors nor",
-            "name of the copyright holder nor",
-        )
-        .replace(
-            "COPYRIGHT OWNER OR CONTRIBUTORS",
-            "COPYRIGHT HOLDER OR CONTRIBUTORS",
-        );
-    body == expected
-        || body
-            == expected
-                .replace("1. Redistributions", "* Redistributions")
-                .replace("2. Redistributions", "* Redistributions")
-                .replace("3. Neither", "* Neither")
 }
 
 #[cfg(test)]
@@ -536,7 +558,7 @@ mod tests {
         assert_eq!(actual, Some("MIT"));
     }
 
-    fn with_attribution(id: &str, header: &str) -> String {
+    pub(super) fn with_attribution(id: &str, header: &str) -> String {
         let marker = match id {
             "MIT" => "Permission is hereby granted",
             "ISC" => "Permission to use",

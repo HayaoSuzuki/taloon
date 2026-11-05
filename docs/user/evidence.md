@@ -26,6 +26,11 @@ version/clause aliases include `Apache 2.0`, `BSD 2-Clause License`, `MPL 1.1`
 and `MPL 2.0`. The Mozilla names `Mozilla Public License Version 1.1` and
 `Mozilla Public License, Version 2.0` are also supported. The MPL names resolve to
 MPL-1.1 and MPL-2.0 respectively and undergo the normal allow/deny policy check.
+Additional reviewed versions include `Mozilla Public License v1.0` / `v1.1` /
+`v2.0`, `ZPL 1.1` / `2.0` / `2.1`, `BSL 1.0` and `CDDL v1.0` / `v1.1`.
+The full versioned names `Zope Public License Version 2.1`,
+`Boost Software License Version 1.0` and `Eclipse Public License Version 2.0`
+are supported as well. Versionless family names do not acquire a default version.
 Name matching uses the whole value, trims outer whitespace and ignores ASCII
 case; it does not collapse internal spaces or remove additional terms.
 Other reviewed names include `The MIT License`, `Apache License (v2.0)`,
@@ -45,6 +50,15 @@ valid hash-bound clarification.
 When both declaration fields are absent, or one eligible incomplete legacy value
 is present, taloon can inspect bundled license files as described below.
 Classifiers never supply a license expression.
+Legacy `License` values can also contain explicit AND/OR expressions whose
+leaves are recognized complete names, aliases or strict SPDX units, for example
+`The MIT License OR Apache 2.0`. AND binds more tightly than OR; parentheses
+preserve explicit grouping. WITH requires a strict SPDX exception identifier.
+The fallback consumes the whole value, accepts only uppercase operators and is
+limited to 16 KiB, 64 atomic leaves and 32 structural group levels. Existing
+valid strict SPDX expressions keep their current behavior. Missing operators,
+unknown leaves, ambiguous names and added terms remain Unknown; no AND/OR is
+inferred from prose or `Dual License`. `License-Expression` stays strict.
 This checks declarations; it does not establish that undeclared bundled software
 or future built wheels have the same license.
 
@@ -87,11 +101,18 @@ complete appendix, one structured copyright year/holder line can vary.
 Partial appendices, changed terms and appended conditions remain Unknown.
 MPL requires the entire canonical text, including both exhibits. Its exhibit's
 historical HTTP locator is accepted alongside canonical HTTPS; neither URL is
-fetched. BSD-3-Clause also accepts the reviewed plural-holder third-clause
-wording while retaining every other term.
+fetched. BSD-2-Clause and BSD-3-Clause accept numbered, star, dash or absent
+markers on their known clauses, including mixed markers. Fixed generic
+author/authors and copyright owner/owners/holder/holders references are supported
+in their disclaimers. BSD-3-Clause also accepts corresponding third-clause roles,
+`its`/`their`/`any` contributor references and the reviewed plural-holder wording.
+Every other term and clause order must still match; arbitrary organization names
+and template wildcards are unsupported.
 Structured variants include multiple copyright notices, year lists and selected
 corporate/author-role spellings. Separate lines and sentences remain meaningful;
 additional conditions cannot be discarded as copyright formatting.
+Dated MIT, ISC and BSD notices also accept `Copyright (C)`, `(c)`, `(C)` and `©`
+in place of `Copyright (c)`; dates and holders must pass the same validation.
 The exact MIT title `The MIT License (MIT)` is supported. Shared attribution
 rules also accept two comma-separated two-word personal names and a final
 parenthesized web contact origin. A contact origin must use a literal HTTP(S)
