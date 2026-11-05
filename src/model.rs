@@ -68,11 +68,6 @@ impl Error {
         }
     }
 }
-pub type InputError = Error;
-pub type LicenseError = Error;
-pub type EvidenceError = Error;
-pub type AcquisitionFailure = Error;
-
 /// A UTC calendar day supplied by the caller, inclusive for expiry comparisons.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct EvaluationDate(time::Date);
