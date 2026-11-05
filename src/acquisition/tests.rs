@@ -98,6 +98,28 @@ fn cache_files(root: &std::path::Path) -> Vec<std::path::PathBuf> {
         .filter(|p| p.extension().is_some_and(|e| e == "json"))
         .collect()
 }
+
+#[test]
+fn obsolete_payload_is_a_disk_cache_miss() {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let cache = EvidenceCache::new(temp.path().to_owned());
+    let bytes = wheel(&metadata("License-Expression: MIT"));
+    let req = request(&bytes, ArtifactFormat::Wheel);
+    let hash = ContentHash::digest(&bytes);
+    cache
+        .put(&req, &Evidence::from_archive(&req, &bytes).unwrap())
+        .unwrap();
+    let path = cache_files(temp.path()).pop().unwrap();
+    let mut value: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    value["observation"]["data"]["schema"] = 1.into();
+    std::fs::write(path, serde_json::to_vec(&value).unwrap()).unwrap();
+    // Act
+    let restored = cache.get(&req, hash).unwrap();
+    // Assert
+    assert!(restored.is_none());
+}
 #[test]
 fn corrupt_incompatible_and_interrupted_records_are_misses() {
     let temp = tempfile::tempdir().unwrap();

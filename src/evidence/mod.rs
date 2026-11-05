@@ -25,6 +25,7 @@ pub const MAX_METADATA_BYTES: u64 = 4 * 1024 * 1024;
 /// Maximum total bundled license text retained per observation.
 pub const MAX_LICENSE_OBSERVATION_BYTES: usize = archive_files::MAX_LICENSE_TOTAL;
 const MAX_TAR_EXPANSION: u64 = 1024 * 1024 * 1024;
+const RECORD_SCHEMA: u32 = 2;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
@@ -56,8 +57,7 @@ struct RecordData {
     headers_hash: ContentHash,
     proof: Proof,
     metadata: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    license_files: Option<FileObservation>,
+    license_files: FileObservation,
 }
 /// A versioned, integrity-checked observation from the trusted local cache.
 /// This is not a signature proving that an arbitrary third party inspected bytes.
@@ -398,14 +398,14 @@ impl Evidence {
         // Retain declarations and full-observation digests, not per-artifact descriptions.
         let headers = metadata_headers(&text);
         let data = RecordData {
-            schema: 1,
+            schema: RECORD_SCHEMA,
             format: request.format(),
             content,
             metadata_hash,
             headers_hash: ContentHash::digest(headers.as_bytes()),
             proof,
             metadata: headers.to_owned(),
-            license_files: None,
+            license_files: FileObservation::NotRead,
         };
         let record = EvidenceRecord {
             checksum: checksum(&data)?,
@@ -441,7 +441,7 @@ impl Evidence {
             let files =
                 FileObservation::read(bytes, request.format(), &evidence.metadata.files, &root);
             let data = Arc::make_mut(&mut evidence.record.data);
-            data.license_files = Some(files);
+            data.license_files = files;
             evidence.record.checksum = checksum(data)?;
         }
         Ok(evidence)
@@ -534,9 +534,9 @@ impl Evidence {
             return declaration;
         }
         if let Some(constraint) = self.file_constraint()
-            && let Some(files) = &self.record.data.license_files
+            && !matches!(self.record.data.license_files, FileObservation::NotRead)
         {
-            let expression = files.license()?;
+            let expression = self.record.data.license_files.license()?;
             if !constraint.accepts(&expression) {
                 return Err(Error::license(
                     LicenseProblem::LegacyFamilyMismatch,
@@ -556,7 +556,8 @@ impl Evidence {
     /// Completed unknown scans return false, avoiding repeated archive fetches.
     #[must_use]
     pub fn needs_license_files(&self) -> bool {
-        self.record.data.license_files.is_none() && self.file_constraint().is_some()
+        matches!(self.record.data.license_files, FileObservation::NotRead)
+            && self.file_constraint().is_some()
     }
     #[must_use]
     pub fn requirement_satisfied(&self, need: EvidenceRequirement) -> bool {
@@ -586,12 +587,7 @@ impl Evidence {
                 .map(|s| crate::declaration::redact_urls(s))
                 .collect(),
             license_origin: self.interpret_license().ok().map(|(_, origin)| origin),
-            license_files: self
-                .record
-                .data
-                .license_files
-                .as_ref()
-                .map_or_else(Vec::new, FileObservation::summary),
+            license_files: self.record.data.license_files.summary(),
             warnings: self.metadata.warnings.clone(),
         }
     }
@@ -626,10 +622,10 @@ impl Evidence {
     pub fn from_record(request: &ArtifactRequest, record: EvidenceRecord) -> Result<Self, Error> {
         let data = &record.data;
         if data.metadata.len() > usize::try_from(MAX_METADATA_BYTES).unwrap_or(usize::MAX)
-            || data.license_files.as_ref().is_some_and(|files| {
-                !files.valid() || !matches!(data.proof, Proof::ArchiveVerified)
-            })
-            || data.schema != 1
+            || !data.license_files.valid()
+            || (!matches!(data.license_files, FileObservation::NotRead)
+                && !matches!(data.proof, Proof::ArchiveVerified))
+            || data.schema != RECORD_SCHEMA
             || data.format != request.format()
             || checksum(data)? != record.checksum
             || ContentHash::digest(data.metadata.as_bytes()) != data.headers_hash

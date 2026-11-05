@@ -4,6 +4,10 @@ title: Pure core and acquisition boundary
 description: Approved deep modules and request/result API for license inspection without core I/O.
 status: accepted
 sources:
+- id: obsolete-compatibility
+  resource: ../work/obsolete-compatibility/review.md
+  working_tree: untracked
+  sha256: 0aefc4a5130a979651f51050a338197e6fa7032eb9341c70f07f8f5bf0fe1a96
 - id: interpretation-extensions
   resource: ../work/license-interpretation-extensions/review.md
   working_tree: modified
@@ -416,8 +420,9 @@ reporting view, independent of typed permission storage.[^permission-unit-review
 EvidenceRecord shares its private immutable payload across clones. Acquisition
 and evaluation keep their existing APIs and revalidate each requested binding;
 sharing does not confer additional provenance or bypass checks. Parsed metadata
-and transient request identity remain in Evidence. The persisted JSON/schema
-and checksum inputs stay unchanged. This hides ownership optimization inside
+and transient request identity remain in Evidence. That immutable-sharing optimization did not change its then-current persisted
+JSON/schema or checksum inputs. Current payload schema ownership and the
+required file state are specified in the bundled-file section below. This hides ownership optimization inside
 the evidence module instead of introducing consuming/borrowing protocols into
 callers. serde's rc support adds no new package, but adds reference-count costs
 and a retained allocation (plus a transient Box on deserialization). Reconsider
@@ -523,15 +528,27 @@ selected text without retaining arbitrary members. The existing metadata pass
 returns its validated root, avoiding a duplicate root-discovery pass.
 [^bundled-license-review]
 
-Optional observed files participate in existing record checksums and bounds.
-Their absence serializes exactly as before, so unrelated valid cached declarations
-do not need redownloading. Old/weak absent-declaration observations upgrade
-selectively; completed positive and negative scans remain reusable. File snapshots
-cannot be restored at sidecar strength. Interpretation runs against current local
-templates rather than treating a stored verdict as evidence. No transport or
-filesystem capability enters the pure core. Reconsider if supporting more license
-variants needs a different template engine or measurements justify an archive
-representation change.[^bundled-license-review]
+Evidence payload schema 2 requires a FileObservation state: NotRead, Complete
+or Unavailable. Preparation, restoration and summaries use that enum directly;
+there is no optional field, missing/null default or old-checksum serialization
+path. Only the current payload schema restores. Older payloads become cache
+misses without migration. Disk envelope/filename version 1 remains unchanged
+because that container layout did not change; cache clear still recognizes the
+same filenames, including files whose payload is obsolete.
+Current-format sidecars needing files upgrade selectively; completed positive
+and negative scans remain reusable. File snapshots cannot be restored at sidecar
+strength. Interpretation runs against current local templates rather than a
+stored verdict. No transport or filesystem capability enters the pure core.
+Reconsider if supporting more license variants needs a different template engine
+or measurements justify an archive representation change.
+[^obsolete-compatibility]
+
+Domain failure APIs use one Error with Code and optional LicenseProblem detail.
+Unused owner-specific type aliases are removed. Distinct module error wrappers
+would add conversion boundaries without new caller recovery or construction
+constraints. Introduce separate error enums only when those semantic differences
+need to be enforced in an API; do not use aliases to imply type separation.
+[^obsolete-compatibility]
 
 [^bundled-license-review]: [Bundled-file design and integration evidence](../work/bundled-license-evidence/review.md).
 
@@ -644,3 +661,5 @@ configuration; describe stays policy free. Reconsider this representation if
 policy composition or precedence becomes configurable.[^deny-policy]
 
 [^deny-policy]: [Deny policy design, alternatives and reviews](../work/deny-policy/plan.md).
+
+[^obsolete-compatibility]: [Obsolete compatibility design and review](../work/obsolete-compatibility/review.md).

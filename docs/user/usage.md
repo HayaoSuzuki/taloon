@@ -160,7 +160,7 @@ taloon cache clear
 
 This works outside a project and uses the same location as `check`, including
 `TALOON_CACHE_DIR`. The cache is shared across projects using that location.
-The command removes recognized completed v1 cache records, including damaged
+The command removes recognized completed cache records, including obsolete or damaged
 records, and prints the number removed. It retains the directory, unrelated or
 unknown filenames, temporary files, subdirectories and symlinks. It does not
 follow a cache-root symlink; select its actual directory instead. An absent
@@ -171,6 +171,11 @@ Stop other taloon checks before clearing; active writers can repopulate the
 cache. The next online check reacquires missing evidence, and offline checks
 can become incomplete. An empty `TALOON_CACHE_DIR` selects the current directory,
 matching existing cache writes; prefer an explicit dedicated directory.
+
+Evidence payloads from the previous format are no longer accepted or migrated.
+The first online run after upgrading reacquires required evidence. An offline
+run needs current-format evidence or available local artifacts; old cache files
+alone cannot satisfy it. `taloon cache clear` can remove the obsolete files.
 
 The cache stores observed declarations and provenance, never permission verdicts.
 The first online check may take substantially longer than a cached check because

@@ -158,7 +158,7 @@ legacy declarations trigger full archive verification at most once per cached ob
 bounded HTTP retry policy. The bundled canonical texts require no runtime
 network database. Subsequent runs reuse observed file text, including completed
 unknown scans; no archive is repeatedly fetched merely because recognition
-failed. Cached older/sidecar observations needing files upgrade directly to an
+failed. Current-format cached sidecar observations needing files upgrade directly to an
 archive, without refetching their index or sidecar. Offline performs no network
 requests and retains Unknown when file evidence is unavailable. Normal cache
 clearing, corruption recovery and eviction can require acquisition again.

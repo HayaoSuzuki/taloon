@@ -1246,6 +1246,70 @@ fn acquire_bundled(
         .unwrap();
     (evidence, summary)
 }
+
+fn obsolete_sidecar_cache(
+    root: &std::path::Path,
+    offline: bool,
+) -> (Acquirer, Fixture, ArtifactRequest) {
+    let (fixture, request, metadata) = bundled_fixture("License-Expression: MIT", "unused");
+    let acquirer =
+        Acquirer::with_transport(AcquisitionOptions::testing(root, offline), fixture.clone())
+            .unwrap();
+    let hash = request.hash().unwrap();
+    let sidecar = Evidence::from_sidecar(
+        &request,
+        taloon::evidence::SidecarAssociation::new(hash, hash, ContentHash::digest(&metadata))
+            .unwrap(),
+        &metadata,
+    )
+    .unwrap();
+    acquirer.cache.put(&request, &sidecar).unwrap();
+    let path = std::fs::read_dir(&acquirer.options.cache_dir)
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap()
+        .path();
+    let mut value: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    value["observation"]["data"]["schema"] = 1.into();
+    std::fs::write(path, serde_json::to_vec(&value).unwrap()).unwrap();
+    (acquirer, fixture, request)
+}
+
+#[test]
+fn obsolete_cache_reacquires_metadata_online() {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let (acquirer, fixture, request) = obsolete_sidecar_cache(temp.path(), false);
+    // Act
+    let (evidence, summary) = acquire_bundled(&acquirer, &request);
+    // Assert
+    assert_eq!(evidence.license().unwrap().text(), "MIT");
+    assert_eq!(evidence.content_hash(), request.hash().unwrap());
+    assert_eq!(summary.cache_hits, 0);
+    assert_eq!(summary.http.index.requests, 1);
+    assert_eq!(summary.http.metadata.requests, 1);
+    assert_eq!(summary.http.archive.requests, 0);
+    assert_eq!(fixture.count(), 2);
+}
+
+#[test]
+fn obsolete_cache_remains_a_miss_offline() {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let (acquirer, fixture, request) = obsolete_sidecar_cache(temp.path(), true);
+    let catalog = index::IndexCatalog::new(std::slice::from_ref(&request), &acquirer.http);
+    let mut summary = AcquisitionSummary::default();
+    // Act
+    let evidence = acquirer.acquire_remote(&request, &catalog, &mut summary, &mut Vec::new());
+    // Assert
+    assert_eq!(evidence.unwrap_err().code, Code::Acquisition);
+    assert_eq!(summary.cache_hits, 0);
+    assert_eq!(summary.network_requests, 0);
+    assert_eq!(fixture.count(), 0);
+}
+
 #[rstest::rstest]
 #[case::declared("License-Expression: MIT\nLicense-File: LICENSE", 0, "MIT")]
 #[case::legacy_name("License: MIT License\nLicense-File: LICENSE", 0, "MIT")]
