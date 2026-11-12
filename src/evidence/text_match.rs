@@ -97,8 +97,11 @@ pub(super) fn identify(text: &str) -> Option<&'static str> {
             let start = match *id {
                 "BSD-2-Clause" | "BSD-3-Clause" => "Redistribution and use",
                 "MIT" => "Permission is hereby granted",
-                "ISC" => "Permission to use",
-                _ => return false,
+                remaining => {
+                    // Apache/MPL return above; the fixed catalog leaves ISC here.
+                    assert_eq!(remaining, "ISC", "remaining supported template");
+                    "Permission to use"
+                }
             };
             let Some((header, body)) = text.split_once(start) else {
                 return false;
@@ -751,5 +754,57 @@ mod tests {
 
             prop_assert_eq!(actual, None);
         }
+    }
+}
+
+#[cfg(test)]
+mod coverage_boundaries {
+    use super::*;
+
+    #[test]
+    fn whitespace_in_contact_origin_cannot_be_discarded() {
+        // Arrange / Act
+        let holder = without_contact_origin("Alice (https://example.test/ extra)");
+        // Assert
+        assert_eq!(holder, None);
+    }
+
+    #[test]
+    fn empty_holder_token_is_not_a_name() {
+        // Arrange / Act / Assert
+        assert!(!holder_token(""));
+    }
+
+    #[test]
+    fn missing_body_word_does_not_create_attribution_header() {
+        // Arrange / Act
+        let header = raw_header("Copyright Alice", "Copyright Alice");
+        // Assert
+        assert_eq!(header, None);
+    }
+    #[test]
+    fn split_copyright_marker_cannot_identify_apache_notice() {
+        // Arrange
+        let canonical = spdx::text::LICENSE_TEXTS
+            .iter()
+            .find(|(id, _)| *id == "Apache-2.0")
+            .unwrap()
+            .1;
+        let text = canonical.replace(
+            "Copyright [yyyy] [name of copyright owner]",
+            "Copyright\n2024 Alice",
+        );
+        // Act
+        let expression = identify(&text);
+        // Assert
+        assert_eq!(expression, None);
+    }
+
+    #[test]
+    fn missing_raw_attribution_body_is_rejected() {
+        // Arrange / Act
+        let accepted = attribution("Alice", "Alice", "MIT");
+        // Assert
+        assert!(!accepted);
     }
 }

@@ -945,10 +945,14 @@ fn real_https_transport_rejects_bad_tls_and_times_out() {
                                 stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n");
                         }
                     }
-                    Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                    Err(e) => {
+                        assert_eq!(
+                            e.kind(),
+                            std::io::ErrorKind::WouldBlock,
+                            "fixture listener: {e}"
+                        );
                         std::thread::sleep(Duration::from_millis(5));
                     }
-                    Err(e) => panic!("fixture listener: {e}"),
                 }
             }
             count
@@ -1827,4 +1831,234 @@ fn legacy_supplement_positive_scan_is_reused_from_cache(
     assert_eq!(summary.downloaded_bytes, 0);
     assert_eq!(summary.archive_extractions, 0);
     assert_eq!(fixture.count(), before);
+}
+
+#[rstest::rstest]
+#[case::field_without_machine("login user password secret")]
+#[case::missing_machine_name("machine")]
+#[case::missing_field_value("machine example.test login")]
+#[case::duplicate_login("machine example.test login first login second")]
+#[case::duplicate_password("machine example.test password first password second")]
+#[case::duplicate_host(
+    "machine example.test login u password p machine EXAMPLE.TEST login x password y"
+)]
+#[case::unknown_field("machine example.test unsupported value")]
+fn malformed_netrc_is_rejected_without_exposing_credentials(#[case] text: &str) {
+    // Arrange
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("netrc");
+    std::fs::write(&path, text).unwrap();
+    // Act
+    let error = http::Authentication::from_file(Some(&path)).err().unwrap();
+    // Assert
+    assert_eq!(error.code, taloon::model::Code::Configuration);
+    assert_eq!(
+        error.message,
+        "invalid netrc fields (machine/login/password/account supported)"
+    );
+}
+
+#[test]
+fn oversized_netrc_is_rejected_before_parsing() {
+    // Arrange
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("netrc");
+    std::fs::write(&path, vec![b' '; 1024 * 1024 + 1]).unwrap();
+    // Act
+    let error = http::Authentication::from_file(Some(&path)).err().unwrap();
+    // Assert
+    assert_eq!(error.code, taloon::model::Code::Configuration);
+    assert_eq!(error.message, "netrc file exceeds 1 MiB");
+}
+
+#[test]
+fn redirect_cycle_stops_at_six_requests() {
+    // Arrange
+    let fixture = Fixture::default();
+    fixture.add("https://example.test/cycle", 302, b"");
+    fixture
+        .routes
+        .lock()
+        .unwrap()
+        .get_mut("https://example.test/cycle")
+        .unwrap()
+        .location = Some("/cycle".into());
+    let client = http::Http::new(fixture.clone(), http::Authentication::default());
+    let mut summary = AcquisitionSummary::default();
+    // Act
+    let error = client
+        .get(
+            RequestPurpose::Archive,
+            url::Url::parse("https://example.test/cycle").unwrap(),
+            "test",
+            64,
+            &mut summary,
+        )
+        .err()
+        .unwrap();
+    // Assert
+    assert_eq!(error.message, "HTTPS redirect limit exceeded");
+    assert_eq!(fixture.count(), 6);
+    assert_eq!(summary.network_requests, 6);
+}
+
+#[test]
+fn strong_request_does_not_query_index_sidecar() {
+    // Arrange
+    let bytes =
+        crate::testfixtures::wheel(&crate::testfixtures::metadata("License-Expression: MIT"));
+    let inspection = fixture_inspection(&bytes, false);
+    let request = inspection.requests()[0]
+        .clone()
+        .requiring(taloon::model::EvidenceRequirement::ArchiveVerified);
+    let fixture = Fixture::default();
+    let client = http::Http::new(fixture.clone(), http::Authentication::default());
+    let catalog = index::IndexCatalog::new(std::slice::from_ref(&request), &client);
+    let mut summary = AcquisitionSummary::default();
+    // Act
+    let sidecar = catalog.sidecar(&request, &mut summary).unwrap();
+    // Assert
+    assert!(sidecar.is_none());
+    assert_eq!(fixture.count(), 0);
+    assert_eq!(summary.network_requests, 0);
+}
+
+#[test]
+fn netrc_account_does_not_replace_host_credentials() {
+    // Arrange
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("netrc");
+    std::fs::write(
+        &path,
+        "machine example.test account ignored login user password secret",
+    )
+    .unwrap();
+    let fixture = Fixture::default();
+    fixture.add("https://example.test/archive", 200, b"archive");
+    let client = http::Http::new(
+        fixture.clone(),
+        http::Authentication::from_file(Some(&path)).unwrap(),
+    );
+    let mut summary = AcquisitionSummary::default();
+    // Act
+    let response = client
+        .get(
+            RequestPurpose::Archive,
+            url::Url::parse("https://example.test/archive").unwrap(),
+            "test",
+            64,
+            &mut summary,
+        )
+        .unwrap();
+    // Assert
+    assert_eq!(response.body, b"archive");
+    assert_eq!(
+        fixture.calls.lock().unwrap()[0].auth.as_deref(),
+        Some("user:secret")
+    );
+}
+
+#[test]
+fn remote_acquisition_survives_unavailable_cache_with_visible_warnings() {
+    // Arrange
+    let directory = tempfile::tempdir().unwrap();
+    let bytes =
+        crate::testfixtures::wheel(&crate::testfixtures::metadata("License-Expression: MIT"));
+    let inspection = fixture_inspection(&bytes, false);
+    let fixture = Fixture::default();
+    fixture.add("https://files.test/a.whl", 200, &bytes);
+    fixture.add("https://files.test/b.whl", 200, &bytes);
+    let mut options = AcquisitionOptions::testing(directory.path(), false);
+    options.cache_dir = directory.path().join("unavailable");
+    std::fs::write(&options.cache_dir, b"not a directory").unwrap();
+    let acquirer = Acquirer::with_transport(options, fixture).unwrap();
+    // Act
+    let batch = acquirer.acquire(inspection.requests());
+    // Assert
+    assert!(
+        batch.warnings.iter().any(
+            |warning| warning.error.message == "cache read failed; acquiring evidence directly"
+        )
+    );
+    assert!(
+        batch
+            .warnings
+            .iter()
+            .any(|warning| warning.error.message == "cache write failed; using in-memory evidence")
+    );
+    assert_eq!(inspection.evaluate(batch.results).exit_code(false), 0);
+}
+
+#[test]
+fn non_utf8_netrc_is_rejected_without_exposing_file_bytes() {
+    // Arrange
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("netrc");
+    std::fs::write(&path, [255]).unwrap();
+    // Act
+    let error = http::Authentication::from_file(Some(&path)).err().unwrap();
+    // Assert
+    assert_eq!(error.message, "cannot read UTF-8 netrc file");
+}
+
+#[test]
+fn malformed_redirect_is_an_acquisition_error_without_retrying() {
+    // Arrange
+    let fixture = Fixture::default();
+    fixture.add("https://example.test/start", 302, b"");
+    fixture
+        .routes
+        .lock()
+        .unwrap()
+        .get_mut("https://example.test/start")
+        .unwrap()
+        .location = Some("https://[invalid".into());
+    let client = http::Http::new(fixture.clone(), http::Authentication::default());
+    let mut summary = AcquisitionSummary::default();
+    // Act
+    let error = client
+        .get(
+            RequestPurpose::Archive,
+            url::Url::parse("https://example.test/start").unwrap(),
+            "test",
+            64,
+            &mut summary,
+        )
+        .err()
+        .unwrap();
+    // Assert
+    assert_eq!(error.code, taloon::model::Code::Acquisition);
+    assert_eq!(fixture.count(), 1);
+}
+
+#[test]
+fn remote_acquisition_refuses_a_pinned_local_locator() {
+    use taloon::model::{
+        ArtifactFormat, ArtifactLocator, ArtifactRequest, ContentHash, PackageId, SourceId,
+    };
+    // Arrange
+    let directory = tempfile::tempdir().unwrap();
+    let request = ArtifactRequest::new(
+        PackageId::parse("example", "1.0", SourceId::parse("path", "a.whl").unwrap()).unwrap(),
+        ArtifactLocator::local("a.whl").unwrap(),
+        ArtifactFormat::Wheel,
+        Some(ContentHash::digest(b"archive")),
+    )
+    .unwrap();
+    let acquirer = Acquirer::with_transport(
+        AcquisitionOptions::testing(directory.path(), false),
+        Fixture::default(),
+    )
+    .unwrap();
+    let catalog = index::IndexCatalog::new(std::slice::from_ref(&request), &acquirer.http);
+    let mut summary = AcquisitionSummary::default();
+    let mut warnings = Vec::new();
+    // Act
+    let error = acquirer
+        .acquire_remote(&request, &catalog, &mut summary, &mut warnings)
+        .err()
+        .unwrap();
+    // Assert
+    assert_eq!(error.code, taloon::model::Code::Acquisition);
+    assert_eq!(summary.network_requests, 0);
 }

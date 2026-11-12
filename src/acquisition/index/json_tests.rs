@@ -57,6 +57,7 @@ fn historical_json_index_parse(#[case] historical: usize) {
 }
 
 #[rstest]
+#[case::unsupported_api_version(r#"{"meta":{"api-version":"2.0"},"files":[]}"#)]
 #[case::missing_url(r#"{"files":[{}]}"#)]
 #[case::numeric_url(r#"{"files":[{"url":4}]}"#)]
 #[case::invalid_meta(r#"{"meta":4,"files":[]}"#)]
@@ -85,15 +86,16 @@ fn malformed_or_duplicate_json_fields_are_rejected(#[case] text: &str) {
 }
 
 fn advertisement(code: u8) -> Option<serde_json::Value> {
-    match code {
-        0 => None,
-        1 => Some(serde_json::json!(false)),
-        2 => Some(serde_json::json!(true)),
-        3 => Some(serde_json::json!({"sha256":hex(b"metadata")})),
-        4 => Some(serde_json::json!({"sha256":"invalid"})),
-        5 => Some(serde_json::json!({"sha512":"unusable"})),
-        _ => unreachable!("fixture has six independent advertisement codes"),
-    }
+    // The fixed and generated cases select the six advertised states by index.
+    [
+        None,
+        Some(serde_json::json!(false)),
+        Some(serde_json::json!(true)),
+        Some(serde_json::json!({"sha256":hex(b"metadata")})),
+        Some(serde_json::json!({"sha256":"invalid"})),
+        Some(serde_json::json!({"sha512":"unusable"})),
+    ][usize::from(code)]
+    .clone()
 }
 fn page(modern: u8, legacy: u8, extension: &str) -> Response {
     let mut file = serde_json::json!({"url":"https://files.test/target.whl",
@@ -147,4 +149,15 @@ proptest! {
         // Assert
         prop_assert_eq!(result.unwrap().is_some(), expected);
     }
+}
+
+#[test]
+fn malformed_unselected_url_does_not_create_an_association() {
+    // Arrange
+    let response = response(br#"{"files":[{"url":"https://[invalid"}]}"#.to_vec());
+    let target = Url::parse("https://files.test/target.whl").unwrap();
+    // Act
+    let result = PackageIndex::parse(&response, &BTreeSet::from([target]));
+    // Assert
+    assert_eq!(result.unwrap().links.len(), 0);
 }

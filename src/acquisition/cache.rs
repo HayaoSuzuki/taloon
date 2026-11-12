@@ -23,6 +23,23 @@ pub(crate) struct EvidenceCache {
 fn failure() -> Error {
     Error::new(Code::Cache, "evidence cache is unavailable")
 }
+// Filesystem diagnostics must not expose configured paths or record contents.
+fn io_failure(_: std::io::Error) -> Error {
+    failure()
+}
+fn json_failure(_: serde_json::Error) -> Error {
+    failure()
+}
+// Directory entries can disappear between enumeration and metadata inspection.
+// Keep that classification independent of the filesystem so both OS outcomes
+// are deterministic to verify on platforms which cache DirEntry file types.
+fn regular_record(result: std::io::Result<fs::FileType>) -> Result<bool, Error> {
+    match result {
+        Ok(kind) => Ok(kind.is_file() && !kind.is_symlink()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(_) => Err(failure()),
+    }
+}
 impl EvidenceCache {
     pub(crate) fn new(root: PathBuf) -> Self {
         Self { root }
@@ -49,16 +66,11 @@ impl EvidenceCache {
         };
         let mut removed = 0_u64;
         for entry in entries {
-            let entry = entry.map_err(|_| failure())?;
+            let entry = entry.map_err(io_failure)?;
             if !entry.file_name().to_str().is_some_and(is_record_name) {
                 continue;
             }
-            let kind = match entry.file_type() {
-                Ok(kind) => kind,
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
-                Err(_) => return Err(failure()),
-            };
-            if !kind.is_file() || kind.is_symlink() {
+            if !regular_record(entry.file_type())? {
                 continue;
             }
             match fs::remove_file(entry.path()) {
@@ -103,7 +115,7 @@ impl EvidenceCache {
             let mut bytes = Vec::new();
             file.take(MAX_RECORD + 1)
                 .read_to_end(&mut bytes)
-                .map_err(|_| failure())?;
+                .map_err(io_failure)?;
             if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > MAX_RECORD {
                 continue;
             }
@@ -125,28 +137,28 @@ impl EvidenceCache {
     pub(super) fn put(&self, r: &ArtifactRequest, e: &Evidence) -> Result<(), Error> {
         // Validate the association before publishing caller-supplied observations.
         let e = e.rebind(r)?;
-        fs::create_dir_all(&self.root).map_err(|_| failure())?;
+        fs::create_dir_all(&self.root).map_err(io_failure)?;
         let mut temporary = tempfile::Builder::new()
             .prefix(".evidence-")
             .tempfile_in(&self.root)
-            .map_err(|_| failure())?;
+            .map_err(io_failure)?;
         let envelope = Envelope {
             schema: 1,
             observation: e.to_record(),
         };
         {
             let mut buffered = BufWriter::new(&mut temporary);
-            serde_json::to_writer(&mut buffered, &envelope).map_err(|_| failure())?;
-            buffered.flush().map_err(|_| failure())?;
+            serde_json::to_writer(&mut buffered, &envelope).map_err(json_failure)?;
+            buffered.flush().map_err(io_failure)?;
         }
-        temporary.as_file().sync_all().map_err(|_| failure())?;
+        temporary.as_file().sync_all().map_err(io_failure)?;
         temporary
             .persist(self.path(
                 r,
                 e.content_hash(),
                 e.requirement_satisfied(EvidenceRequirement::ArchiveVerified),
             ))
-            .map_err(|_| failure())?;
+            .map_err(|error| io_failure(error.error))?;
         Ok(())
     }
 }
@@ -182,6 +194,26 @@ mod tests {
     use taloon::evidence::SidecarAssociation;
 
     #[test]
+    fn filesystem_failure_does_not_disclose_private_path() {
+        // Arrange
+        let source = std::io::Error::other("/private/token-secret/cache.json");
+        // Act
+        let error = io_failure(source);
+        // Assert
+        assert_eq!(error.code, Code::Cache);
+        assert_eq!(error.message, "evidence cache is unavailable");
+    }
+    #[test]
+    fn serialization_failure_does_not_disclose_record_data() {
+        // Arrange
+        let source = serde_json::Error::io(std::io::Error::other("secret record data"));
+        // Act
+        let error = json_failure(source);
+        // Assert
+        assert_eq!(error.code, Code::Cache);
+        assert_eq!(error.message, "evidence cache is unavailable");
+    }
+    #[test]
     fn clear_recognizes_records_written_by_both_evidence_producers() {
         let temp = tempfile::tempdir().unwrap();
         let cache = EvidenceCache::new(temp.path().to_owned());
@@ -201,6 +233,92 @@ mod tests {
         assert_eq!(std::fs::read_dir(temp.path()).unwrap().count(), 2);
         assert_eq!(cache.clear().unwrap(), 2);
         assert!(cache.get(&request, archive).unwrap().is_none());
+    }
+
+    #[test]
+    fn oversized_persisted_record_is_a_cache_miss() {
+        // Arrange
+        let directory = tempfile::tempdir().unwrap();
+        let cache = EvidenceCache::new(directory.path().to_owned());
+        let request = request(b"archive", ArtifactFormat::Wheel);
+        let hash = ContentHash::digest(b"archive");
+        fs::File::create(cache.path(&request, hash, true))
+            .unwrap()
+            .set_len(MAX_RECORD + 1)
+            .unwrap();
+        // Act
+        let observation = cache.get(&request, hash).unwrap();
+        // Assert
+        assert!(observation.is_none());
+    }
+
+    #[test]
+    fn unreadable_record_reports_cache_error() {
+        // Arrange: a directory opens as a File but cannot be read as JSON bytes.
+        let directory = tempfile::tempdir().unwrap();
+        let cache = EvidenceCache::new(directory.path().to_owned());
+        let request = request(b"archive", ArtifactFormat::Wheel);
+        let hash = ContentHash::digest(b"archive");
+        fs::create_dir(cache.path(&request, hash, true)).unwrap();
+        // Act
+        let error = cache.get(&request, hash).err().unwrap();
+        // Assert
+        assert_eq!(error.code, Code::Cache);
+    }
+
+    #[test]
+    fn failed_publication_does_not_replace_a_directory() {
+        // Arrange
+        let directory = tempfile::tempdir().unwrap();
+        let cache = EvidenceCache::new(directory.path().to_owned());
+        let bytes = wheel(&metadata("License-Expression: MIT"));
+        let request = request(&bytes, ArtifactFormat::Wheel);
+        let evidence = Evidence::from_archive(&request, &bytes).unwrap();
+        let destination = cache.path(&request, evidence.content_hash(), true);
+        fs::create_dir(&destination).unwrap();
+        // Act
+        let error = cache.put(&request, &evidence).unwrap_err();
+        // Assert
+        assert_eq!(error.code, Code::Cache);
+        assert!(destination.is_dir());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn nonwritable_cache_cannot_create_a_temporary_record() {
+        use std::os::unix::fs::PermissionsExt;
+        // Arrange
+        let directory = tempfile::tempdir().unwrap();
+        let cache = EvidenceCache::new(directory.path().to_owned());
+        let bytes = wheel(&metadata("License-Expression: MIT"));
+        let request = request(&bytes, ArtifactFormat::Wheel);
+        let evidence = Evidence::from_archive(&request, &bytes).unwrap();
+        fs::set_permissions(directory.path(), fs::Permissions::from_mode(0o500)).unwrap();
+        // Act
+        let result = cache.put(&request, &evidence);
+        fs::set_permissions(directory.path(), fs::Permissions::from_mode(0o700)).unwrap();
+        // Assert
+        assert_eq!(result.unwrap_err().code, Code::Cache);
+    }
+
+    #[test]
+    fn vanished_directory_entry_is_skipped() {
+        // Arrange
+        let error = std::io::Error::from(std::io::ErrorKind::NotFound);
+        // Act
+        let regular = regular_record(Err(error)).unwrap();
+        // Assert
+        assert!(!regular);
+    }
+
+    #[test]
+    fn directory_entry_inspection_failure_is_not_a_successful_clear() {
+        // Arrange
+        let error = std::io::Error::from(std::io::ErrorKind::PermissionDenied);
+        // Act
+        let error = regular_record(Err(error)).unwrap_err();
+        // Assert
+        assert_eq!(error.code, Code::Cache);
     }
 
     #[cfg(target_os = "linux")]
@@ -280,5 +398,57 @@ mod tests {
             }
             prop_assert_eq!(cache.clear().unwrap(), 0);
         }
+    }
+}
+
+#[cfg(all(test, unix))]
+mod permission_tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+
+    #[test]
+    fn unreadable_cache_directory_cannot_be_cleared() {
+        // Arrange
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path().join("cache");
+        fs::create_dir(&root).unwrap();
+        fs::set_permissions(&root, fs::Permissions::from_mode(0o000)).unwrap();
+        // Act
+        let result = EvidenceCache::new(root.clone()).clear();
+        fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).unwrap();
+        // Assert
+        assert_eq!(result.unwrap_err().code, Code::Cache);
+    }
+
+    #[test]
+    fn inaccessible_cache_parent_cannot_be_cleared() {
+        // Arrange
+        let directory = tempfile::tempdir().unwrap();
+        let parent = directory.path().join("parent");
+        let root = parent.join("cache");
+        fs::create_dir_all(&root).unwrap();
+        fs::set_permissions(&parent, fs::Permissions::from_mode(0o000)).unwrap();
+        // Act
+        let result = EvidenceCache::new(root).clear();
+        fs::set_permissions(&parent, fs::Permissions::from_mode(0o700)).unwrap();
+        // Assert
+        assert_eq!(result.unwrap_err().code, Code::Cache);
+    }
+
+    #[test]
+    fn nonwritable_cache_keeps_records_and_reports_clear_failure() {
+        // Arrange
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path().join("cache");
+        fs::create_dir(&root).unwrap();
+        let record = root.join(format!("v1-archive-wheel-sha256-{}.json", "11".repeat(32)));
+        fs::write(&record, b"record").unwrap();
+        fs::set_permissions(&root, fs::Permissions::from_mode(0o500)).unwrap();
+        // Act
+        let result = EvidenceCache::new(root.clone()).clear();
+        fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).unwrap();
+        // Assert
+        assert_eq!(result.unwrap_err().code, Code::Cache);
+        assert_eq!(fs::read(record).unwrap(), b"record");
     }
 }

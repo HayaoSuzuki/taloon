@@ -150,6 +150,7 @@ fn concurrent_publication_never_exposes_partial_records() {
     let req = request(&bytes, ArtifactFormat::Wheel);
     let hash = ContentHash::digest(&bytes);
     let e = Evidence::from_archive(&req, &bytes).unwrap();
+    cache.put(&req, &e).unwrap();
     std::thread::scope(|scope| {
         let a = scope.spawn(|| {
             for _ in 0..16 {
@@ -162,9 +163,11 @@ fn concurrent_publication_never_exposes_partial_records() {
             }
         });
         for _ in 0..64 {
-            if let Some(observed) = cache.get(&req, hash).unwrap() {
-                assert_eq!(observed.content_hash(), hash);
-            }
+            let observed = cache
+                .get(&req, hash)
+                .unwrap()
+                .expect("published record remains present during replacement");
+            assert_eq!(observed.content_hash(), hash);
         }
         a.join().unwrap();
         b.join().unwrap();
@@ -277,4 +280,79 @@ fn metadata_at_the_supported_limit_survives_json_cache_expansion() {
         "supported metadata must survive JSON escaping in the cache"
     );
     assert_eq!(cached.unwrap().license().unwrap().text(), "MIT");
+}
+
+#[test]
+fn local_acquisition_refuses_remote_request_without_reading_files() {
+    // Arrange
+    let directory = tempfile::tempdir().unwrap();
+    let req = request(b"archive", ArtifactFormat::Wheel);
+    let cache = EvidenceCache::new(directory.path().join("cache"));
+    let mut summary = taloon::report::AcquisitionSummary::default();
+    let mut warnings = Vec::new();
+    // Act
+    let error = super::acquire_local(&req, directory.path(), &cache, &mut summary, &mut warnings)
+        .err()
+        .unwrap();
+    // Assert
+    assert_eq!(error.message, "request is not a local archive");
+    assert_eq!(summary.archive_extractions, 0);
+}
+
+#[test]
+fn local_archive_above_input_limit_is_rejected_before_extraction() {
+    use taloon::model::{ArtifactLocator, ArtifactRequest, PackageId, SourceId};
+    // Arrange: sparse data exercises the reader boundary without storing a large fixture.
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("example.whl");
+    std::fs::File::create(&path)
+        .unwrap()
+        .set_len(super::MAX_ARCHIVE + 1)
+        .unwrap();
+    let req = ArtifactRequest::new(
+        PackageId::parse(
+            "example",
+            "1.0",
+            SourceId::parse("path", "example.whl").unwrap(),
+        )
+        .unwrap(),
+        ArtifactLocator::local("example.whl").unwrap(),
+        ArtifactFormat::Wheel,
+        None,
+    )
+    .unwrap();
+    let cache = EvidenceCache::new(directory.path().join("cache"));
+    let mut summary = taloon::report::AcquisitionSummary::default();
+    let mut warnings = Vec::new();
+    // Act
+    let error = super::acquire_local(&req, directory.path(), &cache, &mut summary, &mut warnings)
+        .err()
+        .unwrap();
+    // Assert
+    assert_eq!(error.message, "archive exceeds the 256 MiB input limit");
+    assert_eq!(summary.archive_extractions, 0);
+}
+
+#[test]
+fn local_directory_is_not_read_as_an_archive() {
+    use taloon::model::{ArtifactLocator, ArtifactRequest, PackageId, SourceId};
+    // Arrange
+    let directory = tempfile::tempdir().unwrap();
+    let req = ArtifactRequest::new(
+        PackageId::parse("example", "1.0", SourceId::parse("path", ".").unwrap()).unwrap(),
+        ArtifactLocator::local(".").unwrap(),
+        ArtifactFormat::Wheel,
+        None,
+    )
+    .unwrap();
+    let cache = EvidenceCache::new(directory.path().join("cache"));
+    let mut summary = taloon::report::AcquisitionSummary::default();
+    let mut warnings = Vec::new();
+    // Act
+    let error = super::acquire_local(&req, directory.path(), &cache, &mut summary, &mut warnings)
+        .err()
+        .unwrap();
+    // Assert
+    assert_eq!(error.message, "cannot read local artifact");
+    assert_eq!(summary.archive_extractions, 0);
 }

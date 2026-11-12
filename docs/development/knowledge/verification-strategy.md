@@ -4,6 +4,18 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: python-mutation-verification
+  resource: ../work/coverage/python-mutations.md
+  working_tree: untracked
+  sha256: 7664d6c921323244d0c61423cbcf35e75d047afa77690919bac011e7a283b818
+- id: coverage-verification
+  resource: ../work/coverage/review.md
+  working_tree: untracked
+  sha256: 50a8292678cdccfb7aa75734f1db6078eb19a5b4def894335a4734ab56c6315b
+- id: coverage-configuration
+  resource: ../../../pyproject.toml
+  working_tree: modified
+  sha256: 7dbcbc24d9891e0cdfb6b84512c0c6591054fd85ea791544f4c32cafb6c2098b
 - id: creusot-image-adoption
   resource: ../work/creusot-registry-image/adoption.md
   working_tree: untracked
@@ -551,3 +563,40 @@ acquisition dependency, not all network or trusted-service dependencies.
 [^creusot-registry-image]: [Durable image design, provenance boundaries and staged verification](../work/creusot-registry-image/review.md).
 
 [^creusot-image-adoption]: [First published digest, source receipt and adoption checks](../work/creusot-registry-image/adoption.md).
+
+# Source and test coverage
+
+Coverage measurement includes maintained source and test code. Python uses
+pytest-cov with child-process instrumentation and a 100% line threshold. Rust
+uses cargo-llvm-cov with its default test-file ignore disabled; execute ignored
+measurements and loopback tests as well as the ordinary suite. The
+[development guide](../index.md#coverage) owns prerequisites and commands.
+[^coverage-configuration]
+
+Require meaningful observable expectations, not calls that merely execute lines.
+An exclusion belongs inline with the invariant that makes the path unreachable,
+or the reason a test failure guard cannot execute in a passing suite. Do not
+exclude an entire file or reduce the denominator to hide testable failure paths.
+Rust's nightly-only coverage attributes retain defensive checks in ordinary
+builds. A single-platform run covers only the code compiled for that platform;
+100% line coverage is not branch coverage or proof of semantic correctness.
+The [verification record](../work/coverage/review.md) distinguishes merged mapped
+source-line coverage from LLVM's native instantiation summary, which can disagree
+with its own line records. Preserve both metrics; the gate checks actual mapped
+source lines rather than changing LLVM's raw totals.[^coverage-verification]
+
+[^coverage-configuration]: [Python dependency lock inputs and coverage configuration](../../../pyproject.toml).
+
+[^coverage-verification]: [Source and test coverage verification](../work/coverage/review.md).
+
+# Python mutation verification
+
+Selected hoimin mutations complement line coverage by exercising assertions about
+complete diagnostics, navigation, signed evidence, release identity and failure
+propagation. The [verification record](../work/coverage/python-mutations.md)
+retains the selected IDs, source fingerprints, replans and latest per-ID outcomes.
+Equivalent mutants remain visible. Selected verification does not establish an
+exhaustive mutation score or change the formal proof scope.
+[^python-mutation-verification]
+
+[^python-mutation-verification]: [Python mutation verification](../work/coverage/python-mutations.md).

@@ -107,6 +107,66 @@ with a generated numeric oracle. These examples guide new and modified tests;
 this change does not claim to rewrite every pre-existing Rust test. Test ordering
 checks below complement behavioral and generated coverage.
 
+## Coverage
+
+Measure maintained Python tooling and tests, including child Python processes:
+
+```sh
+uv run --frozen --no-sync pytest --cov --cov-report=term-missing --cov-report=html
+```
+
+The coverage configuration includes both `tools` and `tests` and requires 100%
+line coverage. Keep missing behavior visible: add tests with observable outcomes;
+exclude only genuinely unexecutable defensive paths or failure-only test guards,
+with an inline explanation. A green coverage result does not establish that
+assertions detect incorrect behavior.
+
+Measure Rust source and tests with [cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov):
+
+```sh
+cargo build --release --locked --workspace --all-features
+coverage_dir=$(mktemp -d "$PWD/target/coverage.XXXXXX")
+CARGO_LLVM_COV_TARGET_DIR="$coverage_dir" CARGO_LLVM_COV_BUILD_DIR="$coverage_dir" TALOON_BENCH_BINARY="$PWD/target/release/taloon" cargo +nightly-2026-10-08 llvm-cov --locked --workspace --all-features --no-default-ignore-filename-regex --ignore-filename-regex '/rustc/|/\.cargo/|/target/' --lcov --output-path "$coverage_dir/lcov.info" --fail-under-functions 100 -- --include-ignored
+awk -F '[:,]' '/^DA:/ { lines++; covered += ($3 > 0) } END { printf "Source lines: %d/%d\n", covered, lines; exit(lines == 0 || covered != lines) }' "$coverage_dir/lcov.info"
+```
+
+Use a fresh directory for both coverage artifacts and intermediate build output;
+old executable coverage maps can survive ordinary cleaning and distort counts.
+The release binary is used by the existing warm-cache process benchmark.
+`--include-ignored` also runs the opt-in measurements and loopback TLS fixture;
+allow several minutes and permit local sockets. On macOS the terminal progress
+test uses the system `/usr/bin/script` utility.
+
+The pinned nightly enables inline `coverage(off)` attributes for individually
+explained unreachable error closures. Stable builds keep those checks compiled.
+Disabling the default filename ignore is necessary to include integration tests
+and test helper files. The remaining filter removes compiler/dependency/build
+output, not maintained repository source or tests. Platform-specific compiled-out
+code is not measured by a run on a different platform.
+
+The gate above checks the actual LCOV `DA` source-line records and rejects empty
+measurements. Preserve LLVM's native summary separately. Its `LF`/`LH` totals
+can disagree with the merged line records for multiple instantiations;
+[LLVM issue 119299](https://github.com/llvm/llvm-project/issues/119299) documents
+this distinction. The [coverage verification record](work/coverage/review.md)
+reports both metrics without rewriting LLVM's totals.
+
+## Python mutation checks
+
+Use a pinned hoimin Release wheel and its `plan`/`verify` commands against
+production `tools` files. Include `target/debug/taloon` in worker copies for
+installed-wheel smoke tests. Keep manifests, reports and an isolated runtime
+TMPDIR in a temporary directory outside the repository, with cleanup on exit.
+Start with one worker, an 8 GiB workspace bound and a 10 GiB free-space reserve.
+Check the normal pytest baseline first and freeze files throughout each verify.
+
+Investigate survivors against observable contracts and reverify the same IDs
+after adding tests. Regenerate plans when source, argv, fingerprints or budgets
+change. Equivalent mutants and timeouts need explicit classification; a timeout
+is not an assertion-based kill. Compare whole-run scores only for identical ID
+sets. The [Python mutation record](work/coverage/python-mutations.md) documents
+one selected verification and its limits.
+
 ## Randomized test order
 
 CI adds a separate pinned nightly job alongside the stable Rust checks, following

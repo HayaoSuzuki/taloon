@@ -43,15 +43,14 @@ pub(super) fn emit(report: &DescriptionReport, format: Format, verbose: bool) ->
         .map_err(|_| ()),
         Format::Text => Ok(text(report, verbose).into_bytes()),
     };
-    let Ok(mut bytes) = encoded else {
-        return 2;
-    };
-    bytes.push(b'\n');
-    if std::io::stdout().lock().write_all(&bytes).is_err() {
-        let _ = writeln!(std::io::stderr().lock(), "cannot write taloon description");
-        return 2;
-    }
-    report.exit_code()
+    encoded.map_or_else(super::serialization_failure, |mut bytes| {
+        bytes.push(b'\n');
+        if std::io::stdout().lock().write_all(&bytes).is_err() {
+            let _ = writeln!(std::io::stderr().lock(), "cannot write taloon description");
+            return 2;
+        }
+        report.exit_code()
+    })
 }
 fn identity(package: &PackageIdentity) -> String {
     format!(
@@ -115,6 +114,26 @@ impl<'a> GraphDisplay<'a> {
                     "  -> {} [{}{}]",
                     identity(target),
                     via,
+                    conditions(edge.marker.as_deref(), &edge.extras)
+                );
+            }
+        }
+    }
+}
+fn render_origins(
+    out: &mut String,
+    graph: &GraphDisplay<'_>,
+    origins: &[taloon::resolution::GraphOrigin],
+) {
+    for origin in origins {
+        let _ = writeln!(out, "\norigin: {}", safe(&origin.entry));
+        for edge in &origin.edges {
+            if let Some(target) = graph.nodes.get(edge.to.as_str()) {
+                let _ = writeln!(
+                    out,
+                    "  -> {} [{}{}]",
+                    identity(target),
+                    safe(&edge.via.join(", ")),
                     conditions(edge.marker.as_deref(), &edge.extras)
                 );
             }
@@ -201,21 +220,53 @@ fn text(report: &DescriptionReport, verbose: bool) -> String {
             );
         }
     }
-    for origin in &report.graph().origins {
-        let _ = writeln!(out, "\norigin: {}", safe(&origin.entry));
-        for edge in &origin.edges {
-            if let Some(target) = graph.nodes.get(edge.to.as_str()) {
-                let _ = writeln!(
-                    out,
-                    "  -> {} [{}{}]",
-                    identity(target),
-                    safe(&edge.via.join(", ")),
-                    conditions(edge.marker.as_deref(), &edge.extras)
-                );
-            }
-        }
-    }
+    render_origins(&mut out, &graph, &report.graph().origins);
     diagnostics(&mut out, report.diagnostics(), "");
     acquisition_summary(&mut out, report.acquisition());
     out
+}
+
+#[cfg(test)]
+mod graph_rendering_tests {
+    use super::*;
+    #[test]
+    fn absent_dependency_target_is_not_rendered_as_a_dangling_link() {
+        // Arrange
+        let graph = DependencyGraph {
+            edges: vec![GraphEdge {
+                from: "source".into(),
+                to: "missing".into(),
+                via: DependencyKind::Normal,
+                marker: None,
+                extras: Vec::new(),
+            }],
+            ..DependencyGraph::default()
+        };
+        let display = GraphDisplay::new(&graph);
+        let mut text = String::new();
+        // Act
+        display.dependencies(&mut text, "source");
+        // Assert
+        assert_eq!(text, "");
+    }
+    #[test]
+    fn absent_origin_target_preserves_origin_without_a_dangling_link() {
+        // Arrange
+        let graph = DependencyGraph::default();
+        let display = GraphDisplay::new(&graph);
+        let origins = [taloon::resolution::GraphOrigin {
+            entry: "root".into(),
+            edges: vec![taloon::resolution::OriginEdge {
+                to: "missing".into(),
+                via: Vec::new(),
+                marker: None,
+                extras: Vec::new(),
+            }],
+        }];
+        let mut text = String::new();
+        // Act
+        render_origins(&mut text, &display, &origins);
+        // Assert
+        assert_eq!(text, "\norigin: root\n");
+    }
 }

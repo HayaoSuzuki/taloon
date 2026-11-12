@@ -369,11 +369,10 @@ fn cache_clear_preserves_symlinks_and_rejects_symlink_root() {
 fn cache_clear_uses_default_location_and_ignores_project_and_credentials() {
     let temp = tempfile::tempdir().unwrap();
     let base = temp.path().join("base");
-    let cache = if cfg!(target_os = "macos") {
-        temp.path().join("Library/Caches/taloon")
-    } else {
-        base.join("taloon")
-    };
+    #[cfg(target_os = "macos")]
+    let cache = temp.path().join("Library/Caches/taloon");
+    #[cfg(not(target_os = "macos"))]
+    let cache = base.join("taloon");
     std::fs::create_dir_all(&cache).unwrap();
     let record = cache.join(format!("v1-archive-wheel-sha256-{}.json", "0".repeat(64)));
     std::fs::write(&record, b"damaged").unwrap();
@@ -920,5 +919,238 @@ fn describe_ignores_deny_policy_and_omits_permission_mode() {
         report["packages"][0]["artifacts"][0]
             .get("decision")
             .is_none()
+    );
+}
+
+#[rstest::rstest]
+#[case::help("--help", "Usage:")]
+#[case::version("--version", "taloon ")]
+fn informational_flags_succeed_without_a_project(#[case] flag: &str, #[case] expected: &str) {
+    // Arrange
+    let directory = tempfile::tempdir().unwrap();
+    // Act
+    let output = invoke(directory.path(), &directory.path().join("cache"), &[flag]);
+    // Assert
+    assert_eq!(output.status.code(), Some(0));
+    assert!(String::from_utf8(output.stdout).unwrap().contains(expected));
+    assert_eq!(output.stderr, b"");
+}
+
+#[test]
+fn missing_lock_is_reported_in_text_output() {
+    // Arrange
+    let directory = tempfile::tempdir().unwrap();
+    // Act
+    let output = invoke(
+        directory.path(),
+        &directory.path().join("cache"),
+        &["check"],
+    );
+    // Assert
+    assert_eq!(output.status.code(), Some(2));
+    assert!(
+        String::from_utf8(output.stdout)
+            .unwrap()
+            .contains("no uv.lock found")
+    );
+}
+
+#[test]
+fn describe_invalid_input_explains_failure_in_text() {
+    // Arrange
+    let directory = tempfile::tempdir().unwrap();
+    // Act
+    let output = invoke(
+        directory.path(),
+        &directory.path().join("cache"),
+        &["describe", "example", "--unknown"],
+    );
+    // Assert
+    assert_eq!(output.status.code(), Some(2));
+    let text = String::from_utf8(output.stdout).unwrap();
+    assert!(text.contains("invalid input"));
+    assert!(text.contains("invalid command line"));
+}
+
+#[test]
+fn describe_text_preserves_conditional_dependency_context() {
+    // Arrange
+    let directory = tempfile::tempdir().unwrap();
+    project(directory.path(), "License-Expression: MIT");
+    std::fs::write(directory.path().join("uv.lock"), "version=1\nrevision=5\n[[package]]\nname='app'\nversion='1'\nsource={virtual='.'}\ndependencies=[{name='example',extra=['feature'],marker=\"sys_platform == 'linux'\"}]\n[package.optional-dependencies]\nextra=[{name='example'}]\n[package.dev-dependencies]\ntest=[{name='example'}]\n[[package]]\nname='example'\nversion='1.0'\nsource={path='example.whl'}\n[package.optional-dependencies]\nfeature=[]").unwrap();
+    // Act
+    let output = invoke(
+        directory.path(),
+        &directory.path().join("cache"),
+        &["describe", "app", "--offline", "--verbose"],
+    );
+    // Assert
+    assert_eq!(output.status.code(), Some(0));
+    let text = String::from_utf8(output.stdout).unwrap();
+    assert!(text.contains("all external packages"), "{text}");
+    assert!(
+        text.contains("workspace context (own license excluded): app"),
+        "{text}"
+    );
+    assert!(text.contains("requested extras: feature"), "{text}");
+    assert!(text.contains("marker: sys_platform == 'linux'"), "{text}");
+    assert!(text.contains("extra: extra"), "{text}");
+    assert!(text.contains("development: test"), "{text}");
+}
+
+#[cfg(unix)]
+#[rstest::rstest]
+#[case::check(vec!["check", "--offline"])]
+#[case::describe(vec!["describe", "example", "--offline"])]
+#[case::cache_clear(vec!["cache", "clear"])]
+#[case::help(vec!["--help"])]
+fn unwritable_stdout_is_reported_as_failure(#[case] arguments: Vec<&str>) {
+    // Arrange
+    let directory = tempfile::tempdir().unwrap();
+    project(directory.path(), "License-Expression: MIT");
+    let (reader, writer) = std::os::unix::net::UnixStream::pair().unwrap();
+    drop(reader);
+    // Act
+    let output = Command::new(env!("CARGO_BIN_EXE_taloon"))
+        .current_dir(directory.path())
+        .env("TALOON_CACHE_DIR", directory.path().join("cache"))
+        .env_remove("NETRC")
+        .args(arguments)
+        .stdout(std::os::fd::OwnedFd::from(writer))
+        .output()
+        .unwrap();
+    // Assert
+    assert_eq!(output.status.code(), Some(2));
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn terminal_progress_reports_completed_artifacts() {
+    // Arrange
+    let directory = tempfile::tempdir().unwrap();
+    project(directory.path(), "License-Expression: MIT");
+    std::fs::copy(
+        directory.path().join("example.whl"),
+        directory.path().join("second.whl"),
+    )
+    .unwrap();
+    std::fs::write(directory.path().join("uv.lock"), "version=1\nrevision=5\n[[package]]\nname='example'\nversion='1.0'\nsource={path='example.whl'}\nwheels=[{path='example.whl'},{path='second.whl'}]").unwrap();
+    // Act: script provides a real terminal without changing the CLI's detection.
+    let output = Command::new("/usr/bin/script")
+        .args([
+            "-q",
+            "/dev/null",
+            env!("CARGO_BIN_EXE_taloon"),
+            "check",
+            "--offline",
+        ])
+        .current_dir(directory.path())
+        .env("TALOON_CACHE_DIR", directory.path().join("cache"))
+        .env_remove("NETRC")
+        .stdin(std::process::Stdio::null())
+        .output()
+        .unwrap();
+    // Assert
+    assert!(output.status.success());
+    let text = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        text.contains("taloon: license evidence 2/2 artifacts"),
+        "{text}"
+    );
+    assert!(
+        text.contains("taloon: Compliant; 1 packages, 2 artifacts"),
+        "{text}"
+    );
+}
+
+#[test]
+fn verbose_check_explains_dependency_origin_path() {
+    // Arrange
+    let directory = tempfile::tempdir().unwrap();
+    project(directory.path(), "License-Expression: MIT");
+    policy(directory.path(), "'ISC'");
+    std::fs::write(directory.path().join("uv.lock"), "version=1\nrevision=5\n[[package]]\nname='app'\nversion='1'\nsource={virtual='.'}\ndependencies=[{name='example',marker=\"sys_platform == 'linux'\"}]\n[[package]]\nname='example'\nversion='1.0'\nsource={path='example.whl'}").unwrap();
+    // Act
+    let output = invoke(
+        directory.path(),
+        &directory.path().join("cache"),
+        &["check", "--offline", "--verbose"],
+    );
+    // Assert
+    assert_eq!(output.status.code(), Some(1));
+    let text = String::from_utf8(output.stdout).unwrap();
+    assert!(text.contains("from app"), "{text}");
+    assert!(text.contains("via"), "{text}");
+    assert!(text.contains("marker sys_platform == 'linux'"), "{text}");
+}
+
+#[test]
+fn check_explains_unsupported_package_source_in_text() {
+    // Arrange
+    let directory = tempfile::tempdir().unwrap();
+    policy(directory.path(), "'MIT'");
+    std::fs::write(directory.path().join("uv.lock"), "version=1\nrevision=5\n[[package]]\nname='example'\nversion='1.0'\nsource={git='https://example.test/example.git'}").unwrap();
+    // Act
+    let output = invoke(
+        directory.path(),
+        &directory.path().join("cache"),
+        &["check", "--offline"],
+    );
+    // Assert
+    assert_eq!(output.status.code(), Some(2));
+    let text = String::from_utf8(output.stdout).unwrap();
+    assert!(text.contains("UnsupportedSource"), "{text}");
+    assert!(
+        text.contains("external source has no supported distribution archive"),
+        "{text}"
+    );
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn missing_cache_home_is_actionable() {
+    // Arrange
+    let directory = tempfile::tempdir().unwrap();
+    // Act
+    let output = Command::new(env!("CARGO_BIN_EXE_taloon"))
+        .current_dir(directory.path())
+        .env_remove("HOME")
+        .env_remove("TALOON_CACHE_DIR")
+        .args(["cache", "clear"])
+        .output()
+        .unwrap();
+    // Assert
+    assert_eq!(output.status.code(), Some(2));
+    assert!(
+        String::from_utf8(output.stderr)
+            .unwrap()
+            .contains("cannot clear taloon cache")
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn deleted_working_directory_reports_input_error() {
+    // Arrange
+    let directory = tempfile::tempdir().unwrap();
+    let child = directory.path().join("removed");
+    std::fs::create_dir(&child).unwrap();
+    // Act: only the isolated child process loses its working directory.
+    let output = Command::new("/bin/sh")
+        .current_dir(&child)
+        .args([
+            "-c",
+            "rmdir \"$PWD\" && exec \"$1\" check --format json",
+            "fixture",
+            env!("CARGO_BIN_EXE_taloon"),
+        ])
+        .output()
+        .unwrap();
+    // Assert
+    assert_eq!(output.status.code(), Some(2));
+    let report = json(&output);
+    assert_eq!(
+        report["diagnostics"][0]["message"],
+        "cannot determine current directory"
     );
 }

@@ -252,10 +252,10 @@ fn empty_editable_or_virtual_locations_do_not_disappear_as_workspace_roots() {
         let doc = format!(
             "version=1\nrevision=5\n[[package]]\nname='example'\nversion='1.0'\nsource={{{source}=''}}"
         );
-        let report = match Inspection::from_documents(&doc, &policy(""), date()) {
-            Ok(inspection) => inspection.evaluate(vec![]),
-            Err(error) => taloon::report::Report::from_input_error(error),
-        };
+        let error = Inspection::from_documents(&doc, &policy(""), date())
+            .err()
+            .expect("empty local source must fail input validation");
+        let report = taloon::report::Report::from_input_error(error);
         assert_eq!(report.exit_code(false), 2);
     }
 }

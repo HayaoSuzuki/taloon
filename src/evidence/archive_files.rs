@@ -49,6 +49,16 @@ fn scan(
     format: ArtifactFormat,
     mut visit: impl FnMut(&str, bool, u64, &mut dyn Read) -> Result<(), Error>,
 ) -> Result<(), Error> {
+    // zip 9 decodes every name byte sequence as UTF-8 or total CP437.
+    #[cfg_attr(coverage_nightly, coverage(off))]
+    fn invalid_name(_: zip::result::ZipError) -> Error {
+        failure()
+    }
+    // entries() only rejects a nonzero archive cursor; scan always opens a fresh archive.
+    #[cfg_attr(coverage_nightly, coverage(off))]
+    fn invalid_archive(_: std::io::Error) -> Error {
+        failure()
+    }
     match format {
         ArtifactFormat::Wheel => {
             let mut archive = zip::ZipArchive::new(Cursor::new(bytes)).map_err(|_| failure())?;
@@ -57,7 +67,7 @@ fn scan(
             }
             for i in 0..archive.len() {
                 let mut file = archive.by_index(i).map_err(|_| failure())?;
-                let name = file.name().map_err(|_| failure())?.into_owned();
+                let name = file.name().map_err(invalid_name)?.into_owned();
                 let regular = !file.is_dir()
                     && file
                         .unix_mode()
@@ -69,7 +79,7 @@ fn scan(
         ArtifactFormat::Sdist => {
             let decoder = flate2::read::MultiGzDecoder::new(Cursor::new(bytes));
             let mut archive = tar::Archive::new(decoder.take(super::MAX_TAR_EXPANSION + 1));
-            for entry in archive.entries().map_err(|_| failure())? {
+            for entry in archive.entries().map_err(invalid_archive)? {
                 let mut entry = entry.map_err(|_| failure())?;
                 let path = entry.path_bytes().into_owned();
                 let name = std::str::from_utf8(&path)
@@ -89,6 +99,16 @@ fn scan(
     Ok(())
 }
 
+// Validate advertised sizes separately from archive traversal; callers bound allocation first.
+fn read_sized_text(reader: &mut dyn Read, size: usize) -> Result<Vec<u8>, Error> {
+    let mut text = vec![0; size];
+    reader.read_exact(&mut text).map_err(|_| failure())?;
+    if reader.read(&mut [0]).map_err(|_| failure())? != 0 {
+        return Err(failure());
+    }
+    Ok(text)
+}
+
 /// Read declared files, or a narrow set of conventional names when undeclared.
 /// `root` is the validated metadata directory with its trailing slash. One scan
 /// rechecks its unique metadata member and reads selected text; observation paths
@@ -99,6 +119,11 @@ pub(super) fn read(
     declared: &[String],
     root: &str,
 ) -> Result<Vec<LicenseFile>, Error> {
+    // Every u64 fits usize on the supported 64-bit targets; retain the guard for narrower ports.
+    #[cfg_attr(all(coverage_nightly, target_pointer_width = "64"), coverage(off))]
+    fn invalid_size(_: std::num::TryFromIntError) -> Error {
+        failure()
+    }
     if declared.len() > MAX_LICENSE_FILES {
         return Err(failure());
     }
@@ -163,17 +188,13 @@ pub(super) fn read(
         {
             return Err(failure());
         }
-        let size = usize::try_from(size).map_err(|_| failure())?;
+        let size = usize::try_from(size).map_err(invalid_size)?;
         if size > MAX_LICENSE_BYTES || size > MAX_LICENSE_TOTAL - total {
             return Err(failure());
         }
         // The advertised size is bounded before allocation. Probe once after
         // reading it to force ZIP integrity checks and reject a size mismatch.
-        let mut text = vec![0; size];
-        reader.read_exact(&mut text).map_err(|_| failure())?;
-        if reader.read(&mut [0]).map_err(|_| failure())? != 0 {
-            return Err(failure());
-        }
+        let text = read_sized_text(reader, size)?;
         total += size;
         let text = String::from_utf8(text).map_err(|_| failure())?;
         files.push(LicenseFile {
@@ -574,5 +595,95 @@ mod tests {
             // Assert
             proptest::prop_assert_eq!(&files[0].text, &text);
         }
+    }
+    #[rstest]
+    #[case::wheel(ArtifactFormat::Wheel)]
+    #[case::sdist(ArtifactFormat::Sdist)]
+    fn malformed_archive_cannot_provide_license_text(#[case] format: ArtifactFormat) {
+        // Arrange / Act
+        let result = read(b"not an archive", format, &["LICENSE".into()]);
+        // Assert
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn declarations_cannot_select_ambiguous_modern_and_legacy_name() {
+        // Arrange
+        let bytes = archive(
+            ArtifactFormat::Wheel,
+            &[("example.dist-info/licenses/LICENSE", b"text", false)],
+        );
+        // Act
+        let result = read(
+            &bytes,
+            ArtifactFormat::Wheel,
+            &["LICENSE".into(), "licenses/LICENSE".into()],
+        );
+        // Assert
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn corrupted_selected_zip_payload_is_rejected() {
+        // Arrange
+        let mut writer = zip::ZipWriter::new(Cursor::new(Vec::new()));
+        let options = zip::write::SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Stored);
+        writer
+            .start_file("example.dist-info/METADATA", options)
+            .unwrap();
+        writer.write_all(b"Metadata-Version: 2.4\n").unwrap();
+        writer
+            .start_file("example.dist-info/LICENSE", options)
+            .unwrap();
+        writer.write_all(b"unique license payload").unwrap();
+        let mut bytes = writer.finish().unwrap().into_inner();
+        let offset = bytes
+            .windows(b"unique license payload".len())
+            .position(|part| part == b"unique license payload")
+            .unwrap();
+        bytes[offset] ^= 1;
+        // Act
+        let result = read(&bytes, ArtifactFormat::Wheel, &["LICENSE".into()]);
+        // Assert
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn non_utf8_tar_member_name_is_rejected() {
+        // Arrange
+        let mut header = tar::Header::new_gnu();
+        header.set_size(0);
+        header.set_mode(0o644);
+        header.as_mut_bytes()[0] = 255;
+        header.set_cksum();
+        let encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
+        let mut writer = tar::Builder::new(encoder);
+        writer.append(&header, std::io::empty()).unwrap();
+        let bytes = writer.into_inner().unwrap().finish().unwrap();
+        // Act
+        let result = read(&bytes, ArtifactFormat::Sdist, &[]);
+        // Assert
+        assert!(result.is_err());
+    }
+    #[test]
+    fn padding_cannot_bypass_license_scan_expansion_limit() {
+        // Arrange
+        let bytes = super::super::tests::expansion_limit_bytes();
+        // Act
+        let result = read(bytes, ArtifactFormat::Sdist, &[]);
+        // Assert
+        assert!(result.is_err());
+    }
+    #[rstest]
+    #[case::truncated(b"".as_slice())]
+    #[case::excess(b"ab".as_slice())]
+    fn inconsistent_advertised_size_is_rejected(#[case] bytes: &[u8]) {
+        // Arrange
+        let mut reader = Cursor::new(bytes);
+        // Act
+        let result = read_sized_text(&mut reader, 1);
+        // Assert
+        assert!(result.is_err());
     }
 }

@@ -146,6 +146,11 @@ struct Target {
     endpoint: Url,
     artifact: Url,
 }
+// ArtifactRequest validates both URLs before storing its immutable locator.
+#[cfg_attr(coverage_nightly, coverage(off))]
+pub(super) fn validated_url_failure(_: url::ParseError) -> Error {
+    http::failure()
+}
 impl Target {
     fn for_request(request: &ArtifactRequest) -> Result<Option<Self>, Error> {
         if request.requirement() != EvidenceRequirement::IndexAssociated {
@@ -158,7 +163,7 @@ impl Target {
         else {
             return Ok(None);
         };
-        let mut endpoint = Url::parse(index).map_err(|_| http::failure())?;
+        let mut endpoint = Url::parse(index).map_err(validated_url_failure)?;
         let path = format!(
             "{}/{}/",
             endpoint.path().trim_end_matches('/'),
@@ -167,7 +172,7 @@ impl Target {
         endpoint.set_path(&path);
         Ok(Some(Self {
             endpoint: normalized(endpoint),
-            artifact: normalized(Url::parse(url).map_err(|_| http::failure())?),
+            artifact: normalized(Url::parse(url).map_err(validated_url_failure)?),
         }))
     }
 }

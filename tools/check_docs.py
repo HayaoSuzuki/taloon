@@ -101,7 +101,9 @@ def check_repository(root: Path) -> list[str]:
     for kind in ("missing_markdown", "missing_sources"):
         for row in references[kind]:
             page = row["page"]
-            if not isinstance(page, str):
+            if not isinstance(
+                page, str
+            ):  # pragma: no cover -- inventory always constructs str page names.
                 msg = "Inventory page must be a string"
                 raise TypeError(msg)
             target = row.get("target", row.get("resource"))

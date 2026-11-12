@@ -279,3 +279,85 @@ fn describe_artifact(
     }
     artifact
 }
+
+#[cfg(test)]
+mod coverage_tests {
+    use super::{DescriptionStatus, describe_artifact};
+    use crate::{
+        evidence::{Evidence, SidecarAssociation},
+        model::{
+            ArtifactFormat, ArtifactLocator, ArtifactRequest, Code, ContentHash,
+            EvidenceRequirement, PackageId, SourceId,
+        },
+    };
+
+    #[test]
+    fn sidecar_cannot_satisfy_archive_requirement_in_description() {
+        // Arrange
+        let package = PackageId::parse(
+            "example",
+            "1",
+            SourceId::parse("registry", "https://example.test/simple").unwrap(),
+        )
+        .unwrap();
+        let hash = ContentHash::digest(b"locked archive");
+        let request = ArtifactRequest::new(
+            package,
+            ArtifactLocator::registry("https://example.test/simple", "https://example.test/a.whl")
+                .unwrap(),
+            ArtifactFormat::Wheel,
+            Some(hash),
+        )
+        .unwrap()
+        .requiring(EvidenceRequirement::ArchiveVerified);
+        let metadata =
+            b"Metadata-Version: 2.4\nName: example\nVersion: 1\nLicense-Expression: MIT\n\n";
+        let association =
+            SidecarAssociation::new(hash, hash, ContentHash::digest(metadata)).unwrap();
+        let evidence = Evidence::from_sidecar(&request, association, metadata).unwrap();
+        // Act
+        let artifact = describe_artifact(&request, Ok(evidence));
+        // Assert
+        assert_eq!(artifact.status, DescriptionStatus::Incomplete);
+        assert_eq!(artifact.expression, None);
+        assert_eq!(
+            artifact.diagnostics[0].error.code,
+            Code::InsufficientEvidence
+        );
+    }
+
+    #[test]
+    fn future_minor_metadata_warning_is_preserved_without_losing_expression() {
+        // Arrange
+        let package = PackageId::parse(
+            "example",
+            "1",
+            SourceId::parse("registry", "https://example.test/simple").unwrap(),
+        )
+        .unwrap();
+        let hash = ContentHash::digest(b"locked archive");
+        let request = ArtifactRequest::new(
+            package,
+            ArtifactLocator::registry("https://example.test/simple", "https://example.test/a.whl")
+                .unwrap(),
+            ArtifactFormat::Wheel,
+            Some(hash),
+        )
+        .unwrap();
+        let metadata =
+            b"Metadata-Version: 2.7\nName: example\nVersion: 1\nLicense-Expression: MIT\n\n";
+        let association =
+            SidecarAssociation::new(hash, hash, ContentHash::digest(metadata)).unwrap();
+        let evidence = Evidence::from_sidecar(&request, association, metadata).unwrap();
+        // Act
+        let artifact = describe_artifact(&request, Ok(evidence));
+        // Assert
+        assert_eq!(artifact.status, DescriptionStatus::Complete);
+        assert_eq!(artifact.expression.as_deref(), Some("MIT"));
+        assert_eq!(artifact.diagnostics[0].error.code, Code::MetadataVersion);
+        assert_eq!(
+            artifact.diagnostics[0].severity,
+            crate::report::Severity::Warning
+        );
+    }
+}

@@ -145,3 +145,23 @@ fn domain(value: &str) -> bool {
                     .all(|b| b.is_ascii_alphanumeric() || b == b'-')
         })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+
+    #[test]
+    fn year_only_copyright_lacks_required_holder() {
+        // Arrange / Act / Assert
+        assert!(!matches("Copyright 2024-2025\n"));
+    }
+
+    #[rstest]
+    #[case::non_ascii("é.example")]
+    #[case::too_long(&"a".repeat(254))]
+    fn invalid_contact_domain_is_rejected(#[case] value: &str) {
+        // Arrange / Act / Assert
+        assert!(!domain(value));
+    }
+}
