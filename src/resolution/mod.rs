@@ -128,15 +128,18 @@ struct RawArtifact {
 }
 
 fn source(raw: &BTreeMap<String, String>) -> Result<SourceId, Error> {
+    // A map of length exactly one necessarily has a first key/value pair.
+    #[cfg_attr(coverage_nightly, coverage(off))]
+    fn missing_source() -> Error {
+        Error::new(Code::LockFormat, "missing source")
+    }
     if raw.len() != 1 {
         return Err(Error::new(
             Code::LockFormat,
             "a package source must have one recognized kind",
         ));
     }
-    let (kind, location) = raw
-        .first_key_value()
-        .ok_or_else(|| Error::new(Code::LockFormat, "missing source"))?;
+    let (kind, location) = raw.first_key_value().ok_or_else(missing_source)?;
     SourceId::parse(kind, location)
 }
 fn root_path(source: &SourceId) -> bool {
@@ -273,18 +276,20 @@ fn target(id: PackageId, p: &RawPackage) -> Target {
         } else {
             ArtifactFormat::Sdist
         };
-        match artifact(
-            &id,
-            &RawArtifact {
-                url: None,
-                path: None,
-                hash: None,
-            },
-            format,
-        ) {
-            Ok(request) => requests.push(request),
-            Err(error) => issues.push(error),
-        }
+        // Path source validation guarantees a nonempty local locator; with no
+        // explicit hash or URL this fallback cannot fail artifact construction.
+        requests.push(
+            artifact(
+                &id,
+                &RawArtifact {
+                    url: None,
+                    path: None,
+                    hash: None,
+                },
+                format,
+            )
+            .expect("validated nonempty path source"),
+        );
     }
     if requests.is_empty() && issues.is_empty() {
         issues.push(Error::new(
@@ -484,20 +489,20 @@ impl Resolution {
                     });
                     break;
                 }
-                if let Some(next) = self.graph.get(&edge.to) {
-                    for edge in next.edges.iter().chain(
-                        edge.extras
-                            .iter()
-                            .filter_map(|name| next.extras.get(name))
-                            .flatten(),
-                    ) {
-                        if !seen.contains(&(&edge.to, edge.extras.as_slice())) {
-                            queue.push_back(links.len());
-                            links.push(PathLink {
-                                edge,
-                                parent: Some(cursor),
-                            });
-                        }
+                // Every edge target was resolved against this graph during parsing.
+                let next = &self.graph[&edge.to];
+                for edge in next.edges.iter().chain(
+                    edge.extras
+                        .iter()
+                        .filter_map(|name| next.extras.get(name))
+                        .flatten(),
+                ) {
+                    if !seen.contains(&(&edge.to, edge.extras.as_slice())) {
+                        queue.push_back(links.len());
+                        links.push(PathLink {
+                            edge,
+                            parent: Some(cursor),
+                        });
                     }
                 }
             }
@@ -538,3 +543,30 @@ pub use selection::{
     DependencyGraph, DependencyKind, GraphEdge, GraphNode, GraphOrigin, OriginEdge,
     PackageIdentity, SelectionMode,
 };
+
+#[cfg(test)]
+mod archive_boundary_tests {
+    use super::{RawArtifact, artifact};
+    use crate::model::{ArtifactFormat, Code, PackageId, SourceId};
+
+    #[test]
+    fn archive_builder_rejects_non_archive_source_kind() {
+        // Arrange
+        let package = PackageId::parse(
+            "example",
+            "1",
+            SourceId::parse("git", "https://example.test/repo.git").unwrap(),
+        )
+        .unwrap();
+        let archive = RawArtifact {
+            url: None,
+            path: None,
+            hash: None,
+        };
+        // Act
+        let error = artifact(&package, &archive, ArtifactFormat::Wheel).unwrap_err();
+        // Assert
+        assert_eq!(error.code, Code::UnsupportedSource);
+        assert_eq!(error.message, "source has no supported archive evidence");
+    }
+}

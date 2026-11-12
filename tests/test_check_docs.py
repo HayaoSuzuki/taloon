@@ -1,14 +1,14 @@
 # SPDX-License-Identifier: Elastic-2.0
 """Failures that the documentation gate must catch before changes merge."""
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from pathlib import Path
+import os
+import subprocess
+import sys
+from pathlib import Path
 
 import pytest
 
-from tools.check_docs import check_repository, validate_okf
+from tools.check_docs import check_repository, main, validate_okf
 
 
 def bundle(tmp_path: Path) -> Path:
@@ -201,3 +201,111 @@ def test_malformed_sources_produce_diagnostics(
     errors = check_repository(tmp_path)
     # Assert
     assert any("rule.md" in error for error in errors)
+
+
+def test_reserved_log_without_metadata_is_valid(tmp_path: Path) -> None:
+    # Arrange
+    root = bundle(tmp_path)
+    (root / "log.md").write_text("# History\n")
+    # Act
+    errors = validate_okf(root)
+    # Assert
+    assert errors == []
+
+
+def test_root_index_rejects_extra_metadata(tmp_path: Path) -> None:
+    # Arrange
+    root = bundle(tmp_path)
+    (root / "index.md").write_text('---\nokf_version: "0.2"\ntype: Index\n---\n')
+    # Act
+    errors = validate_okf(root)
+    # Assert
+    assert len(errors) == 1
+    assert "root index must declare only" in errors[0]
+
+
+@pytest.mark.parametrize("broken", [False, True])
+def test_documentation_command_reports_status(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    *,
+    broken: bool,
+) -> None:
+    # Arrange
+    bundle(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    if broken:
+        (tmp_path / "README.md").write_text("[missing](absent.md)")
+    # Act
+    status = main()
+    output = capsys.readouterr()
+    # Assert
+    assert status == int(broken)
+    assert bool(output.err) == broken
+    assert bool(output.out) != broken
+
+
+def test_documentation_module_reports_invalid_repository(tmp_path: Path) -> None:
+    # Arrange
+    bundle(tmp_path)
+    (tmp_path / "README.md").write_text("[missing](absent.md)")
+    # Act
+    result = subprocess.run(
+        [sys.executable, "-m", "tools.check_docs"],
+        cwd=tmp_path,
+        env={**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parents[1])},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    # Assert
+    assert result.returncode == 1
+    assert "missing link target absent.md" in result.stderr
+    assert result.stdout == ""
+
+
+def test_reports_every_missing_bundle_reference(tmp_path: Path) -> None:
+    # Arrange
+    root = bundle(tmp_path)
+    (root / "rule.md").write_text(
+        (root / "rule.md").read_text()
+        + "\n[First](first-missing.md)\n[Second](second-missing.md)\n"
+    )
+    # Act
+    errors = check_repository(tmp_path)
+    # Assert
+    assert len(errors) == 2
+    assert any("first-missing.md" in error for error in errors)
+    assert any("second-missing.md" in error for error in errors)
+
+
+def test_reports_every_unreachable_concept(tmp_path: Path) -> None:
+    # Arrange
+    root = bundle(tmp_path)
+    for name in ("first-orphan.md", "second-orphan.md"):
+        (root / name).write_text("---\ntype: Reference\n---\n# Unreachable\n")
+    # Act
+    errors = check_repository(tmp_path)
+    # Assert
+    assert len(errors) == 2
+    assert any("first-orphan.md" in error for error in errors)
+    assert any("second-orphan.md" in error for error in errors)
+
+
+def test_command_prints_every_diagnostic(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Arrange
+    bundle(tmp_path)
+    (tmp_path / "README.md").write_text("[First](first.md)\n[Second](second.md)")
+    monkeypatch.chdir(tmp_path)
+    # Act
+    status = main()
+    observed = capsys.readouterr()
+    # Assert
+    assert status == 1
+    assert len(observed.err.splitlines()) == 2
+    assert "first.md" in observed.err
+    assert "second.md" in observed.err
+    assert observed.out == ""

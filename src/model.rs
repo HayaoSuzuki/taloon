@@ -76,8 +76,13 @@ impl EvaluationDate {
     /// # Errors
     /// Rejects nonexistent days and spellings other than YYYY-MM-DD.
     pub fn parse(value: &str) -> Result<Self, Error> {
+        // The literal format is fixed and valid; no caller input reaches this error.
+        #[cfg_attr(coverage_nightly, coverage(off))]
+        fn invalid_format(_: time::error::InvalidFormatDescription) -> Error {
+            Error::new(Code::Configuration, "invalid date format")
+        }
         let format = time::format_description::parse_borrowed::<2>("[year]-[month]-[day]")
-            .map_err(|_| Error::new(Code::Configuration, "invalid date format"))?;
+            .map_err(invalid_format)?;
         time::Date::parse(value, &format)
             .map(Self)
             .map_err(|_| Error::new(Code::Configuration, "expected a valid YYYY-MM-DD date"))
@@ -100,6 +105,11 @@ impl ContentHash {
     /// # Errors
     /// Rejects other algorithms and digests other than exactly 64 hexadecimal digits.
     pub fn parse(value: &str) -> Result<Self, Error> {
+        // Length and ASCII hexadecimal validation before conversion make it infallible.
+        #[cfg_attr(coverage_nightly, coverage(off))]
+        fn invalid_digest(_: std::num::ParseIntError) -> Error {
+            Error::new(Code::Configuration, "invalid digest")
+        }
         let hex = value
             .strip_prefix("sha256:")
             .ok_or_else(|| Error::new(Code::Configuration, "expected sha256 digest"))?;
@@ -108,8 +118,7 @@ impl ContentHash {
         }
         let mut bytes = [0; 32];
         for (i, out) in bytes.iter_mut().enumerate() {
-            *out = u8::from_str_radix(&hex[i * 2..i * 2 + 2], 16)
-                .map_err(|_| Error::new(Code::Configuration, "invalid digest"))?;
+            *out = u8::from_str_radix(&hex[i * 2..i * 2 + 2], 16).map_err(invalid_digest)?;
         }
         Ok(Self(bytes))
     }
@@ -295,7 +304,11 @@ pub fn normalize_name(name: &str) -> Result<String, Error> {
     let invalid = || Error::new(Code::Configuration, "invalid Python package name");
     let bytes = taloon_decisions::name::normalize(name.as_bytes()).ok_or_else(invalid)?;
     // The decision only emits ASCII; conversion consumes the existing allocation.
-    String::from_utf8(bytes).map_err(|_| invalid())
+    String::from_utf8(bytes).map_err(
+        // The normalization decision emits only ASCII bytes, which are valid UTF-8.
+        #[cfg_attr(coverage_nightly, coverage(off))]
+        |_| invalid(),
+    )
 }
 
 pub(crate) fn parse_url(value: &str) -> Result<Url, Error> {

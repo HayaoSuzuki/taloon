@@ -197,6 +197,9 @@ fn project_root(project: Option<&Path>) -> Result<PathBuf, Error> {
     let cwd = std::env::current_dir().map_err(|_| input("cannot determine current directory"))?;
     project.map_or_else(|| discover(&cwd), |p| Ok(cwd.join(p)))
 }
+fn progress_due(last: Option<Duration>, elapsed: Duration) -> bool {
+    last.is_none_or(|last| elapsed.saturating_sub(last) >= Duration::from_secs(1))
+}
 fn acquire(
     root: PathBuf,
     offline: bool,
@@ -222,9 +225,7 @@ fn acquire(
             return;
         }
         let elapsed = started.elapsed();
-        if progress.completed == progress.total
-            || last_render.is_none_or(|last| elapsed.saturating_sub(last) >= Duration::from_secs(1))
-        {
+        if progress.completed == progress.total || progress_due(last_render, elapsed) {
             let mut stderr = std::io::stderr().lock();
             let _ = write!(
                 stderr,
@@ -281,17 +282,22 @@ fn cache_directory(home: Option<&Path>) -> Result<PathBuf, Error> {
             PathBuf::from(path)
         });
     }
-    let base = if cfg!(target_os = "macos") {
-        home.map(|p| p.join("Library/Caches"))
-    } else if cfg!(windows) {
-        std::env::var_os("LOCALAPPDATA").map(PathBuf::from)
-    } else {
-        std::env::var_os("XDG_CACHE_HOME")
-            .map(PathBuf::from)
-            .or_else(|| home.map(|p| p.join(".cache")))
-    };
+    #[cfg(target_os = "macos")]
+    let base = home.map(|p| p.join("Library/Caches"));
+    #[cfg(windows)]
+    let base = std::env::var_os("LOCALAPPDATA").map(PathBuf::from);
+    #[cfg(not(any(target_os = "macos", windows)))]
+    let base = std::env::var_os("XDG_CACHE_HOME")
+        .map(PathBuf::from)
+        .or_else(|| home.map(|p| p.join(".cache")));
     base.map(|p| p.join("taloon"))
         .ok_or_else(|| input("cannot determine cache directory; set TALOON_CACHE_DIR"))
+}
+// Derived report fields serialize infallibly into Vec. Preserve the future
+// serializer failure exit without constructing an impossible report in tests.
+#[cfg_attr(coverage_nightly, coverage(off))]
+fn serialization_failure((): ()) -> u8 {
+    2
 }
 fn emit(report: &Report, format: Format, deny_warnings: bool, verbose: bool) -> u8 {
     let code = report.exit_code(deny_warnings);
@@ -303,15 +309,14 @@ fn emit(report: &Report, format: Format, deny_warnings: bool, verbose: bool) -> 
         .map_err(|_| ()),
         Format::Text => Ok(text_report(report, verbose).into_bytes()),
     };
-    let Ok(mut bytes) = encoded else {
-        return 2;
-    };
-    bytes.push(b'\n');
-    if std::io::stdout().lock().write_all(&bytes).is_err() {
-        let _ = writeln!(std::io::stderr().lock(), "cannot write taloon report");
-        return 2;
-    }
-    code
+    encoded.map_or_else(serialization_failure, |mut bytes| {
+        bytes.push(b'\n');
+        if std::io::stdout().lock().write_all(&bytes).is_err() {
+            let _ = writeln!(std::io::stderr().lock(), "cannot write taloon report");
+            return 2;
+        }
+        code
+    })
 }
 // Ordinary report fields borrow their text; only escaped output needs storage.
 fn safe(text: &str) -> Cow<'_, str> {
@@ -461,3 +466,80 @@ mod tests {
 
 #[cfg(test)]
 mod text_tests;
+
+#[cfg(test)]
+mod document_boundary_tests {
+    use super::*;
+    #[test]
+    fn oversized_document_is_rejected_before_parsing() {
+        // Arrange
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("uv.lock");
+        std::fs::write(&path, b"123456789").unwrap();
+        // Act
+        let error = read_document(&path, 8, "read failure").unwrap_err();
+        // Assert
+        assert_eq!(error.message, "project document exceeds its reading limit");
+    }
+    #[test]
+    fn invalid_utf8_document_is_rejected() {
+        // Arrange
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("uv.lock");
+        std::fs::write(&path, [255]).unwrap();
+        // Act
+        let error = read_document(&path, 8, "invalid UTF-8 document").unwrap_err();
+        // Assert
+        assert_eq!(error.message, "invalid UTF-8 document");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn inaccessible_candidate_lock_is_not_silently_skipped() {
+        use std::os::unix::fs::PermissionsExt;
+        // Arrange
+        let directory = tempfile::tempdir().unwrap();
+        let parent = directory.path().join("parent");
+        let child = parent.join("child");
+        std::fs::create_dir_all(&child).unwrap();
+        std::fs::set_permissions(&parent, std::fs::Permissions::from_mode(0o000)).unwrap();
+        // Act
+        let result = discover(&child);
+        std::fs::set_permissions(&parent, std::fs::Permissions::from_mode(0o700)).unwrap();
+        // Assert
+        assert_eq!(
+            result.unwrap_err().message,
+            "cannot inspect candidate uv.lock"
+        );
+    }
+    #[test]
+    fn acquisition_summary_keeps_http_phases_distinct() {
+        // Arrange
+        let mut counters = taloon::report::AcquisitionSummary::default();
+        counters.http.index.requests = 1;
+        counters.http.metadata.requests = 2;
+        counters.http.archive.requests = 3;
+        let mut out = String::new();
+        // Act
+        acquisition_summary(&mut out, &counters);
+        // Assert
+        assert!(out.contains("http_index: requests=1,"), "{out}");
+        assert!(out.contains("http_metadata: requests=2,"), "{out}");
+        assert!(out.contains("http_archive: requests=3,"), "{out}");
+    }
+    #[rstest::rstest]
+    #[case::first(None, 0, true)]
+    #[case::before_interval(Some(Duration::ZERO), 999, false)]
+    #[case::at_interval(Some(Duration::ZERO), 1000, true)]
+    #[case::clock_before_previous(Some(Duration::from_secs(2)), 1000, false)]
+    fn progress_is_throttled_by_elapsed_time(
+        #[case] previous: Option<Duration>,
+        #[case] milliseconds: u64,
+        #[case] expected: bool,
+    ) {
+        // Act
+        let due = progress_due(previous, Duration::from_millis(milliseconds));
+        // Assert
+        assert_eq!(due, expected);
+    }
+}

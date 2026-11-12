@@ -1,3 +1,5 @@
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
+
 //! License checking for uv-resolved Python dependencies.
 //!
 //! The library accepts data and has no filesystem, network, environment, or clock access.

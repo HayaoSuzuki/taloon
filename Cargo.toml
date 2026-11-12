@@ -14,7 +14,7 @@ all = "deny"
 pedantic = "deny"
 
 [workspace.lints.rust]
-unexpected_cfgs = { level = "deny", check-cfg = ['cfg(creusot)'] }
+unexpected_cfgs = { level = "deny", check-cfg = ['cfg(creusot)', 'cfg(coverage_nightly)'] }
 
 [package]
 name = "taloon"

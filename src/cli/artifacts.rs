@@ -305,4 +305,122 @@ mod tests {
         // Assert
         assert_eq!(out.matches("example artifact:").count(), groups, "{out}");
     }
+    #[rstest]
+    #[case::missing(LicenseProblem::MissingDeclaration, "Acquire bundled evidence")]
+    #[case::repeated(LicenseProblem::RepeatedDeclaration, "conflicting/repeated metadata")]
+    #[case::invalid(LicenseProblem::InvalidExpression, "License-Expression syntax")]
+    #[case::legacy(
+        LicenseProblem::UnrecognizedLegacy,
+        "original License and bundled terms"
+    )]
+    #[case::unavailable(
+        LicenseProblem::LicenseFilesUnavailable,
+        "selected license paths and reading limits"
+    )]
+    #[case::unrecognized(LicenseProblem::UnrecognizedLicenseText, "complete bundled text")]
+    #[case::conflict(LicenseProblem::ConflictingLicenseFiles, "every selected file")]
+    #[case::mismatch(
+        LicenseProblem::LegacyFamilyMismatch,
+        "disagreement between the legacy family"
+    )]
+    fn diagnostic_remedy_matches_the_interpretation_failure(
+        #[case] problem: LicenseProblem,
+        #[case] instruction: &str,
+    ) {
+        // Arrange
+        let mut error = taloon::model::Error::new(Code::UnknownLicense, "cannot determine license");
+        error.license_problem = Some(problem);
+        let diagnostics = [Diagnostic::error(error)];
+        let value = Artifact {
+            locator: "a.whl",
+            status: "Incomplete",
+            expression: None,
+            evidence: None,
+            decision: None,
+            diagnostics: &diagnostics,
+        };
+        // Act
+        let text = body(&value, false);
+        // Assert
+        assert!(text.contains(instruction), "{text}");
+        assert!(text.contains("hash-bound clarification"), "{text}");
+    }
+
+    #[test]
+    fn verbose_evidence_retains_file_provenance_without_declarations() {
+        // Arrange
+        let mut observed = evidence(EvidenceRequirement::ArchiveVerified);
+        observed.original_license.clear();
+        let hash = ContentHash::digest(b"license");
+        observed
+            .license_files
+            .push(taloon::evidence::LicenseFileSummary {
+                path: "licenses/MIT.txt".into(),
+                content_hash: hash,
+                kind: taloon::evidence::LicenseFileKind::License,
+                matched_expression: Some("MIT"),
+            });
+        // Act
+        let text = body(&artifact(&observed), true);
+        // Assert
+        assert!(text.contains("declarations: absent"), "{text}");
+        assert!(
+            text.contains(&format!(
+                "file licenses/MIT.txt {hash} License: Some(\"MIT\")"
+            )),
+            "{text}"
+        );
+    }
+}
+
+#[cfg(test)]
+mod acquisition_remedy_tests {
+    use super::*;
+    #[test]
+    fn acquisition_failure_offers_access_and_offline_guidance() {
+        // Arrange
+        let diagnostics = [Diagnostic::error(taloon::model::Error::new(
+            Code::Acquisition,
+            "unavailable",
+        ))];
+        let artifact = Artifact {
+            locator: "a.whl",
+            status: "Incomplete",
+            expression: None,
+            evidence: None,
+            decision: None,
+            diagnostics: &diagnostics,
+        };
+        // Act
+        let text = body(&artifact, false);
+        // Assert
+        assert!(text.contains("Check artifact access and credentials"));
+        assert!(text.contains("retry without --offline"));
+    }
+}
+
+#[cfg(test)]
+mod non_license_diagnostic_tests {
+    use super::*;
+    #[test]
+    fn identity_failure_does_not_offer_license_or_acquisition_override() {
+        // Arrange
+        let diagnostics = [Diagnostic::error(taloon::model::Error::new(
+            Code::IdentityMismatch,
+            "wrong package",
+        ))];
+        let artifact = Artifact {
+            locator: "a.whl",
+            status: "Incomplete",
+            expression: None,
+            evidence: None,
+            decision: None,
+            diagnostics: &diagnostics,
+        };
+        // Act
+        let text = body(&artifact, false);
+        // Assert
+        assert!(text.contains("IdentityMismatch: wrong package"));
+        assert!(!text.contains("next:"));
+    }
 }

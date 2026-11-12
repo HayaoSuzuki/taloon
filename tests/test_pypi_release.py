@@ -161,3 +161,78 @@ def test_internal_wheel_structure_is_required(tmp_path: Path, mutation: str) -> 
     # Act / Assert
     with pytest.raises(ValueError, match=r"unexpected|Missing|disagree|dependencies"):
         validate_wheel(path, "0.1.0")
+
+
+@pytest.mark.parametrize("tag", ["0.1.0", "v01.1.0", "v0.1.0rc1"])
+def test_unstable_tag_cannot_stage_assets(tmp_path: Path, tag: str) -> None:
+    # Arrange
+    directory, state = assets(tmp_path)
+    output = tmp_path / "staged"
+    # Act / Assert
+    with pytest.raises(ValueError, match="expected stable"):
+        prepare_wheels(tag, state, directory, output)
+    assert not output.exists()
+
+
+def test_missing_checksum_entry_stages_nothing(tmp_path: Path) -> None:
+    # Arrange
+    directory, state = assets(tmp_path)
+    sums = directory / "SHA256SUMS"
+    sums.write_text("\n".join(sums.read_text().splitlines()[1:]) + "\n")
+    output = tmp_path / "staged"
+    # Act / Assert
+    with pytest.raises(ValueError, match="wheel entries do not match"):
+        prepare_wheels("v0.1.0", state, directory, output)
+    assert not output.exists()
+
+
+@pytest.mark.parametrize("mutation", ["metadata", "license-declaration"])
+def test_wheel_requires_unambiguous_declared_metadata(
+    tmp_path: Path, mutation: str
+) -> None:
+    # Arrange
+    path = tmp_path / "taloon-0.1.0-py3-none-win_amd64.whl"
+    wheel(path)
+    with zipfile.ZipFile(path) as archive:
+        contents = {name: archive.read(name) for name in archive.namelist()}
+    metadata = "taloon-0.1.0.dist-info/METADATA"
+    if mutation == "metadata":
+        contents["other.dist-info/METADATA"] = contents[metadata]
+    else:
+        contents[metadata] = contents[metadata].replace(b"License-File: LICENSE\n", b"")
+    with zipfile.ZipFile(path, "w") as archive:
+        for name, content in contents.items():
+            archive.writestr(name, content)
+    # Act / Assert
+    with pytest.raises(ValueError, match=r"ambiguous|missing license declarations"):
+        validate_wheel(path, "0.1.0")
+
+
+def test_release_cli_stages_validated_original_bytes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    from tools import pypi_release  # noqa: PLC0415 -- CLI module under test.
+
+    directory, state = assets(tmp_path)
+    output = tmp_path / "staged"
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "pypi_release",
+            "--tag",
+            "v0.1.0",
+            "--assets",
+            str(directory),
+            "--release-json",
+            str(state),
+            "--output",
+            str(output),
+        ],
+    )
+    # Act
+    pypi_release.main()
+    # Assert
+    assert {p.name: p.read_bytes() for p in output.iterdir()} == {
+        p.name: p.read_bytes() for p in directory.glob("*.whl")
+    }

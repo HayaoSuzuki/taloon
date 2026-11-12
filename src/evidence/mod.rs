@@ -149,9 +149,8 @@ fn read_metadata(reader: impl Read) -> Result<Vec<u8>, Error> {
 }
 fn member_path(name: &str, format: ArtifactFormat) -> bool {
     let mut parts = name.split('/');
-    let Some(root) = parts.next() else {
-        return false;
-    };
+    // str::split always yields at least one component, including for empty input.
+    let root = parts.next().expect("split always has a first component");
     let Some(file) = parts.next() else {
         return false;
     };
@@ -168,6 +167,11 @@ fn member_path(name: &str, format: ArtifactFormat) -> bool {
     }
 }
 fn wheel_metadata(bytes: &[u8]) -> Result<(Vec<u8>, String), Error> {
+    // zip 9 decodes every byte sequence as UTF-8 or total CP437.
+    #[cfg_attr(coverage_nightly, coverage(off))]
+    fn invalid_name(_: zip::result::ZipError) -> Error {
+        failure("invalid ZIP member name")
+    }
     let mut archive = zip::ZipArchive::new(Cursor::new(bytes))
         .map_err(|_| failure("invalid wheel ZIP archive"))?;
     if archive.has_duplicate_names() {
@@ -178,10 +182,7 @@ fn wheel_metadata(bytes: &[u8]) -> Result<(Vec<u8>, String), Error> {
         let file = archive
             .by_index(i)
             .map_err(|_| failure("invalid ZIP member"))?;
-        let path = file
-            .name()
-            .map_err(|_| failure("invalid ZIP member name"))?
-            .into_owned();
+        let path = file.name().map_err(invalid_name)?.into_owned();
         let is_metadata = member_path(&path, ArtifactFormat::Wheel);
         if is_metadata {
             if metadata.is_some() {
@@ -203,13 +204,15 @@ fn wheel_metadata(bytes: &[u8]) -> Result<(Vec<u8>, String), Error> {
     metadata.ok_or_else(|| failure("wheel has no unique dist-info/METADATA"))
 }
 fn sdist_metadata(bytes: &[u8]) -> Result<(Vec<u8>, String), Error> {
+    // entries() only fails for a nonzero archive cursor; this archive is fresh.
+    #[cfg_attr(coverage_nightly, coverage(off))]
+    fn invalid_archive(_: std::io::Error) -> Error {
+        failure("invalid source tar archive")
+    }
     let decoder = flate2::read::MultiGzDecoder::new(Cursor::new(bytes));
     let mut archive = tar::Archive::new(decoder.take(MAX_TAR_EXPANSION + 1));
     let mut metadata = None;
-    for entry in archive
-        .entries()
-        .map_err(|_| failure("invalid source tar archive"))?
-    {
+    for entry in archive.entries().map_err(invalid_archive)? {
         let entry = entry.map_err(|_| failure("invalid tar member"))?;
         let path = entry.path_bytes();
         let name = std::str::from_utf8(&path).map_err(|_| failure("invalid tar member name"))?;
@@ -364,9 +367,14 @@ fn source_binding(request: &ArtifactRequest) -> Result<ContentHash, Error> {
     ))
 }
 fn checksum(data: &RecordData) -> Result<ContentHash, Error> {
+    // RecordData contains only infallibly serializable primitives and tagged records.
+    #[cfg_attr(coverage_nightly, coverage(off))]
+    fn invalid_record(_: serde_json::Error) -> Error {
+        Error::new(Code::Cache, "cannot encode evidence record")
+    }
     serde_json::to_vec(data)
         .map(|bytes| ContentHash::digest(&bytes))
-        .map_err(|_| Error::new(Code::Cache, "cannot encode evidence record"))
+        .map_err(invalid_record)
 }
 fn metadata_headers(text: &str) -> &str {
     let mut end = 0;

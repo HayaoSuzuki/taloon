@@ -196,3 +196,27 @@ fn historical_html_index_parse(#[case] historical: usize) {
         );
     }
 }
+
+#[test]
+fn non_utf8_html_is_invalid_metadata() {
+    // Arrange
+    let mut page = response(String::new());
+    page.body = vec![255];
+    // Act
+    let error = PackageIndex::parse(&page, &BTreeSet::new()).err().unwrap();
+    // Assert
+    assert_eq!(error.code, Code::InvalidMetadata);
+}
+
+#[rstest]
+#[case::missing_href("<a>missing URL</a>")]
+#[case::malformed_href("<a href='https://[invalid'>bad URL</a>")]
+fn unusable_anchor_does_not_associate_evidence(#[case] html: &str) {
+    // Arrange
+    let page = response(html.into());
+    let target = Url::parse("https://index.test/simple/example/target.whl").unwrap();
+    // Act
+    let index = PackageIndex::parse(&page, &BTreeSet::from([target])).unwrap();
+    // Assert
+    assert_eq!(index.links.len(), 0);
+}

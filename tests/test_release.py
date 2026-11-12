@@ -1,15 +1,20 @@
 # SPDX-License-Identifier: Elastic-2.0
 """Exercise one reservation scenario per case against real local Git repositories."""
 
+import hashlib
+import runpy
 import shutil
 import subprocess
+import sys
 import tomllib
+import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
 
 from tools import release
+from tools.release_policy import RELEASE_PLATFORMS
 
 GIT = shutil.which("git") or pytest.fail("Git is required for reservation tests")
 
@@ -87,7 +92,12 @@ def test_reserved_commit_survives_newer_reservation(repository: Path) -> None:
 
 @pytest.mark.parametrize(
     ("fault", "expected_attempts"),
-    [("collision", 2), ("lost-response", 1), ("collision-then-loss", 2)],
+    [
+        ("collision", 2),
+        ("lost-response", 1),
+        ("collision-then-loss", 2),
+        ("final-loss", 5),
+    ],
 )
 def test_reservation_recovers_publication_fault(
     repository: Path,
@@ -106,7 +116,9 @@ def test_reservation_recovers_publication_fault(
         if args[0] != "push":
             return original(root, *args, check=check)
         attempts.append(args)
-        if "collision" in fault and len(attempts) == 1:
+        if ("collision" in fault and len(attempts) == 1) or (
+            fault == "final-loss" and len(attempts) < 5
+        ):
             return subprocess.CompletedProcess(args, 1, "", "collision")
         result = original(root, *args, check=check)
         if fault != "collision":
@@ -246,3 +258,225 @@ def test_release_version_keeps_internal_decisions_locked(
     packages = tomllib.loads((tmp_path / "Cargo.lock").read_text())["package"]
     locked = next(p for p in packages if p["name"] == "taloon-decisions")
     assert locked["version"] == actual
+
+
+def test_missing_git_cannot_reserve(
+    repository: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    monkeypatch.setattr(release.shutil, "which", lambda _name: None)
+    # Act / Assert
+    with pytest.raises(FileNotFoundError, match="Git is required"):
+        release.git(repository, "status")
+
+
+@pytest.mark.parametrize("commit", ["", "g" * 40, "a" * 39])
+def test_invalid_reservation_commit_is_rejected(repository: Path, commit: str) -> None:
+    # Arrange / Act / Assert
+    with pytest.raises(ValueError, match="Expected full source commit"):
+        release.reserve_tag(repository, commit)
+
+
+@pytest.mark.parametrize(
+    "manifest", ["", '[workspace.package]\nversion = "0.1.0"\n' * 2]
+)
+def test_version_update_does_not_partially_write_invalid_manifest(
+    tmp_path: Path, manifest: str
+) -> None:
+    # Arrange
+    (tmp_path / "Cargo.toml").write_text(manifest)
+    # Act / Assert
+    with pytest.raises(
+        ValueError, match=r"Expected one package version in Cargo\.toml"
+    ):
+        release.set_version(tmp_path, "0.2.0")
+    assert (tmp_path / "Cargo.toml").read_text() == manifest
+
+
+def test_version_update_does_not_write_manifest_when_lock_is_invalid(
+    tmp_path: Path,
+) -> None:
+    # Arrange
+    original = '[workspace.package]\nversion = "0.1.0"\n'
+    (tmp_path / "Cargo.toml").write_text(original)
+    (tmp_path / "Cargo.lock").write_text("")
+    # Act / Assert
+    with pytest.raises(
+        ValueError, match=r"Expected one package version in Cargo\.lock"
+    ):
+        release.set_version(tmp_path, "0.2.0")
+    assert (tmp_path / "Cargo.toml").read_text() == original
+
+
+def test_reservation_reports_exhausted_collisions(
+    repository: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    commit = git(repository, "rev-parse", "HEAD")
+    original = release.git
+
+    def reject(
+        root: Path, *args: str, check: bool = True
+    ) -> subprocess.CompletedProcess[str]:
+        if args[0] == "push":
+            return subprocess.CompletedProcess(args, 1, "", "collision")
+        return original(root, *args, check=check)
+
+    monkeypatch.setattr(release, "git", reject)
+    # Act / Assert
+    with pytest.raises(
+        RuntimeError, match="Could not reserve release tag after five attempts"
+    ):
+        release.reserve_tag(repository, commit)
+    assert release.remote_release_state(repository) == ({}, "")
+
+
+def test_assembly_rejects_incomplete_inventory_before_creating_output(
+    tmp_path: Path,
+) -> None:
+    # Arrange
+    output = tmp_path / "output"
+    # Act / Assert
+    with pytest.raises(ValueError, match="Expected exactly the three supported wheels"):
+        release.assemble(tmp_path, "0.1.0", tmp_path, output)
+    assert not output.exists()
+
+
+def test_assembly_copies_validated_wheels_and_hash_inventory(tmp_path: Path) -> None:
+    # Arrange
+    source = tmp_path / "source"
+    source.mkdir()
+    for platform in RELEASE_PLATFORMS:
+        path = source / f"taloon-0.1.0-py3-none-{platform.published_wheel_tag}.whl"
+        with zipfile.ZipFile(path, "w") as archive:
+            archive.writestr(
+                "taloon-0.1.0.dist-info/METADATA",
+                "Metadata-Version: 2.4\nName: taloon\nVersion: 0.1.0\n"
+                "Requires-Python: >=3.14,<3.16\nLicense-Expression: Elastic-2.0\n"
+                "License-File: LICENSE\n\n",
+            )
+            archive.writestr(
+                "taloon-0.1.0.dist-info/licenses/LICENSE",
+                (Path(__file__).resolve().parents[1] / "LICENSE").read_bytes(),
+            )
+            executable = "taloon.exe" if "win_amd64" in path.name else "taloon"
+            archive.writestr("taloon-0.1.0.data/scripts/" + executable, b"fixture")
+            archive.writestr(
+                "taloon-0.1.0.dist-info/WHEEL",
+                "Wheel-Version: 1.0\nRoot-Is-Purelib: false\n"
+                + "".join(
+                    "Tag: py3-none-" + tag + "\n"
+                    for tag in platform.published_wheel_tag.split(".")
+                ),
+            )
+    output = tmp_path / "output"
+    # Act
+    release.assemble(tmp_path, "0.1.0", source, output)
+    # Assert
+    assert (output / "SHA256SUMS").read_text() == "".join(
+        hashlib.sha256(path.read_bytes()).hexdigest() + "  " + path.name + "\n"
+        for path in sorted(source.glob("*.whl"))
+    )
+    assert {path.name: path.read_bytes() for path in output.glob("*.whl")} == {
+        path.name: path.read_bytes() for path in source.glob("*.whl")
+    }
+
+
+def test_cli_dispatches_version_update(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    (tmp_path / "Cargo.toml").write_text('[workspace.package]\nversion = "0.1.0"\n')
+    (tmp_path / "Cargo.lock").write_text(
+        '[[package]]\nname = "taloon"\nversion = "0.1.0"\n'
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(sys, "argv", ["release", "set-version", "0.2.0"])
+    # Act
+    release.main()
+    # Assert
+    assert (
+        tomllib.loads((tmp_path / "Cargo.toml").read_text())["workspace"]["package"][
+            "version"
+        ]
+        == "0.2.0"
+    )
+
+
+def test_cli_prints_reserved_tag(
+    repository: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Arrange
+    monkeypatch.chdir(repository)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["release", "tag", "--commit", git(repository, "rev-parse", "HEAD")],
+    )
+    # Act
+    release.main()
+    # Assert
+    assert capsys.readouterr().out == "v0.1.0\n"
+
+
+def test_cli_assembly_rejects_missing_wheels(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    output = tmp_path / "output"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "release",
+            "assemble",
+            "--version",
+            "0.1.0",
+            "--source",
+            str(tmp_path),
+            "--output",
+            str(output),
+        ],
+    )
+    # Act / Assert
+    with pytest.raises(ValueError, match="Expected exactly the three supported wheels"):
+        release.main()
+    assert not output.exists()
+
+
+def test_shallow_checkout_fetches_ancestry_before_accepting_source(
+    repository: Path, tmp_path: Path
+) -> None:
+    # Arrange
+    first = git(repository, "rev-parse", "HEAD")
+    second = advance(repository)
+    git(repository, "push", "origin", "HEAD:refs/heads/main")
+    remote = git(repository, "remote", "get-url", "origin")
+    shallow = tmp_path / "shallow"
+    git(
+        tmp_path,
+        "clone",
+        "--depth=1",
+        "--branch=main",
+        Path(remote).as_uri(),
+        str(shallow),
+    )
+    # Act
+    follows = release.follows_commit(shallow, second, first)
+    # Assert
+    assert follows
+    assert git(shallow, "rev-parse", "--is-shallow-repository") == "false"
+
+
+def test_release_module_exposes_help(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Arrange
+    monkeypatch.setattr(sys, "argv", ["release", "--help"])
+    # Act / Assert
+    with pytest.raises(SystemExit) as error:
+        runpy.run_path(str(release.__file__), run_name="__main__")
+    assert error.value.code == 0
+    assert "set-version" in capsys.readouterr().out

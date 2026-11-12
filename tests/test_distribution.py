@@ -29,3 +29,19 @@ def test_binary_distribution_metadata(table: str, field: str, expected: object) 
     actual = data["project"] if table == "project" else data["tool"]["maturin"]
     # Assert
     assert actual[field] == expected
+
+
+def test_release_platform_names_match_the_workflow_matrix() -> None:
+    # Arrange
+    import yaml  # noqa: PLC0415 -- workflow representation is a test boundary.
+
+    from tools.release_policy import PLATFORM_NAMES  # noqa: PLC0415
+
+    workflow = yaml.safe_load((ROOT / ".github/workflows/release.yml").read_text())
+    matrix = workflow["jobs"]["wheels"]["strategy"]["matrix"]["include"]
+    expected = tuple(row["platform"] for row in matrix)
+    # Act
+    observed = PLATFORM_NAMES
+    # Assert
+    assert observed == expected
+    assert observed

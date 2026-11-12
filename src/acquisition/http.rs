@@ -37,6 +37,12 @@ pub(super) fn failure() -> Error {
 pub(super) struct HttpsTransport {
     client: reqwest::blocking::Client,
 }
+// Fixed valid client configuration can fail only when process/TLS initialization
+// resources fail. Request/response failures use the separately tested transport.
+#[cfg_attr(coverage_nightly, coverage(off))]
+fn client_initialization_failure(_: reqwest::Error) -> Error {
+    failure()
+}
 impl HttpsTransport {
     pub(super) fn new() -> Result<Self, Error> {
         Self::with_timeout(Duration::from_secs(30))
@@ -52,7 +58,7 @@ impl HttpsTransport {
             .connect_timeout(Duration::from_secs(10))
             .user_agent(concat!("taloon/", env!("CARGO_PKG_VERSION")))
             .build()
-            .map_err(|_| failure())?;
+            .map_err(client_initialization_failure)?;
         Ok(Self { client })
     }
 }
@@ -287,5 +293,112 @@ impl Http {
             Code::Acquisition,
             "HTTPS redirect limit exceeded",
         ))
+    }
+}
+
+#[cfg(test)]
+mod response_tests {
+    use super::*;
+    use std::{io::Write, net::TcpListener};
+
+    fn read_response(limit: u64) -> (Result<Response, Error>, AcquisitionSummary, String) {
+        // Arrange: plaintext isolates response parsing from certificate trust; the
+        // production constructor's HTTPS enforcement is tested separately.
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = Url::parse(&format!("http://{}/", listener.local_addr().unwrap())).unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut request = [0; 4096];
+            let size = stream.read(&mut request).unwrap();
+            stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\nContent-Type: application/octet-stream\r\nLocation: /next\r\nConnection: close\r\n\r\ndata").unwrap();
+            String::from_utf8_lossy(&request[..size]).into_owned()
+        });
+        let transport = HttpsTransport {
+            client: reqwest::blocking::Client::builder()
+                .no_proxy()
+                .build()
+                .unwrap(),
+        };
+        let mut stats = AcquisitionSummary::default();
+        let credentials = Credentials {
+            login: "user".into(),
+            password: "password".into(),
+        };
+        // Act
+        let response = transport.send(
+            &url,
+            Some(&credentials),
+            "application/octet-stream",
+            limit,
+            &mut stats,
+        );
+        let request = server.join().unwrap().to_ascii_lowercase();
+        (response, stats, request)
+    }
+
+    #[test]
+    fn response_reader_preserves_body_headers_and_authentication() {
+        // Act
+        let (response, stats, request) = read_response(8);
+        // Assert
+        let response = response.unwrap();
+        assert_eq!(stats.downloaded_bytes, 4);
+        assert_eq!(response.body, b"data");
+        assert_eq!(response.status, 200);
+        assert_eq!(response.location.as_deref(), Some("/next"));
+        assert_eq!(response.content_type, "application/octet-stream");
+        assert_eq!(response.url.path(), "/");
+        assert!(request.contains("authorization: basic dxnlcjpwyxnzd29yza=="));
+        assert!(request.contains("accept: application/octet-stream"));
+    }
+
+    #[test]
+    fn response_reader_rejects_body_above_limit() {
+        // Act
+        let (response, stats, _) = read_response(3);
+        // Assert
+        let error = response.err().unwrap();
+        assert_eq!(error.message, "HTTPS response exceeds its input limit");
+        assert_eq!(stats.downloaded_bytes, 4);
+    }
+}
+
+#[cfg(test)]
+mod truncated_response_tests {
+    use super::*;
+    use std::{io::Write, net::TcpListener};
+    #[test]
+    fn incomplete_http_body_is_not_accepted_as_evidence() {
+        // Arrange
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = Url::parse(&format!("http://{}/", listener.local_addr().unwrap())).unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut request = [0; 4096];
+            let request_size = stream.read(&mut request).unwrap();
+            assert!(request_size > 0);
+            stream
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 8\r\nConnection: close\r\n\r\ndata")
+                .unwrap();
+        });
+        let transport = HttpsTransport {
+            client: reqwest::blocking::Client::builder()
+                .no_proxy()
+                .build()
+                .unwrap(),
+        };
+        let mut stats = AcquisitionSummary::default();
+        // Act
+        let error = transport
+            .send(&url, None, "test", 64, &mut stats)
+            .err()
+            .unwrap();
+        server.join().unwrap();
+        // Assert
+        assert_eq!(error.code, Code::Acquisition);
+        assert_eq!(
+            error.message,
+            "HTTPS acquisition failed (transport, timeout, or response)"
+        );
     }
 }

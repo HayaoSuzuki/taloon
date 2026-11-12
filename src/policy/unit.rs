@@ -27,6 +27,11 @@ impl PermissionUnit {
     /// Rejects invalid/compound permissions, external document references and
     /// unsupported custom additions with a configuration diagnostic.
     pub fn parse(text: &str) -> Result<Self, Error> {
+        // The parsed expression has exactly one AST requirement, checked above.
+        #[cfg_attr(coverage_nightly, coverage(off))]
+        fn empty_permission() -> Error {
+            Error::new(Code::Configuration, "empty permission")
+        }
         let expression = LicenseExpression::parse(text)
             .map_err(|_| Error::new(Code::Configuration, "invalid permission unit"))?;
         if expression.ast.iter().count() != 1 {
@@ -39,7 +44,7 @@ impl PermissionUnit {
             .ast
             .requirements()
             .next()
-            .ok_or_else(|| Error::new(Code::Configuration, "empty permission"))?;
+            .ok_or_else(empty_permission)?;
         let kind = match &requirement.req.license {
             spdx::LicenseItem::Spdx { .. } => Kind::Standard,
             spdx::LicenseItem::Other(_) => Kind::CustomReference,
@@ -48,7 +53,7 @@ impl PermissionUnit {
             .units
             .into_iter()
             .next()
-            .ok_or_else(|| Error::new(Code::Configuration, "empty permission"))?;
+            .ok_or_else(empty_permission)?;
         Ok(Self { canonical, kind })
     }
 

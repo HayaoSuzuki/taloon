@@ -271,7 +271,7 @@ impl Acquirer {
         let ArtifactLocator::Remote { url, .. } = request.locator() else {
             return Err(http::failure());
         };
-        let url = url::Url::parse(url).map_err(|_| http::failure())?;
+        let url = url::Url::parse(url).map_err(index::validated_url_failure)?;
         if !needs_archive && request.requirement() == EvidenceRequirement::IndexAssociated {
             match self.try_sidecar(request, indexes, stats) {
                 Ok(Some(evidence)) => {

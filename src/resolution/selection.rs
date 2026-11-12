@@ -109,14 +109,14 @@ impl Resolution {
                 if !selected.insert(id.clone()) {
                     continue;
                 }
-                if let Some(node) = self.graph.get(&id) {
-                    pending.extend(
-                        node.edges
-                            .iter()
-                            .chain(node.extras.values().flatten())
-                            .map(|e| e.to.clone()),
-                    );
-                }
+                // Every queued identity comes from a resolved edge in this graph.
+                let node = &self.graph[&id];
+                pending.extend(
+                    node.edges
+                        .iter()
+                        .chain(node.extras.values().flatten())
+                        .map(|e| e.to.clone()),
+                );
             }
         }
         let targets = self
@@ -171,18 +171,18 @@ impl Resolution {
                 }
             }
             for (edge, via) in edges {
-                if selected.contains(&edge.to) {
-                    let mut extras = edge.extras.clone();
-                    extras.sort();
-                    extras.dedup();
-                    graph.edges.push(GraphEdge {
-                        from: id.key(),
-                        to: edge.to.key(),
-                        via,
-                        marker: edge.marker.clone(),
-                        extras,
-                    });
-                }
+                // Both selection modes include every followed normal/extra edge;
+                // development edges are emitted only in the complete graph mode.
+                let mut extras = edge.extras.clone();
+                extras.sort();
+                extras.dedup();
+                graph.edges.push(GraphEdge {
+                    from: id.key(),
+                    to: edge.to.key(),
+                    via,
+                    marker: edge.marker.clone(),
+                    extras,
+                });
             }
         }
         graph.edges.sort_by(|a, b| {
