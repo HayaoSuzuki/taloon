@@ -273,3 +273,25 @@ def test_release_cli_stages_validated_original_bytes(
     assert {p.name: p.read_bytes() for p in output.iterdir()} == {
         p.name: p.read_bytes() for p in directory.glob("*.whl")
     }
+
+
+@pytest.mark.parametrize(
+    "ancillary", ["source.tar.gz", "build.attestation"], ids=["source", "attestation"]
+)
+def test_prepare_ignores_nonwheel_checksum_entries(
+    tmp_path: Path, ancillary: str
+) -> None:
+    # Arrange: checksummed ancillary files are outside the wheel inventory.
+    directory, state = assets(tmp_path)
+    payload = b"ancillary release evidence"
+    (directory / ancillary).write_bytes(payload)
+    sums = directory / "SHA256SUMS"
+    sums.write_text(
+        sums.read_text() + hashlib.sha256(payload).hexdigest() + "  " + ancillary + "\n"
+    )
+    expected = {path.name: path.read_bytes() for path in directory.glob("*.whl")}
+    output = tmp_path / "staged"
+    # Act
+    prepare_wheels("v0.1.0", state, directory, output)
+    # Assert
+    assert {path.name: path.read_bytes() for path in output.iterdir()} == expected

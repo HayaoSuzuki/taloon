@@ -1014,3 +1014,108 @@ def test_failed_github_cli_cannot_be_treated_as_success(
     with pytest.raises(subprocess.CalledProcessError) as observed:
         provenance.run_gh(["-c", "raise SystemExit(7)"])
     assert observed.value.returncode == 7
+
+
+@pytest.mark.parametrize(
+    ("failures", "expected_delays"),
+    [(1, [10]), (2, [10, 20]), (4, [10, 20, 40, 60])],
+    ids=["initial-delay", "exponential-growth", "interval-cap"],
+)
+def test_propagation_uses_bounded_exponential_delays(
+    failures: int, expected_delays: list[int]
+) -> None:
+    # Arrange: a frozen clock isolates the documented backoff from the deadline.
+    error = urllib.error.HTTPError("https://pypi.org/", 404, "missing", Message(), None)
+    with (
+        patch.object(
+            provenance, "verify_index", side_effect=[error] * failures + [True]
+        ),
+        patch.object(provenance.time, "monotonic", return_value=0),
+        patch.object(provenance.time, "sleep") as sleep,
+    ):
+        # Act
+        observed = provenance.verify_with_propagation(
+            "pypi", "v0.1.0", "a" * 40, Path("dist"), allow_missing=False
+        )
+    # Assert
+    assert observed is True
+    assert [call.args[0] for call in sleep.call_args_list] == expected_delays
+
+
+def test_propagation_stops_at_attempt_limit_before_later_success() -> None:
+    # Arrange: eventual success bounds the test even if attempt accounting breaks.
+    error = urllib.error.HTTPError("https://pypi.org/", 404, "missing", Message(), None)
+    with (
+        patch.object(
+            provenance, "verify_index", side_effect=[error] * 61 + [True]
+        ) as verify,
+        patch.object(provenance.time, "monotonic", return_value=0),
+        patch.object(provenance.time, "sleep") as sleep,
+        pytest.raises(urllib.error.HTTPError) as observed,
+    ):
+        # Act / Assert
+        provenance.verify_with_propagation(
+            "pypi", "v0.1.0", "a" * 40, Path("dist"), allow_missing=False
+        )
+    assert observed.value is error
+    assert verify.call_count == 61
+    assert sleep.call_count == 60
+
+
+@pytest.mark.parametrize(
+    ("index", "expected_url"),
+    [
+        ("pypi", "https://pypi.org/integrity/taloon/0.1.0/"),
+        ("testpypi", "https://test.pypi.org/integrity/taloon/0.1.0/"),
+    ],
+    ids=["pypi", "testpypi"],
+)
+def test_index_verification_uses_unprefixed_version_in_provenance_urls(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, index: str, expected_url: str
+) -> None:
+    # Arrange: inventory and per-wheel cryptography are separate boundaries.
+    wheels = [
+        tmp_path / f"taloon-0.1.0-py3-none-{platform.published_wheel_tag}.whl"
+        for platform in provenance.RELEASE_PLATFORMS
+    ]
+    for wheel in wheels:
+        wheel.write_bytes(wheel.name.encode())
+    records = [
+        generated_inventory_record(wheel, wheel.read_bytes()) for wheel in wheels
+    ]
+    monkeypatch.setattr(provenance, "fetch_json", lambda _url: {"urls": records})
+    with patch.object(provenance, "verify_index_wheel") as verify:
+        # Act
+        observed = provenance.verify_index(index, "v0.1.0", "a" * 40, tmp_path)
+    # Assert
+    assert observed is True
+    assert [call.args[0] for call in verify.call_args_list] == [
+        expected_url + wheel.name + "/provenance" for wheel in sorted(wheels)
+    ]
+
+
+def test_index_wheel_reports_missing_attestation_bundle(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange: the downloaded bytes are valid, but the service omitted its proof.
+    wheel, data, root, _errors = index_wheel_rejects_untrusted_evidence_case(
+        tmp_path, monkeypatch, "bundles"
+    )
+    monkeypatch.setattr(provenance, "fetch_json", lambda _url: {})
+    # Act / Assert
+    with pytest.raises(ValueError, match="Expected exactly one attestation bundle"):
+        provenance.verify_index_wheel(
+            "https://pypi.org/integrity/example", "a" * 40, wheel, data, root=root
+        )
+
+
+def test_index_inventory_refuses_missing_digest_record(
+    inventory_record: tuple[Path, dict[str, object]],
+) -> None:
+    # Arrange: both missing-key access and shape validation must refuse acceptance.
+    wheel, record = inventory_record
+    del record["digests"]
+    # Act / Assert: refusal is required; the lookup exception class is incidental.
+    with pytest.raises((KeyError, TypeError)):
+        provenance.check_inventory({"urls": [record]}, [wheel])
+    assert wheel.read_bytes() == b"bytes"
