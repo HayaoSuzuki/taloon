@@ -49,6 +49,15 @@ def test_accepts_valid_bundle_and_preserves_unknown_metadata(tmp_path: Path) -> 
         "---\ntype: [\n---\n# Malformed YAML\n",
         "---\ntype: Decision\n# Unterminated header\n",
     ],
+    ids=[
+        "no-frontmatter",
+        "commented-type",
+        "array-type",
+        "blank-type",
+        "sequence-header",
+        "malformed-yaml",
+        "unclosed-header",
+    ],
 )
 def test_rejects_malformed_concepts(tmp_path: Path, content: str) -> None:
     # Arrange
@@ -61,7 +70,9 @@ def test_rejects_malformed_concepts(tmp_path: Path, content: str) -> None:
     assert any("rule.md" in error for error in errors)
 
 
-@pytest.mark.parametrize("name", ["nested/index.md", "log.md"])
+@pytest.mark.parametrize(
+    "name", ["nested/index.md", "log.md"], ids=["nested/index.md", "log.md"]
+)
 def test_reserved_files_cannot_hide_concepts(tmp_path: Path, name: str) -> None:
     # Arrange
     root = bundle(tmp_path)
@@ -94,22 +105,31 @@ def test_missing_entry_point_fails_with_a_diagnostic(tmp_path: Path) -> None:
     assert any("index.md" in error for error in errors)
 
 
-@pytest.mark.parametrize("missing", ["source", "navigation"])
-def test_missing_source_or_navigation_is_reported(tmp_path: Path, missing: str) -> None:
+def test_missing_source_is_reported(tmp_path: Path) -> None:
     # Arrange
     root = bundle(tmp_path)
-    expected = "evidence.md" if missing == "source" else "orphan.md"
-    if missing == "source":
-        (root.parent / "evidence.md").unlink()
-    else:
-        (root / "orphan.md").write_text((root / "rule.md").read_text())
+    (root.parent / "evidence.md").unlink()
     # Act
     errors = check_repository(tmp_path)
     # Assert
-    assert any(expected in error for error in errors)
+    assert any("evidence.md" in error for error in errors)
 
 
-@pytest.mark.parametrize("entry", ["docs/user/index.md", "AGENTS.md"])
+def test_unreachable_concept_is_reported(tmp_path: Path) -> None:
+    # Arrange
+    root = bundle(tmp_path)
+    (root / "orphan.md").write_text((root / "rule.md").read_text())
+    # Act
+    errors = check_repository(tmp_path)
+    # Assert
+    assert any("orphan.md" in error for error in errors)
+
+
+@pytest.mark.parametrize(
+    "entry",
+    ["docs/user/index.md", "AGENTS.md"],
+    ids=["docs/user/index.md", "AGENTS.md"],
+)
 def test_checks_user_docs_and_agent_entry_links(tmp_path: Path, entry: str) -> None:
     # Arrange
     bundle(tmp_path)
@@ -185,6 +205,13 @@ def test_definition_alone_does_not_attribute_a_claim(tmp_path: Path) -> None:
         "sources: [{id: evidence, resource: []}]",
         "sources: [{id: ' ', resource: ../evidence.md}]",
     ],
+    ids=[
+        "scalar-sources",
+        "scalar-entry",
+        "missing-resource",
+        "array-resource",
+        "blank-id",
+    ],
 )
 def test_malformed_sources_produce_diagnostics(
     tmp_path: Path, replacement: str
@@ -224,26 +251,42 @@ def test_root_index_rejects_extra_metadata(tmp_path: Path) -> None:
     assert "root index must declare only" in errors[0]
 
 
-@pytest.mark.parametrize("broken", [False, True])
-def test_documentation_command_reports_status(
+def test_documentation_command_reports_success(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
-    *,
-    broken: bool,
 ) -> None:
     # Arrange
     bundle(tmp_path)
     monkeypatch.chdir(tmp_path)
-    if broken:
-        (tmp_path / "README.md").write_text("[missing](absent.md)")
     # Act
     status = main()
     output = capsys.readouterr()
     # Assert
-    assert status == int(broken)
-    assert bool(output.err) == broken
-    assert bool(output.out) != broken
+    assert status == 0
+    assert output.err == ""
+    assert (
+        output.out
+        == "Documentation links, OKF structure, citations, and navigation passed\n"
+    )
+
+
+def test_documentation_command_reports_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Arrange
+    bundle(tmp_path)
+    (tmp_path / "README.md").write_text("[missing](absent.md)")
+    monkeypatch.chdir(tmp_path)
+    # Act
+    status = main()
+    output = capsys.readouterr()
+    # Assert
+    assert status == 1
+    assert "missing link target absent.md" in output.err
+    assert output.out == ""
 
 
 def test_documentation_module_reports_invalid_repository(tmp_path: Path) -> None:

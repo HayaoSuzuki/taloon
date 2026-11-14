@@ -4,14 +4,23 @@ use proptest::prelude::*;
 use rstest::rstest;
 
 #[rstest]
-#[case::mit("MIT")]
-#[case::isc("ISC")]
-#[case::bsd_two("BSD-2-Clause")]
-#[case::bsd_three("BSD-3-Clause")]
-fn recognizes_equivalent_copyright_markers(
-    #[case] id: &str,
-    #[values("Copyright (C)", "(c)", "(C)", "©")] marker: &str,
-) {
+#[case::mit_copyright_c("MIT", "Copyright (C)")]
+#[case::mit_c("MIT", "(c)")]
+#[case::mit_uppercase_c("MIT", "(C)")]
+#[case::mit_symbol("MIT", "©")]
+#[case::isc_copyright_c("ISC", "Copyright (C)")]
+#[case::isc_c("ISC", "(c)")]
+#[case::isc_uppercase_c("ISC", "(C)")]
+#[case::isc_symbol("ISC", "©")]
+#[case::bsd_two_copyright_c("BSD-2-Clause", "Copyright (C)")]
+#[case::bsd_two_c("BSD-2-Clause", "(c)")]
+#[case::bsd_two_uppercase_c("BSD-2-Clause", "(C)")]
+#[case::bsd_two_symbol("BSD-2-Clause", "©")]
+#[case::bsd_three_copyright_c("BSD-3-Clause", "Copyright (C)")]
+#[case::bsd_three_c("BSD-3-Clause", "(c)")]
+#[case::bsd_three_uppercase_c("BSD-3-Clause", "(C)")]
+#[case::bsd_three_symbol("BSD-3-Clause", "©")]
+fn recognizes_equivalent_copyright_markers(#[case] id: &str, #[case] marker: &str) {
     // Arrange
     let text = with_attribution(id, &format!("{marker} 2026 Example Author"));
     // Act
@@ -25,16 +34,19 @@ fn bsd(id: &str) -> String {
 }
 
 #[rstest]
-#[case::author("AUTHOR")]
-#[case::authors("AUTHORS")]
-#[case::owner("COPYRIGHT OWNER")]
-#[case::owners("COPYRIGHT OWNERS")]
-#[case::holders("COPYRIGHT HOLDERS")]
-#[case::holder("COPYRIGHT HOLDER")]
-fn recognizes_generic_disclaimer_roles(
-    #[case] role: &str,
-    #[values("BSD-2-Clause", "BSD-3-Clause")] id: &str,
-) {
+#[case::author_bsd_2_clause("AUTHOR", "BSD-2-Clause")]
+#[case::author_bsd_3_clause("AUTHOR", "BSD-3-Clause")]
+#[case::authors_bsd_2_clause("AUTHORS", "BSD-2-Clause")]
+#[case::authors_bsd_3_clause("AUTHORS", "BSD-3-Clause")]
+#[case::owner_bsd_2_clause("COPYRIGHT OWNER", "BSD-2-Clause")]
+#[case::owner_bsd_3_clause("COPYRIGHT OWNER", "BSD-3-Clause")]
+#[case::owners_bsd_2_clause("COPYRIGHT OWNERS", "BSD-2-Clause")]
+#[case::owners_bsd_3_clause("COPYRIGHT OWNERS", "BSD-3-Clause")]
+#[case::holders_bsd_2_clause("COPYRIGHT HOLDERS", "BSD-2-Clause")]
+#[case::holders_bsd_3_clause("COPYRIGHT HOLDERS", "BSD-3-Clause")]
+#[case::holder_bsd_2_clause("COPYRIGHT HOLDER", "BSD-2-Clause")]
+#[case::holder_bsd_3_clause("COPYRIGHT HOLDER", "BSD-3-Clause")]
+fn recognizes_generic_disclaimer_roles(#[case] role: &str, #[case] id: &str) {
     // Arrange
     let text = bsd(id)
         .replace(
@@ -52,15 +64,22 @@ fn recognizes_generic_disclaimer_roles(
 }
 
 #[rstest]
-#[case::author("author")]
-#[case::authors("authors")]
-#[case::owner("copyright owner")]
-#[case::owners("copyright owners")]
-#[case::holders("copyright holders")]
-fn recognizes_third_clause_roles(
-    #[case] role: &str,
-    #[values("its", "their", "any")] reference: &str,
-) {
+#[case::author_its("author", "its")]
+#[case::author_their("author", "their")]
+#[case::author_any("author", "any")]
+#[case::authors_its("authors", "its")]
+#[case::authors_their("authors", "their")]
+#[case::authors_any("authors", "any")]
+#[case::owner_its("copyright owner", "its")]
+#[case::owner_their("copyright owner", "their")]
+#[case::owner_any("copyright owner", "any")]
+#[case::owners_its("copyright owners", "its")]
+#[case::owners_their("copyright owners", "their")]
+#[case::owners_any("copyright owners", "any")]
+#[case::holders_its("copyright holders", "its")]
+#[case::holders_their("copyright holders", "their")]
+#[case::holders_any("copyright holders", "any")]
+fn recognizes_third_clause_roles(#[case] role: &str, #[case] reference: &str) {
     // Arrange
     let text = bsd("BSD-3-Clause").replace(
         "name of the copyright holder nor the names of its contributors",
@@ -73,13 +92,13 @@ fn recognizes_third_clause_roles(
 }
 
 #[rstest]
-#[case::star("*")]
-#[case::dash("-")]
-#[case::absent("")]
-fn recognizes_bsd_clause_markers(
-    #[case] marker: &str,
-    #[values("BSD-2-Clause", "BSD-3-Clause")] id: &str,
-) {
+#[case::star_bsd_2_clause("*", "BSD-2-Clause")]
+#[case::star_bsd_3_clause("*", "BSD-3-Clause")]
+#[case::dash_bsd_2_clause("-", "BSD-2-Clause")]
+#[case::dash_bsd_3_clause("-", "BSD-3-Clause")]
+#[case::absent_bsd_2_clause("", "BSD-2-Clause")]
+#[case::absent_bsd_3_clause("", "BSD-3-Clause")]
+fn recognizes_bsd_clause_markers(#[case] marker: &str, #[case] id: &str) {
     // Arrange
     let text = bsd(id)
         .replace("1. Redistributions", &format!("{marker} Redistributions"))

@@ -110,9 +110,7 @@ proptest! {
         prop_assert_eq!(partitions.iter().map(Vec::len).sum::<usize>(), requests.len());
         for (n, label) in labels.iter().enumerate() {
             for (m, other) in labels.iter().enumerate() {
-                if label == other {
-                    prop_assert_eq!(assignments[&requests[n].id()], assignments[&requests[m].id()]);
-                }
+                prop_assert!(label != other || assignments[&requests[n].id()] == assignments[&requests[m].id()]);
             }
         }
     }

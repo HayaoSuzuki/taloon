@@ -98,11 +98,11 @@ proptest! {
     fn cardinality_and_permutation_have_the_same_meaning_for_both_consumers(
         counts in prop::array::uniform3(0_usize..5),
         priorities in prop::collection::vec(any::<u64>(), 12),
-        checking in any::<bool>(),
+        consumer in prop::sample::select(vec![Consumer::Check, Consumer::Describe]),
     ) {
         // Arrange: integer counts supply the expected completeness, independently of the ledger.
         let bytes = common::wheel(&common::metadata("License-Expression: MIT"));
-        let subject = Subject::new(if checking { Consumer::Check } else { Consumer::Describe }, &bytes);
+        let subject = Subject::new(consumer, &bytes);
         let mut indexed = Vec::new();
         for (request, count) in subject.requests().iter().zip(counts) {
             indexed.extend((0..count).map(|_| observed(request, &bytes)));

@@ -372,6 +372,21 @@ mod tests {
 
     proptest! {
         #[test]
+        fn clearing_an_already_cleared_record_is_idempotent(identity in any::<[u8;32]>()) {
+            // Arrange
+            let temp = tempfile::tempdir().unwrap();
+            let cache = EvidenceCache::new(temp.path().to_owned());
+            let request = request(&identity, ArtifactFormat::Wheel);
+            let path = cache.path(&request, ContentHash::digest(&identity), true);
+            std::fs::write(path, b"damaged record").unwrap();
+            cache.clear().unwrap();
+            // Act
+            let removed = cache.clear().unwrap();
+            // Assert
+            prop_assert_eq!(removed, 0);
+        }
+
+        #[test]
         fn clear_generated_records_preserves_other_names(
             archive in any::<[u8;32]>(), identity in any::<[u8;32]>(),
             sidecar in any::<bool>(), sdist in any::<bool>(), neighbor in "[a-z0-9_]{1,24}"
@@ -391,12 +406,13 @@ mod tests {
             for name in &preserved {
                 std::fs::write(temp.path().join(name), b"keep").unwrap();
             }
-            prop_assert_eq!(cache.clear().unwrap(), 1);
+            // Act
+            let removed = cache.clear().unwrap();
+            let remaining: Vec<_> = preserved.iter().map(|name| std::fs::read(temp.path().join(name)).unwrap()).collect();
+            // Assert: every neighbor belongs to this single clear operation.
+            prop_assert_eq!(removed, 1);
             prop_assert!(!path.exists());
-            for name in &preserved {
-                prop_assert_eq!(std::fs::read(temp.path().join(name)).unwrap(), b"keep");
-            }
-            prop_assert_eq!(cache.clear().unwrap(), 0);
+            prop_assert_eq!(remaining, vec![b"keep".to_vec(); preserved.len()]);
         }
     }
 }

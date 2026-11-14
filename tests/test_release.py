@@ -98,6 +98,7 @@ def test_reserved_commit_survives_newer_reservation(repository: Path) -> None:
         ("collision-then-loss", 2),
         ("final-loss", 5),
     ],
+    ids=["collision", "lost-response", "collision-then-loss", "final-loss"],
 )
 def test_reservation_recovers_publication_fault(
     repository: Path,
@@ -189,7 +190,16 @@ def test_competing_checkouts_do_not_overwrite_reservations(
 
 
 @pytest.mark.parametrize(
-    "bad", ["01.2.3", "1.2", "1.2.3\n", "-1.2.3", "1.2.3-dev.1", "v1.2.3"]
+    "bad",
+    ["01.2.3", "1.2", "1.2.3\n", "-1.2.3", "1.2.3-dev.1", "v1.2.3"],
+    ids=[
+        "leading-zero",
+        "missing-patch",
+        "trailing-newline",
+        "negative-major",
+        "prerelease",
+        "tag-prefix",
+    ],
 )
 def test_invalid_stable_versions(bad: str) -> None:
     # Arrange: each independently named input violates stable-version syntax.
@@ -206,6 +216,12 @@ def test_invalid_stable_versions(bad: str) -> None:
         ("9.0.0", ["2.3.4"], (9, 0, 0)),
         ("0.1.0", ["2.3.4"], (2, 3, 5)),
     ],
+    ids=[
+        "empty-history-floor",
+        "patch-carry",
+        "floor-above-history",
+        "history-above-floor",
+    ],
 )
 def test_next_version_named_boundaries(
     floor: str, history: list[str], expected: tuple[int, int, int]
@@ -217,7 +233,7 @@ def test_next_version_named_boundaries(
     assert observed == expected
 
 
-def test_set_version_preserves_other_packages_and_dynamic_metadata(
+def test_set_version_updates_package_without_changing_unrelated_package(
     tmp_path: Path,
 ) -> None:
     # Arrange
@@ -239,7 +255,13 @@ def test_set_version_preserves_other_packages_and_dynamic_metadata(
     assert [p["version"] for p in packages] == ["0.1.1", "0.1.0"]
 
 
-@pytest.mark.parametrize("version", ["0.1.1", "0.2.0", "1.0.0"])
+def internal_version(declared: object, release_version: str) -> object:
+    return release_version if isinstance(declared, dict) else declared
+
+
+@pytest.mark.parametrize(
+    "version", ["0.1.1", "0.2.0", "1.0.0"], ids=["0.1.1", "0.2.0", "1.0.0"]
+)
 def test_release_version_keeps_internal_decisions_locked(
     tmp_path: Path, version: str
 ) -> None:
@@ -254,7 +276,7 @@ def test_release_version_keeps_internal_decisions_locked(
 
     # Assert: Cargo's inherited version must still agree with the locked package.
     declared = internal["package"]["version"]
-    actual = version if isinstance(declared, dict) else declared
+    actual = internal_version(declared, version)
     packages = tomllib.loads((tmp_path / "Cargo.lock").read_text())["package"]
     locked = next(p for p in packages if p["name"] == "taloon-decisions")
     assert locked["version"] == actual
@@ -270,7 +292,9 @@ def test_missing_git_cannot_reserve(
         release.git(repository, "status")
 
 
-@pytest.mark.parametrize("commit", ["", "g" * 40, "a" * 39])
+@pytest.mark.parametrize(
+    "commit", ["", "g" * 40, "a" * 39], ids=["empty", "nonhex", "short"]
+)
 def test_invalid_reservation_commit_is_rejected(repository: Path, commit: str) -> None:
     # Arrange / Act / Assert
     with pytest.raises(ValueError, match="Expected full source commit"):
@@ -278,7 +302,9 @@ def test_invalid_reservation_commit_is_rejected(repository: Path, commit: str) -
 
 
 @pytest.mark.parametrize(
-    "manifest", ["", '[workspace.package]\nversion = "0.1.0"\n' * 2]
+    "manifest",
+    ["", '[workspace.package]\nversion = "0.1.0"\n' * 2],
+    ids=["missing-version", "duplicate-version"],
 )
 def test_version_update_does_not_partially_write_invalid_manifest(
     tmp_path: Path, manifest: str

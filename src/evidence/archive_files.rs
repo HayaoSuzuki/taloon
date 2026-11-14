@@ -587,11 +587,17 @@ mod tests {
 
     proptest::proptest! {
         #[test]
-        fn preserves_generated_utf8_text(text in ".{0,1024}") {
+        fn preserves_generated_utf8_text(
+            text in ".{0,1024}",
+            (format, path) in proptest::sample::select(vec![
+                (ArtifactFormat::Wheel, "example.dist-info/licenses/LICENSE"),
+                (ArtifactFormat::Sdist, "example/LICENSE"),
+            ]),
+        ) {
             // Arrange
-            let bytes = archive(ArtifactFormat::Sdist, &[("example/LICENSE", text.as_bytes(), false)]);
+            let bytes = archive(format, &[(path, text.as_bytes(), false)]);
             // Act
-            let files = read(&bytes, ArtifactFormat::Sdist, &["LICENSE".into()]).unwrap();
+            let files = read(&bytes, format, &["LICENSE".into()]).unwrap();
             // Assert
             proptest::prop_assert_eq!(&files[0].text, &text);
         }

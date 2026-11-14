@@ -52,10 +52,9 @@ fn debug_representation_redacts_nested_fetch_secrets(#[case] value: Value) {
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(128))]
     #[test]
-    fn arbitrary_query_secrets_do_not_escape_debug(suffix in "[a-zA-Z0-9]{1,32}", kind in 0_u8..4) {
+    fn arbitrary_query_secrets_do_not_escape_debug(suffix in "[a-zA-Z0-9]{1,32}", value in prop::sample::select(vec![Value::Source, Value::Package, Value::Locator, Value::Request])) {
         // Arrange
         let secret = format!("private-{suffix}");
-        let value = match kind {0 => Value::Source, 1 => Value::Package, 2 => Value::Locator, _ => Value::Request};
         // Act
         let rendered = debug_value(value, &secret);
         // Assert

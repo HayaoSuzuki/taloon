@@ -15,23 +15,9 @@ from hypothesis import strategies as st
 from tools.knowledge_references import inventory, local_target, main, markdown_targets
 
 
-@pytest.mark.parametrize(
-    ("field", "expected"),
-    [
-        ("missing_markdown", ["gone.rs", "gone.rs"]),
-        ("missing_sources", ["absent.rs"]),
-        ("unreachable_pages", ["orphan.md"]),
-        ("sources", ["absent.rs", "https://example.org/source"]),
-    ],
-)
-def test_inventory_keeps_diagnostic_categories_independent(
-    tmp_path: Path,
-    field: Literal[
-        "missing_markdown", "missing_sources", "unreachable_pages", "sources"
-    ],
-    expected: list[str],
-) -> None:
-    # Arrange
+@pytest.fixture
+def inventory_tree(tmp_path: Path) -> Path:
+    """Create a graph with distinct navigation and source diagnostics."""
     (tmp_path / "index.md").write_text(
         "[entry](entry.md#section)\n[remote](https://example.org/x)\n"
     )
@@ -45,14 +31,45 @@ def test_inventory_keeps_diagnostic_categories_independent(
     (tmp_path / "nested").mkdir()
     (tmp_path / "nested/child.md").write_text("[root](/index.md)\n")
     (tmp_path / "orphan.md").write_text("orphan\n")
+    return tmp_path
+
+
+@pytest.mark.parametrize(
+    ("field", "key", "expected"),
+    [
+        pytest.param(
+            "missing_markdown", "target", ["gone.rs", "gone.rs"], id="markdown"
+        ),
+        pytest.param("missing_sources", "resource", ["absent.rs"], id="missing-source"),
+        pytest.param(
+            "sources",
+            "resource",
+            ["absent.rs", "https://example.org/source"],
+            id="sources",
+        ),
+    ],
+)
+def test_inventory_keeps_record_categories_independent(
+    inventory_tree: Path,
+    field: Literal["missing_markdown", "missing_sources", "sources"],
+    key: str,
+    expected: list[str],
+) -> None:
+    # Arrange
+    root = inventory_tree
     # Act
-    result = inventory(tmp_path)
+    result = inventory(root)
     # Assert
-    if field == "unreachable_pages":
-        assert result[field] == expected
-    else:
-        key = "target" if field == "missing_markdown" else "resource"
-        assert [row[key] for row in result[field]] == expected
+    assert [row[key] for row in result[field]] == expected
+
+
+def test_inventory_reports_unreachable_pages(inventory_tree: Path) -> None:
+    # Arrange
+    root = inventory_tree
+    # Act
+    result = inventory(root)
+    # Assert
+    assert result["unreachable_pages"] == ["orphan.md"]
 
 
 def test_source_resource_does_not_make_a_concept_navigable(tmp_path: Path) -> None:
@@ -72,6 +89,7 @@ def test_source_resource_does_not_make_a_concept_navigable(tmp_path: Path) -> No
 def test_missing_entry_point_is_rejected(tmp_path: Path) -> None:
     # Arrange
     (tmp_path / "concept.md").write_text("concept\n")
+    # Act / Assert
     with pytest.raises(FileNotFoundError, match="Knowledge entry point missing"):
         inventory(tmp_path)
 
@@ -127,12 +145,16 @@ def test_indented_footnote_continuation_contributes_navigation(tmp_path: Path) -
     assert observed["missing_markdown"] == []
 
 
-@pytest.mark.parametrize("missing", [False, True])
+@pytest.mark.parametrize(
+    ("content", "expected_status", "missing"),
+    [("# Index", 0, False), ("[child](missing.md)", 1, True)],
+    ids=["valid-index", "missing-child"],
+)
 def test_inventory_command_emits_json_and_exit_status(
-    tmp_path: Path, *, missing: bool
+    tmp_path: Path, content: str, expected_status: int, *, missing: bool
 ) -> None:
     # Arrange
-    (tmp_path / "index.md").write_text("[child](missing.md)" if missing else "# Index")
+    (tmp_path / "index.md").write_text(content)
     # Act
     result = subprocess.run(  # noqa: S603 -- fixed interpreter/module and fixture path.
         [sys.executable, "-m", "tools.knowledge_references", "--root", str(tmp_path)],
@@ -142,7 +164,7 @@ def test_inventory_command_emits_json_and_exit_status(
     )
     # Assert
     observed = json.loads(result.stdout)
-    assert result.returncode == int(missing)
+    assert result.returncode == expected_status
     assert observed["page_count"] == 1
     assert bool(observed["missing_markdown"]) == missing
     assert result.stderr == ""
@@ -175,7 +197,9 @@ def test_dense_cyclic_navigation_visits_each_page_once(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    "target", ["mailto:maintainer@example.org", "//example.org/rule.md"]
+    "target",
+    ["mailto:maintainer@example.org", "//example.org/rule.md"],
+    ids=["mailto", "network-path"],
 )
 def test_non_filesystem_references_are_not_resolved_locally(
     tmp_path: Path, target: str
@@ -196,6 +220,7 @@ def test_non_filesystem_references_are_not_resolved_locally(
         "```\nhidden\n~~~\nstill hidden\n```",
         "````\nhidden\n```\nstill hidden\n````",
     ],
+    ids=["backticks", "tildes", "wrong-marker", "short-marker"],
 )
 def test_fence_scanner_resumes_only_after_matching_closure(fenced: str) -> None:
     # Arrange

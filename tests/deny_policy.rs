@@ -39,13 +39,8 @@ fn empty_deny_preserves_declaration_outcomes(#[case] fields: &str, #[case] expec
     // Assert
     assert_eq!(report.exit_code(false), expected);
 }
-#[rstest]
-#[case::complete(true, 1)]
-#[case::incomplete(false, 0)]
-fn deny_warnings_observe_all_or_terms_only_on_complete_runs(
-    #[case] complete: bool,
-    #[case] count: usize,
-) {
+#[test]
+fn complete_deny_run_warns_only_for_unobserved_units() {
     // Arrange
     let bytes = common::wheel(&common::metadata("License-Expression: MIT OR Apache-2.0"));
     let inspection = Inspection::from_documents(
@@ -54,32 +49,40 @@ fn deny_warnings_observe_all_or_terms_only_on_complete_runs(
         date(),
     )
     .unwrap();
-    let results = if complete {
-        inspection
-            .requests()
-            .iter()
-            .map(|r| {
-                AcquisitionResult::observed(r.id(), Evidence::from_archive(r, &bytes).unwrap())
-            })
-            .collect()
-    } else {
-        vec![]
-    };
+    let results = inspection
+        .requests()
+        .iter()
+        .map(|r| AcquisitionResult::observed(r.id(), Evidence::from_archive(r, &bytes).unwrap()))
+        .collect();
     // Act
     let report = inspection.evaluate(results);
     // Assert
-    assert_eq!(report.diagnostics().len(), count);
-    if complete {
-        assert_eq!(
-            report.diagnostics()[0].error.message,
-            "unused global denial: ISC"
-        );
-        assert_eq!(report.exit_code(false), 0);
-        assert_eq!(report.exit_code(true), 1);
-    } else {
-        assert_eq!(report.exit_code(false), 2);
-    }
+    assert_eq!(report.diagnostics().len(), 1);
+    assert_eq!(
+        report.diagnostics()[0].error.message,
+        "unused global denial: ISC"
+    );
+    assert_eq!(report.exit_code(false), 0);
+    assert_eq!(report.exit_code(true), 1);
 }
+
+#[test]
+fn incomplete_deny_run_suppresses_unused_unit_warnings() {
+    // Arrange
+    let bytes = common::wheel(&common::metadata("License-Expression: MIT OR Apache-2.0"));
+    let inspection = Inspection::from_documents(
+        &lock(ContentHash::digest(&bytes)),
+        "[tool.taloon]\nschema-version=1\ndeny=['MIT','ISC']",
+        date(),
+    )
+    .unwrap();
+    // Act
+    let report = inspection.evaluate(vec![]);
+    // Assert
+    assert!(report.diagnostics().is_empty());
+    assert_eq!(report.exit_code(false), 2);
+}
+
 #[test]
 fn clarification_does_not_override_a_denied_unit() {
     // Arrange

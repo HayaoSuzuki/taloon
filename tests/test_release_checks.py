@@ -9,6 +9,8 @@ from itertools import count
 from types import SimpleNamespace
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from tools import release_checks
 from tools.release_checks import checks_passed, required_runs
@@ -46,6 +48,7 @@ def test_complete_exact_main_checks_pass() -> None:
         ("conclusion", "failure"),
         ("path", ".github/workflows/release.yml"),
     ],
+    ids=["head_sha", "event", "status", "conclusion", "path"],
 )
 def test_foreign_pending_failed_or_missing_checks_do_not_pass(
     field: str, value: str
@@ -69,23 +72,38 @@ def test_newer_failure_supersedes_previous_success() -> None:
     assert not observed
 
 
-def test_failed_old_attempt_does_not_abort_current_retry() -> None:
-    # Arrange
+def retrying_runs() -> list[dict[str, object]]:
     data = runs()
     data.append(
         {**data[0], "run_attempt": 2, "status": "in_progress", "conclusion": None}
     )
     data[0]["conclusion"] = "failure"
+    return data
+
+
+def test_current_retry_supersedes_failed_old_attempt() -> None:
+    # Arrange
+    data = retrying_runs()
+    expected = [data[3], data[1], data[2]]
     # Act
     selected = required_runs(data, "a" * 40)
+    # Assert
+    assert selected == expected
+
+
+def test_in_progress_retry_cannot_authorize_publication() -> None:
+    # Arrange
+    data = retrying_runs()
+    # Act
     observed = checks_passed(data, "a" * 40)
     # Assert
     assert not observed
-    assert all(run["conclusion"] != "failure" for run in selected)
 
 
 @pytest.mark.parametrize(
-    ("field", "value"), [("run_number", "2"), ("run_attempt", True)]
+    ("field", "value"),
+    [("run_number", "2"), ("run_attempt", True)],
+    ids=["run_number", "run_attempt"],
 )
 def test_invalid_workflow_counters_are_rejected(field: str, value: object) -> None:
     # Arrange
@@ -96,7 +114,9 @@ def test_invalid_workflow_counters_are_rejected(field: str, value: object) -> No
         required_runs(data, "a" * 40)
 
 
-@pytest.mark.parametrize("commit", ["", "a" * 39, "g" * 40])
+@pytest.mark.parametrize(
+    "commit", ["", "a" * 39, "g" * 40], ids=["empty", "short", "nonhex"]
+)
 def test_wait_rejects_invalid_source_before_polling(commit: str) -> None:
     # Arrange / Act / Assert
     with pytest.raises(ValueError, match="Expected full source commit"):
@@ -149,7 +169,9 @@ def test_wait_reports_exact_source_success(
 
 
 @pytest.mark.parametrize(
-    "conclusion", ["failure", "cancelled", "timed_out", "action_required"]
+    "conclusion",
+    ["failure", "cancelled", "timed_out", "action_required"],
+    ids=["failure", "cancelled", "timed_out", "action_required"],
 )
 def test_wait_rejects_terminal_failed_checks(
     workflow_service: list[dict[str, object]], conclusion: str
@@ -212,3 +234,40 @@ def test_checks_module_requires_source_argument(
         runpy.run_path(str(release_checks.__file__), run_name="__main__")
     assert error.value.code == 2
     assert "--commit" in capsys.readouterr().err
+
+
+@given(
+    counters=st.lists(st.integers(1, 10000), min_size=3, max_size=3),
+    success=st.lists(st.booleans(), min_size=3, max_size=3),
+    order=st.permutations(range(9)),
+)
+def test_latest_workflow_results_control_authorization_independent_of_order(
+    counters: list[int], success: list[bool], order: list[int]
+) -> None:
+    # Arrange: every winner is strictly newer than its deliberately opposite result.
+    winners = runs()
+    older = runs()
+    older_number = runs()
+    for index, winner in enumerate(winners):
+        winner.update(
+            run_number=counters[index] + 1,
+            run_attempt=counters[index] + 1,
+            conclusion={True: "success", False: "failure"}[success[index]],
+        )
+        older[index].update(
+            run_number=counters[index] + 1,
+            run_attempt=counters[index],
+            conclusion={True: "failure", False: "success"}[success[index]],
+        )
+        older_number[index].update(
+            run_number=counters[index],
+            run_attempt=counters[index] + 100,
+            conclusion={True: "failure", False: "success"}[success[index]],
+        )
+    candidates = [*winners, *older, *older_number]
+    data = [candidates[index] for index in order]
+    expected = all(success)
+    # Act
+    observed = checks_passed(data, "a" * 40)
+    # Assert
+    assert observed == expected

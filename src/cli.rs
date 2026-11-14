@@ -445,7 +445,8 @@ fn acquisition_summary(out: &mut String, counters: &taloon::report::AcquisitionS
 mod tests {
     use super::*;
     #[test]
-    fn explicit_netrc_path_precedes_home_and_missing_explicit_does_not_fall_back() {
+    fn explicit_netrc_path_precedes_existing_home_file() {
+        // Arrange
         let temp = tempfile::tempdir().unwrap();
         std::fs::write(
             temp.path().join(".netrc"),
@@ -453,14 +454,22 @@ mod tests {
         )
         .unwrap();
         let explicit = temp.path().join("selected");
-        assert_eq!(
-            selected_netrc(Some(explicit.clone()), Some(temp.path())),
-            Some(explicit)
-        );
-        assert_eq!(
-            selected_netrc(None, Some(temp.path())),
-            Some(temp.path().join(".netrc"))
-        );
+        // Act
+        let selected = selected_netrc(Some(explicit.clone()), Some(temp.path()));
+        // Assert: the nonexistent explicit path is returned without falling back.
+        assert_eq!(selected, Some(explicit));
+    }
+
+    #[test]
+    fn home_netrc_is_selected_without_explicit_path() {
+        // Arrange
+        let temp = tempfile::tempdir().unwrap();
+        let home_file = temp.path().join(".netrc");
+        std::fs::write(&home_file, "machine home login home password token").unwrap();
+        // Act
+        let selected = selected_netrc(None, Some(temp.path()));
+        // Assert
+        assert_eq!(selected, Some(home_file));
     }
 }
 

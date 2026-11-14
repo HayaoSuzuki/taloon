@@ -80,11 +80,9 @@ def test_prepare_rejects_reused_output(tmp_path: Path) -> None:
         prepare_wheels("v0.1.0", state, directory, output)
 
 
-@pytest.mark.parametrize(
-    "mutation",
-    ["missing", "extra", "bytes", "license", "python", "duplicate", "draft", "sum"],
-)
-def test_inventory_failure_stages_nothing(tmp_path: Path, mutation: str) -> None:
+def inventory_failure_stages_nothing_case(
+    tmp_path: Path, mutation: str
+) -> tuple[Path, Path]:
     # Arrange
     directory, state = assets(tmp_path)
     first = min(directory.glob("*.whl"))
@@ -116,6 +114,17 @@ def test_inventory_failure_stages_nothing(tmp_path: Path, mutation: str) -> None
     elif mutation == "sum":
         p = directory / "SHA256SUMS"
         p.write_text(p.read_text() + p.read_text())
+    return directory, state
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["missing", "extra", "bytes", "license", "python", "duplicate", "draft", "sum"],
+    ids=["missing", "extra", "bytes", "license", "python", "duplicate", "draft", "sum"],
+)
+def test_inventory_failure_stages_nothing(tmp_path: Path, mutation: str) -> None:
+    # Arrange
+    directory, state = inventory_failure_stages_nothing_case(tmp_path, mutation)
     output = tmp_path / "staged"
     # Act / Assert
     with pytest.raises(ValueError, match=r"expected|checksum|SHA256SUMS"):
@@ -124,22 +133,23 @@ def test_inventory_failure_stages_nothing(tmp_path: Path, mutation: str) -> None
     assert not output.exists()
 
 
-@pytest.mark.parametrize("field", ["license_expression", "requirement"])
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("license_expression", "MIT"), ("requirement", ">=3.10")],
+    ids=["license_expression", "requirement"],
+)
 def test_wheel_metadata_is_checked_independently_of_checksums(
-    tmp_path: Path, field: str
+    tmp_path: Path, field: str, value: str
 ) -> None:
     # Arrange
     path = tmp_path / "taloon-0.1.0-py3-none-win_amd64.whl"
-    wheel(path, **{field: "MIT" if field == "license_expression" else ">=3.10"})
+    wheel(path, **{field: value})
     # Act / Assert
     with pytest.raises(ValueError, match=r"unexpected|Missing|disagree|dependencies"):
         validate_wheel(path, "0.1.0")
 
 
-@pytest.mark.parametrize(
-    "mutation", ["script", "wheel-tag", "dependency", "license-text"]
-)
-def test_internal_wheel_structure_is_required(tmp_path: Path, mutation: str) -> None:
+def internal_wheel_structure_is_required_case(tmp_path: Path, mutation: str) -> Path:
     # Arrange
     path = tmp_path / "taloon-0.1.0-py3-none-win_amd64.whl"
     wheel(path)
@@ -158,12 +168,27 @@ def test_internal_wheel_structure_is_required(tmp_path: Path, mutation: str) -> 
     with zipfile.ZipFile(path, "w") as z:
         for name, value in contents.items():
             z.writestr(name, value)
+    return path
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["script", "wheel-tag", "dependency", "license-text"],
+    ids=["script", "wheel-tag", "dependency", "license-text"],
+)
+def test_internal_wheel_structure_is_required(tmp_path: Path, mutation: str) -> None:
+    # Arrange
+    path = internal_wheel_structure_is_required_case(tmp_path, mutation)
     # Act / Assert
     with pytest.raises(ValueError, match=r"unexpected|Missing|disagree|dependencies"):
         validate_wheel(path, "0.1.0")
 
 
-@pytest.mark.parametrize("tag", ["0.1.0", "v01.1.0", "v0.1.0rc1"])
+@pytest.mark.parametrize(
+    "tag",
+    ["0.1.0", "v01.1.0", "v0.1.0rc1"],
+    ids=["no-prefix", "leading-zero", "prerelease"],
+)
 def test_unstable_tag_cannot_stage_assets(tmp_path: Path, tag: str) -> None:
     # Arrange
     directory, state = assets(tmp_path)
@@ -186,10 +211,9 @@ def test_missing_checksum_entry_stages_nothing(tmp_path: Path) -> None:
     assert not output.exists()
 
 
-@pytest.mark.parametrize("mutation", ["metadata", "license-declaration"])
-def test_wheel_requires_unambiguous_declared_metadata(
+def wheel_requires_unambiguous_declared_metadata_case(
     tmp_path: Path, mutation: str
-) -> None:
+) -> Path:
     # Arrange
     path = tmp_path / "taloon-0.1.0-py3-none-win_amd64.whl"
     wheel(path)
@@ -203,6 +227,19 @@ def test_wheel_requires_unambiguous_declared_metadata(
     with zipfile.ZipFile(path, "w") as archive:
         for name, content in contents.items():
             archive.writestr(name, content)
+    return path
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["metadata", "license-declaration"],
+    ids=["metadata", "license-declaration"],
+)
+def test_wheel_requires_unambiguous_declared_metadata(
+    tmp_path: Path, mutation: str
+) -> None:
+    # Arrange
+    path = wheel_requires_unambiguous_declared_metadata_case(tmp_path, mutation)
     # Act / Assert
     with pytest.raises(ValueError, match=r"ambiguous|missing license declarations"):
         validate_wheel(path, "0.1.0")

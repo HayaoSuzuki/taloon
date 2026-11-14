@@ -46,8 +46,17 @@ mod tests {
             let decoded: String = serde_json::from_slice(&bytes).unwrap();
             // Assert
             prop_assert_eq!(decoded, value);
+        }
+
+        #[test]
+        fn json_encoding_excludes_literal_terminal_controls(value in any::<String>()) {
+            // Arrange: the forbidden scalar ranges are independent of the encoder predicate.
+            // Act
+            let bytes = encode(&value).unwrap();
+            // Assert
             let text = std::str::from_utf8(&bytes).unwrap();
-            prop_assert!(!text.chars().any(super::super::needs_terminal_escape));
+            prop_assert!(!text.chars().any(|character| matches!(u32::from(character),
+                0..=31 | 127..=159 | 0x202a..=0x202e | 0x2066..=0x2069)));
         }
     }
 }

@@ -99,11 +99,13 @@ fn verbose_retains_each_artifact_and_observed_hash(#[case] command: &str) {
 }
 
 #[rstest]
-#[case::check("check")]
-#[case::describe("describe")]
+#[case::check("check", &["--format=json"])]
+#[case::check_verbose("check", &["--verbose", "--format=json"])]
+#[case::describe("describe", &["--format=json"])]
+#[case::describe_verbose("describe", &["--verbose", "--format=json"])]
 fn json_retains_individual_artifacts_and_structured_causes(
     #[case] command: &str,
-    #[values(false, true)] verbose: bool,
+    #[case] flags: &[&str],
 ) {
     // Arrange
     let temp = tempfile::tempdir().unwrap();
@@ -111,13 +113,8 @@ fn json_retains_individual_artifacts_and_structured_causes(
         temp.path(),
         &["License: custom terms", "License-Expression: invalid"],
     );
-    let flags = if verbose {
-        vec!["--verbose", "--format", "json"]
-    } else {
-        vec!["--format", "json"]
-    };
     // Act
-    let result = invoke(temp.path(), command, &flags);
+    let result = invoke(temp.path(), command, flags);
     let report: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
     // Assert
     assert_eq!(result.status.code(), Some(2));
@@ -201,11 +198,13 @@ fn different_hash_scoped_clarifications_remain_separate() {
 }
 
 #[rstest]
-#[case::check("check")]
-#[case::describe("describe")]
+#[case::check("check", &[])]
+#[case::check_verbose("check", &["--verbose"])]
+#[case::describe("describe", &[])]
+#[case::describe_verbose("describe", &["--verbose"])]
 fn preview_escapes_controls_and_redacts_credential_urls(
     #[case] command: &str,
-    #[values(false, true)] verbose: bool,
+    #[case] flags: &[&str],
 ) {
     // Arrange
     let temp = tempfile::tempdir().unwrap();
@@ -215,13 +214,8 @@ fn preview_escapes_controls_and_redacts_credential_urls(
             "License: custom\u{1b}\u{202e} terms https://user:password@example.test/license?token=secret",
         ],
     );
-    let flags = if verbose {
-        vec!["--verbose"]
-    } else {
-        Vec::new()
-    };
     // Act
-    let result = invoke(temp.path(), command, &flags);
+    let result = invoke(temp.path(), command, flags);
     let text = String::from_utf8(result.stdout).unwrap();
     // Assert
     assert_eq!(result.status.code(), Some(2), "{text}");
