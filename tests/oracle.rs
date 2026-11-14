@@ -56,75 +56,2206 @@ struct Escalation {
     deny: bool,
 }
 
+// Inspection names list expression, both artifacts' evidence, policy and outcome.
+// Defaults: sidecar sufficient, unique results, no warnings, no warning escalation.
+// Names add archive_required, duplicate/foreign, warning and deny_warnings as needed.
+// `custom` is LicenseRef-Other; corpus IDs select the original Lean expectations.
+#[rstest::rstest]
+#[case::mit_allow_none_denied("permission-0")]
+#[case::mit_allow_mit_ok("permission-1")]
+#[case::mit_allow_apache_2_0_denied("permission-2")]
+#[case::mit_allow_mit_apache_2_0_ok("permission-3")]
+#[case::mit_allow_apache_2_0_with_llvm_exception_denied("permission-4")]
+#[case::mit_allow_gpl_2_0_only_denied("permission-5")]
+#[case::mit_and_apache_2_0_allow_none_denied("permission-6")]
+#[case::mit_and_apache_2_0_allow_mit_denied("permission-7")]
+#[case::mit_and_apache_2_0_allow_apache_2_0_denied("permission-8")]
+#[case::mit_and_apache_2_0_allow_mit_apache_2_0_ok("permission-9")]
+#[case::mit_and_apache_2_0_allow_apache_2_0_with_llvm_exception_denied("permission-10")]
+#[case::mit_and_apache_2_0_allow_gpl_2_0_only_denied("permission-11")]
+#[case::mit_or_apache_2_0_allow_none_denied("permission-12")]
+#[case::mit_or_apache_2_0_allow_mit_ok("permission-13")]
+#[case::mit_or_apache_2_0_allow_apache_2_0_ok("permission-14")]
+#[case::mit_or_apache_2_0_allow_mit_apache_2_0_ok("permission-15")]
+#[case::mit_or_apache_2_0_allow_apache_2_0_with_llvm_exception_denied("permission-16")]
+#[case::mit_or_apache_2_0_allow_gpl_2_0_only_denied("permission-17")]
+#[case::apache_2_0_with_llvm_exception_allow_none_denied("permission-18")]
+#[case::apache_2_0_with_llvm_exception_allow_mit_denied("permission-19")]
+#[case::apache_2_0_with_llvm_exception_allow_apache_2_0_denied("permission-20")]
+#[case::apache_2_0_with_llvm_exception_allow_mit_apache_2_0_denied("permission-21")]
+#[case::apache_2_0_with_llvm_exception_allow_apache_2_0_with_llvm_exception_ok("permission-22")]
+#[case::apache_2_0_with_llvm_exception_allow_gpl_2_0_only_denied("permission-23")]
+#[case::gpl_2_0_only_allow_none_denied("permission-24")]
+#[case::gpl_2_0_only_allow_mit_denied("permission-25")]
+#[case::gpl_2_0_only_allow_apache_2_0_denied("permission-26")]
+#[case::gpl_2_0_only_allow_mit_apache_2_0_denied("permission-27")]
+#[case::gpl_2_0_only_allow_apache_2_0_with_llvm_exception_denied("permission-28")]
+#[case::gpl_2_0_only_allow_gpl_2_0_only_ok("permission-29")]
+#[case::gpl_2_0_or_later_allow_none_denied("permission-30")]
+#[case::gpl_2_0_or_later_allow_mit_denied("permission-31")]
+#[case::gpl_2_0_or_later_allow_apache_2_0_denied("permission-32")]
+#[case::gpl_2_0_or_later_allow_mit_apache_2_0_denied("permission-33")]
+#[case::gpl_2_0_or_later_allow_apache_2_0_with_llvm_exception_denied("permission-34")]
+#[case::gpl_2_0_or_later_allow_gpl_2_0_only_denied("permission-35")]
+#[case::mit_and_apache_2_0_or_bsd_3_clause_allow_none_denied("permission-36")]
+#[case::mit_and_apache_2_0_or_bsd_3_clause_allow_mit_denied("permission-37")]
+#[case::mit_and_apache_2_0_or_bsd_3_clause_allow_apache_2_0_denied("permission-38")]
+#[case::mit_and_apache_2_0_or_bsd_3_clause_allow_mit_apache_2_0_ok("permission-39")]
+#[case::mit_and_apache_2_0_or_bsd_3_clause_allow_apache_2_0_with_llvm_exception_denied(
+    "permission-40"
+)]
+#[case::mit_and_apache_2_0_or_bsd_3_clause_allow_gpl_2_0_only_denied("permission-41")]
+#[case::mit_or_licenseref_other_allow_none_denied("permission-42")]
+#[case::mit_or_licenseref_other_allow_mit_ok("permission-43")]
+#[case::mit_or_licenseref_other_allow_apache_2_0_denied("permission-44")]
+#[case::mit_or_licenseref_other_allow_mit_apache_2_0_ok("permission-45")]
+#[case::mit_or_licenseref_other_allow_apache_2_0_with_llvm_exception_denied("permission-46")]
+#[case::mit_or_licenseref_other_allow_gpl_2_0_only_denied("permission-47")]
+#[case::expiry_past_rejected("expiry-29")]
+#[case::expiry_today_ok("expiry-30")]
+#[case::expiry_future_ok("expiry-31")]
+#[case::mit_missing_missing_denied_incomplete("inspection-48")]
+#[case::mit_missing_missing_denied_deny_warnings_incomplete("inspection-49")]
+#[case::mit_missing_missing_denied_warning_incomplete("inspection-50")]
+#[case::mit_missing_missing_denied_warning_deny_warnings_incomplete("inspection-51")]
+#[case::mit_missing_missing_denied_duplicate_incomplete("inspection-52")]
+#[case::mit_missing_missing_denied_duplicate_deny_warnings_incomplete("inspection-53")]
+#[case::mit_missing_missing_denied_duplicate_warning_incomplete("inspection-54")]
+#[case::mit_missing_missing_denied_duplicate_warning_deny_warnings_incomplete("inspection-55")]
+#[case::mit_missing_missing_denied_foreign_incomplete("inspection-56")]
+#[case::mit_missing_missing_denied_foreign_deny_warnings_incomplete("inspection-57")]
+#[case::mit_missing_missing_denied_foreign_warning_incomplete("inspection-58")]
+#[case::mit_missing_missing_denied_foreign_warning_deny_warnings_incomplete("inspection-59")]
+#[case::mit_missing_missing_allowed_incomplete("inspection-60")]
+#[case::mit_missing_missing_allowed_deny_warnings_incomplete("inspection-61")]
+#[case::mit_missing_missing_allowed_warning_incomplete("inspection-62")]
+#[case::mit_missing_missing_allowed_warning_deny_warnings_incomplete("inspection-63")]
+#[case::mit_missing_missing_allowed_duplicate_incomplete("inspection-64")]
+#[case::mit_missing_missing_allowed_duplicate_deny_warnings_incomplete("inspection-65")]
+#[case::mit_missing_missing_allowed_duplicate_warning_incomplete("inspection-66")]
+#[case::mit_missing_missing_allowed_duplicate_warning_deny_warnings_incomplete("inspection-67")]
+#[case::mit_missing_missing_allowed_foreign_incomplete("inspection-68")]
+#[case::mit_missing_missing_allowed_foreign_deny_warnings_incomplete("inspection-69")]
+#[case::mit_missing_missing_allowed_foreign_warning_incomplete("inspection-70")]
+#[case::mit_missing_missing_allowed_foreign_warning_deny_warnings_incomplete("inspection-71")]
+#[case::mit_missing_missing_archive_required_denied_incomplete("inspection-72")]
+#[case::mit_missing_missing_archive_required_denied_deny_warnings_incomplete("inspection-73")]
+#[case::mit_missing_missing_archive_required_denied_warning_incomplete("inspection-74")]
+#[case::mit_missing_missing_archive_required_denied_warning_deny_warnings_incomplete(
+    "inspection-75"
+)]
+#[case::mit_missing_missing_archive_required_denied_duplicate_incomplete("inspection-76")]
+#[case::mit_missing_missing_archive_required_denied_duplicate_deny_warnings_incomplete(
+    "inspection-77"
+)]
+#[case::mit_missing_missing_archive_required_denied_duplicate_warning_incomplete("inspection-78")]
+#[case::mit_missing_missing_archive_required_denied_duplicate_warning_deny_warnings_incomplete(
+    "inspection-79"
+)]
+#[case::mit_missing_missing_archive_required_denied_foreign_incomplete("inspection-80")]
+#[case::mit_missing_missing_archive_required_denied_foreign_deny_warnings_incomplete(
+    "inspection-81"
+)]
+#[case::mit_missing_missing_archive_required_denied_foreign_warning_incomplete("inspection-82")]
+#[case::mit_missing_missing_archive_required_denied_foreign_warning_deny_warnings_incomplete(
+    "inspection-83"
+)]
+#[case::mit_missing_missing_archive_required_allowed_incomplete("inspection-84")]
+#[case::mit_missing_missing_archive_required_allowed_deny_warnings_incomplete("inspection-85")]
+#[case::mit_missing_missing_archive_required_allowed_warning_incomplete("inspection-86")]
+#[case::mit_missing_missing_archive_required_allowed_warning_deny_warnings_incomplete(
+    "inspection-87"
+)]
+#[case::mit_missing_missing_archive_required_allowed_duplicate_incomplete("inspection-88")]
+#[case::mit_missing_missing_archive_required_allowed_duplicate_deny_warnings_incomplete(
+    "inspection-89"
+)]
+#[case::mit_missing_missing_archive_required_allowed_duplicate_warning_incomplete("inspection-90")]
+#[case::mit_missing_missing_archive_required_allowed_duplicate_warning_deny_warnings_incomplete(
+    "inspection-91"
+)]
+#[case::mit_missing_missing_archive_required_allowed_foreign_incomplete("inspection-92")]
+#[case::mit_missing_missing_archive_required_allowed_foreign_deny_warnings_incomplete(
+    "inspection-93"
+)]
+#[case::mit_missing_missing_archive_required_allowed_foreign_warning_incomplete("inspection-94")]
+#[case::mit_missing_missing_archive_required_allowed_foreign_warning_deny_warnings_incomplete(
+    "inspection-95"
+)]
+#[case::mit_missing_sidecar_denied_incomplete("inspection-96")]
+#[case::mit_missing_sidecar_denied_deny_warnings_incomplete("inspection-97")]
+#[case::mit_missing_sidecar_denied_warning_incomplete("inspection-98")]
+#[case::mit_missing_sidecar_denied_warning_deny_warnings_incomplete("inspection-99")]
+#[case::mit_missing_sidecar_denied_duplicate_incomplete("inspection-100")]
+#[case::mit_missing_sidecar_denied_duplicate_deny_warnings_incomplete("inspection-101")]
+#[case::mit_missing_sidecar_denied_duplicate_warning_incomplete("inspection-102")]
+#[case::mit_missing_sidecar_denied_duplicate_warning_deny_warnings_incomplete("inspection-103")]
+#[case::mit_missing_sidecar_denied_foreign_incomplete("inspection-104")]
+#[case::mit_missing_sidecar_denied_foreign_deny_warnings_incomplete("inspection-105")]
+#[case::mit_missing_sidecar_denied_foreign_warning_incomplete("inspection-106")]
+#[case::mit_missing_sidecar_denied_foreign_warning_deny_warnings_incomplete("inspection-107")]
+#[case::mit_missing_sidecar_allowed_incomplete("inspection-108")]
+#[case::mit_missing_sidecar_allowed_deny_warnings_incomplete("inspection-109")]
+#[case::mit_missing_sidecar_allowed_warning_incomplete("inspection-110")]
+#[case::mit_missing_sidecar_allowed_warning_deny_warnings_incomplete("inspection-111")]
+#[case::mit_missing_sidecar_allowed_duplicate_incomplete("inspection-112")]
+#[case::mit_missing_sidecar_allowed_duplicate_deny_warnings_incomplete("inspection-113")]
+#[case::mit_missing_sidecar_allowed_duplicate_warning_incomplete("inspection-114")]
+#[case::mit_missing_sidecar_allowed_duplicate_warning_deny_warnings_incomplete("inspection-115")]
+#[case::mit_missing_sidecar_allowed_foreign_incomplete("inspection-116")]
+#[case::mit_missing_sidecar_allowed_foreign_deny_warnings_incomplete("inspection-117")]
+#[case::mit_missing_sidecar_allowed_foreign_warning_incomplete("inspection-118")]
+#[case::mit_missing_sidecar_allowed_foreign_warning_deny_warnings_incomplete("inspection-119")]
+#[case::mit_missing_sidecar_archive_required_denied_incomplete("inspection-120")]
+#[case::mit_missing_sidecar_archive_required_denied_deny_warnings_incomplete("inspection-121")]
+#[case::mit_missing_sidecar_archive_required_denied_warning_incomplete("inspection-122")]
+#[case::mit_missing_sidecar_archive_required_denied_warning_deny_warnings_incomplete(
+    "inspection-123"
+)]
+#[case::mit_missing_sidecar_archive_required_denied_duplicate_incomplete("inspection-124")]
+#[case::mit_missing_sidecar_archive_required_denied_duplicate_deny_warnings_incomplete(
+    "inspection-125"
+)]
+#[case::mit_missing_sidecar_archive_required_denied_duplicate_warning_incomplete("inspection-126")]
+#[case::mit_missing_sidecar_archive_required_denied_duplicate_warning_deny_warnings_incomplete(
+    "inspection-127"
+)]
+#[case::mit_missing_sidecar_archive_required_denied_foreign_incomplete("inspection-128")]
+#[case::mit_missing_sidecar_archive_required_denied_foreign_deny_warnings_incomplete(
+    "inspection-129"
+)]
+#[case::mit_missing_sidecar_archive_required_denied_foreign_warning_incomplete("inspection-130")]
+#[case::mit_missing_sidecar_archive_required_denied_foreign_warning_deny_warnings_incomplete(
+    "inspection-131"
+)]
+#[case::mit_missing_sidecar_archive_required_allowed_incomplete("inspection-132")]
+#[case::mit_missing_sidecar_archive_required_allowed_deny_warnings_incomplete("inspection-133")]
+#[case::mit_missing_sidecar_archive_required_allowed_warning_incomplete("inspection-134")]
+#[case::mit_missing_sidecar_archive_required_allowed_warning_deny_warnings_incomplete(
+    "inspection-135"
+)]
+#[case::mit_missing_sidecar_archive_required_allowed_duplicate_incomplete("inspection-136")]
+#[case::mit_missing_sidecar_archive_required_allowed_duplicate_deny_warnings_incomplete(
+    "inspection-137"
+)]
+#[case::mit_missing_sidecar_archive_required_allowed_duplicate_warning_incomplete("inspection-138")]
+#[case::mit_missing_sidecar_archive_required_allowed_duplicate_warning_deny_warnings_incomplete(
+    "inspection-139"
+)]
+#[case::mit_missing_sidecar_archive_required_allowed_foreign_incomplete("inspection-140")]
+#[case::mit_missing_sidecar_archive_required_allowed_foreign_deny_warnings_incomplete(
+    "inspection-141"
+)]
+#[case::mit_missing_sidecar_archive_required_allowed_foreign_warning_incomplete("inspection-142")]
+#[case::mit_missing_sidecar_archive_required_allowed_foreign_warning_deny_warnings_incomplete(
+    "inspection-143"
+)]
+#[case::mit_missing_archive_denied_incomplete("inspection-144")]
+#[case::mit_missing_archive_denied_deny_warnings_incomplete("inspection-145")]
+#[case::mit_missing_archive_denied_warning_incomplete("inspection-146")]
+#[case::mit_missing_archive_denied_warning_deny_warnings_incomplete("inspection-147")]
+#[case::mit_missing_archive_denied_duplicate_incomplete("inspection-148")]
+#[case::mit_missing_archive_denied_duplicate_deny_warnings_incomplete("inspection-149")]
+#[case::mit_missing_archive_denied_duplicate_warning_incomplete("inspection-150")]
+#[case::mit_missing_archive_denied_duplicate_warning_deny_warnings_incomplete("inspection-151")]
+#[case::mit_missing_archive_denied_foreign_incomplete("inspection-152")]
+#[case::mit_missing_archive_denied_foreign_deny_warnings_incomplete("inspection-153")]
+#[case::mit_missing_archive_denied_foreign_warning_incomplete("inspection-154")]
+#[case::mit_missing_archive_denied_foreign_warning_deny_warnings_incomplete("inspection-155")]
+#[case::mit_missing_archive_allowed_incomplete("inspection-156")]
+#[case::mit_missing_archive_allowed_deny_warnings_incomplete("inspection-157")]
+#[case::mit_missing_archive_allowed_warning_incomplete("inspection-158")]
+#[case::mit_missing_archive_allowed_warning_deny_warnings_incomplete("inspection-159")]
+#[case::mit_missing_archive_allowed_duplicate_incomplete("inspection-160")]
+#[case::mit_missing_archive_allowed_duplicate_deny_warnings_incomplete("inspection-161")]
+#[case::mit_missing_archive_allowed_duplicate_warning_incomplete("inspection-162")]
+#[case::mit_missing_archive_allowed_duplicate_warning_deny_warnings_incomplete("inspection-163")]
+#[case::mit_missing_archive_allowed_foreign_incomplete("inspection-164")]
+#[case::mit_missing_archive_allowed_foreign_deny_warnings_incomplete("inspection-165")]
+#[case::mit_missing_archive_allowed_foreign_warning_incomplete("inspection-166")]
+#[case::mit_missing_archive_allowed_foreign_warning_deny_warnings_incomplete("inspection-167")]
+#[case::mit_missing_archive_archive_required_denied_incomplete("inspection-168")]
+#[case::mit_missing_archive_archive_required_denied_deny_warnings_incomplete("inspection-169")]
+#[case::mit_missing_archive_archive_required_denied_warning_incomplete("inspection-170")]
+#[case::mit_missing_archive_archive_required_denied_warning_deny_warnings_incomplete(
+    "inspection-171"
+)]
+#[case::mit_missing_archive_archive_required_denied_duplicate_incomplete("inspection-172")]
+#[case::mit_missing_archive_archive_required_denied_duplicate_deny_warnings_incomplete(
+    "inspection-173"
+)]
+#[case::mit_missing_archive_archive_required_denied_duplicate_warning_incomplete("inspection-174")]
+#[case::mit_missing_archive_archive_required_denied_duplicate_warning_deny_warnings_incomplete(
+    "inspection-175"
+)]
+#[case::mit_missing_archive_archive_required_denied_foreign_incomplete("inspection-176")]
+#[case::mit_missing_archive_archive_required_denied_foreign_deny_warnings_incomplete(
+    "inspection-177"
+)]
+#[case::mit_missing_archive_archive_required_denied_foreign_warning_incomplete("inspection-178")]
+#[case::mit_missing_archive_archive_required_denied_foreign_warning_deny_warnings_incomplete(
+    "inspection-179"
+)]
+#[case::mit_missing_archive_archive_required_allowed_incomplete("inspection-180")]
+#[case::mit_missing_archive_archive_required_allowed_deny_warnings_incomplete("inspection-181")]
+#[case::mit_missing_archive_archive_required_allowed_warning_incomplete("inspection-182")]
+#[case::mit_missing_archive_archive_required_allowed_warning_deny_warnings_incomplete(
+    "inspection-183"
+)]
+#[case::mit_missing_archive_archive_required_allowed_duplicate_incomplete("inspection-184")]
+#[case::mit_missing_archive_archive_required_allowed_duplicate_deny_warnings_incomplete(
+    "inspection-185"
+)]
+#[case::mit_missing_archive_archive_required_allowed_duplicate_warning_incomplete("inspection-186")]
+#[case::mit_missing_archive_archive_required_allowed_duplicate_warning_deny_warnings_incomplete(
+    "inspection-187"
+)]
+#[case::mit_missing_archive_archive_required_allowed_foreign_incomplete("inspection-188")]
+#[case::mit_missing_archive_archive_required_allowed_foreign_deny_warnings_incomplete(
+    "inspection-189"
+)]
+#[case::mit_missing_archive_archive_required_allowed_foreign_warning_incomplete("inspection-190")]
+#[case::mit_missing_archive_archive_required_allowed_foreign_warning_deny_warnings_incomplete(
+    "inspection-191"
+)]
+#[case::mit_sidecar_missing_denied_incomplete("inspection-192")]
+#[case::mit_sidecar_missing_denied_deny_warnings_incomplete("inspection-193")]
+#[case::mit_sidecar_missing_denied_warning_incomplete("inspection-194")]
+#[case::mit_sidecar_missing_denied_warning_deny_warnings_incomplete("inspection-195")]
+#[case::mit_sidecar_missing_denied_duplicate_incomplete("inspection-196")]
+#[case::mit_sidecar_missing_denied_duplicate_deny_warnings_incomplete("inspection-197")]
+#[case::mit_sidecar_missing_denied_duplicate_warning_incomplete("inspection-198")]
+#[case::mit_sidecar_missing_denied_duplicate_warning_deny_warnings_incomplete("inspection-199")]
+#[case::mit_sidecar_missing_denied_foreign_incomplete("inspection-200")]
+#[case::mit_sidecar_missing_denied_foreign_deny_warnings_incomplete("inspection-201")]
+#[case::mit_sidecar_missing_denied_foreign_warning_incomplete("inspection-202")]
+#[case::mit_sidecar_missing_denied_foreign_warning_deny_warnings_incomplete("inspection-203")]
+#[case::mit_sidecar_missing_allowed_incomplete("inspection-204")]
+#[case::mit_sidecar_missing_allowed_deny_warnings_incomplete("inspection-205")]
+#[case::mit_sidecar_missing_allowed_warning_incomplete("inspection-206")]
+#[case::mit_sidecar_missing_allowed_warning_deny_warnings_incomplete("inspection-207")]
+#[case::mit_sidecar_missing_allowed_duplicate_incomplete("inspection-208")]
+#[case::mit_sidecar_missing_allowed_duplicate_deny_warnings_incomplete("inspection-209")]
+#[case::mit_sidecar_missing_allowed_duplicate_warning_incomplete("inspection-210")]
+#[case::mit_sidecar_missing_allowed_duplicate_warning_deny_warnings_incomplete("inspection-211")]
+#[case::mit_sidecar_missing_allowed_foreign_incomplete("inspection-212")]
+#[case::mit_sidecar_missing_allowed_foreign_deny_warnings_incomplete("inspection-213")]
+#[case::mit_sidecar_missing_allowed_foreign_warning_incomplete("inspection-214")]
+#[case::mit_sidecar_missing_allowed_foreign_warning_deny_warnings_incomplete("inspection-215")]
+#[case::mit_sidecar_missing_archive_required_denied_incomplete("inspection-216")]
+#[case::mit_sidecar_missing_archive_required_denied_deny_warnings_incomplete("inspection-217")]
+#[case::mit_sidecar_missing_archive_required_denied_warning_incomplete("inspection-218")]
+#[case::mit_sidecar_missing_archive_required_denied_warning_deny_warnings_incomplete(
+    "inspection-219"
+)]
+#[case::mit_sidecar_missing_archive_required_denied_duplicate_incomplete("inspection-220")]
+#[case::mit_sidecar_missing_archive_required_denied_duplicate_deny_warnings_incomplete(
+    "inspection-221"
+)]
+#[case::mit_sidecar_missing_archive_required_denied_duplicate_warning_incomplete("inspection-222")]
+#[case::mit_sidecar_missing_archive_required_denied_duplicate_warning_deny_warnings_incomplete(
+    "inspection-223"
+)]
+#[case::mit_sidecar_missing_archive_required_denied_foreign_incomplete("inspection-224")]
+#[case::mit_sidecar_missing_archive_required_denied_foreign_deny_warnings_incomplete(
+    "inspection-225"
+)]
+#[case::mit_sidecar_missing_archive_required_denied_foreign_warning_incomplete("inspection-226")]
+#[case::mit_sidecar_missing_archive_required_denied_foreign_warning_deny_warnings_incomplete(
+    "inspection-227"
+)]
+#[case::mit_sidecar_missing_archive_required_allowed_incomplete("inspection-228")]
+#[case::mit_sidecar_missing_archive_required_allowed_deny_warnings_incomplete("inspection-229")]
+#[case::mit_sidecar_missing_archive_required_allowed_warning_incomplete("inspection-230")]
+#[case::mit_sidecar_missing_archive_required_allowed_warning_deny_warnings_incomplete(
+    "inspection-231"
+)]
+#[case::mit_sidecar_missing_archive_required_allowed_duplicate_incomplete("inspection-232")]
+#[case::mit_sidecar_missing_archive_required_allowed_duplicate_deny_warnings_incomplete(
+    "inspection-233"
+)]
+#[case::mit_sidecar_missing_archive_required_allowed_duplicate_warning_incomplete("inspection-234")]
+#[case::mit_sidecar_missing_archive_required_allowed_duplicate_warning_deny_warnings_incomplete(
+    "inspection-235"
+)]
+#[case::mit_sidecar_missing_archive_required_allowed_foreign_incomplete("inspection-236")]
+#[case::mit_sidecar_missing_archive_required_allowed_foreign_deny_warnings_incomplete(
+    "inspection-237"
+)]
+#[case::mit_sidecar_missing_archive_required_allowed_foreign_warning_incomplete("inspection-238")]
+#[case::mit_sidecar_missing_archive_required_allowed_foreign_warning_deny_warnings_incomplete(
+    "inspection-239"
+)]
+#[case::mit_sidecar_sidecar_denied("inspection-240")]
+#[case::mit_sidecar_sidecar_denied_deny_warnings_denied("inspection-241")]
+#[case::mit_sidecar_sidecar_denied_warning_denied("inspection-242")]
+#[case::mit_sidecar_sidecar_denied_warning_deny_warnings_denied("inspection-243")]
+#[case::mit_sidecar_sidecar_denied_duplicate_incomplete("inspection-244")]
+#[case::mit_sidecar_sidecar_denied_duplicate_deny_warnings_incomplete("inspection-245")]
+#[case::mit_sidecar_sidecar_denied_duplicate_warning_incomplete("inspection-246")]
+#[case::mit_sidecar_sidecar_denied_duplicate_warning_deny_warnings_incomplete("inspection-247")]
+#[case::mit_sidecar_sidecar_denied_foreign_incomplete("inspection-248")]
+#[case::mit_sidecar_sidecar_denied_foreign_deny_warnings_incomplete("inspection-249")]
+#[case::mit_sidecar_sidecar_denied_foreign_warning_incomplete("inspection-250")]
+#[case::mit_sidecar_sidecar_denied_foreign_warning_deny_warnings_incomplete("inspection-251")]
+#[case::mit_sidecar_sidecar_allowed_ok("inspection-252")]
+#[case::mit_sidecar_sidecar_allowed_deny_warnings_ok("inspection-253")]
+#[case::mit_sidecar_sidecar_allowed_warning_ok("inspection-254")]
+#[case::mit_sidecar_sidecar_allowed_warning_deny_warnings_denied("inspection-255")]
+#[case::mit_sidecar_sidecar_allowed_duplicate_incomplete("inspection-256")]
+#[case::mit_sidecar_sidecar_allowed_duplicate_deny_warnings_incomplete("inspection-257")]
+#[case::mit_sidecar_sidecar_allowed_duplicate_warning_incomplete("inspection-258")]
+#[case::mit_sidecar_sidecar_allowed_duplicate_warning_deny_warnings_incomplete("inspection-259")]
+#[case::mit_sidecar_sidecar_allowed_foreign_incomplete("inspection-260")]
+#[case::mit_sidecar_sidecar_allowed_foreign_deny_warnings_incomplete("inspection-261")]
+#[case::mit_sidecar_sidecar_allowed_foreign_warning_incomplete("inspection-262")]
+#[case::mit_sidecar_sidecar_allowed_foreign_warning_deny_warnings_incomplete("inspection-263")]
+#[case::mit_sidecar_sidecar_archive_required_denied_incomplete("inspection-264")]
+#[case::mit_sidecar_sidecar_archive_required_denied_deny_warnings_incomplete("inspection-265")]
+#[case::mit_sidecar_sidecar_archive_required_denied_warning_incomplete("inspection-266")]
+#[case::mit_sidecar_sidecar_archive_required_denied_warning_deny_warnings_incomplete(
+    "inspection-267"
+)]
+#[case::mit_sidecar_sidecar_archive_required_denied_duplicate_incomplete("inspection-268")]
+#[case::mit_sidecar_sidecar_archive_required_denied_duplicate_deny_warnings_incomplete(
+    "inspection-269"
+)]
+#[case::mit_sidecar_sidecar_archive_required_denied_duplicate_warning_incomplete("inspection-270")]
+#[case::mit_sidecar_sidecar_archive_required_denied_duplicate_warning_deny_warnings_incomplete(
+    "inspection-271"
+)]
+#[case::mit_sidecar_sidecar_archive_required_denied_foreign_incomplete("inspection-272")]
+#[case::mit_sidecar_sidecar_archive_required_denied_foreign_deny_warnings_incomplete(
+    "inspection-273"
+)]
+#[case::mit_sidecar_sidecar_archive_required_denied_foreign_warning_incomplete("inspection-274")]
+#[case::mit_sidecar_sidecar_archive_required_denied_foreign_warning_deny_warnings_incomplete(
+    "inspection-275"
+)]
+#[case::mit_sidecar_sidecar_archive_required_allowed_incomplete("inspection-276")]
+#[case::mit_sidecar_sidecar_archive_required_allowed_deny_warnings_incomplete("inspection-277")]
+#[case::mit_sidecar_sidecar_archive_required_allowed_warning_incomplete("inspection-278")]
+#[case::mit_sidecar_sidecar_archive_required_allowed_warning_deny_warnings_incomplete(
+    "inspection-279"
+)]
+#[case::mit_sidecar_sidecar_archive_required_allowed_duplicate_incomplete("inspection-280")]
+#[case::mit_sidecar_sidecar_archive_required_allowed_duplicate_deny_warnings_incomplete(
+    "inspection-281"
+)]
+#[case::mit_sidecar_sidecar_archive_required_allowed_duplicate_warning_incomplete("inspection-282")]
+#[case::mit_sidecar_sidecar_archive_required_allowed_duplicate_warning_deny_warnings_incomplete(
+    "inspection-283"
+)]
+#[case::mit_sidecar_sidecar_archive_required_allowed_foreign_incomplete("inspection-284")]
+#[case::mit_sidecar_sidecar_archive_required_allowed_foreign_deny_warnings_incomplete(
+    "inspection-285"
+)]
+#[case::mit_sidecar_sidecar_archive_required_allowed_foreign_warning_incomplete("inspection-286")]
+#[case::mit_sidecar_sidecar_archive_required_allowed_foreign_warning_deny_warnings_incomplete(
+    "inspection-287"
+)]
+#[case::mit_sidecar_archive_denied("inspection-288")]
+#[case::mit_sidecar_archive_denied_deny_warnings_denied("inspection-289")]
+#[case::mit_sidecar_archive_denied_warning_denied("inspection-290")]
+#[case::mit_sidecar_archive_denied_warning_deny_warnings_denied("inspection-291")]
+#[case::mit_sidecar_archive_denied_duplicate_incomplete("inspection-292")]
+#[case::mit_sidecar_archive_denied_duplicate_deny_warnings_incomplete("inspection-293")]
+#[case::mit_sidecar_archive_denied_duplicate_warning_incomplete("inspection-294")]
+#[case::mit_sidecar_archive_denied_duplicate_warning_deny_warnings_incomplete("inspection-295")]
+#[case::mit_sidecar_archive_denied_foreign_incomplete("inspection-296")]
+#[case::mit_sidecar_archive_denied_foreign_deny_warnings_incomplete("inspection-297")]
+#[case::mit_sidecar_archive_denied_foreign_warning_incomplete("inspection-298")]
+#[case::mit_sidecar_archive_denied_foreign_warning_deny_warnings_incomplete("inspection-299")]
+#[case::mit_sidecar_archive_allowed_ok("inspection-300")]
+#[case::mit_sidecar_archive_allowed_deny_warnings_ok("inspection-301")]
+#[case::mit_sidecar_archive_allowed_warning_ok("inspection-302")]
+#[case::mit_sidecar_archive_allowed_warning_deny_warnings_denied("inspection-303")]
+#[case::mit_sidecar_archive_allowed_duplicate_incomplete("inspection-304")]
+#[case::mit_sidecar_archive_allowed_duplicate_deny_warnings_incomplete("inspection-305")]
+#[case::mit_sidecar_archive_allowed_duplicate_warning_incomplete("inspection-306")]
+#[case::mit_sidecar_archive_allowed_duplicate_warning_deny_warnings_incomplete("inspection-307")]
+#[case::mit_sidecar_archive_allowed_foreign_incomplete("inspection-308")]
+#[case::mit_sidecar_archive_allowed_foreign_deny_warnings_incomplete("inspection-309")]
+#[case::mit_sidecar_archive_allowed_foreign_warning_incomplete("inspection-310")]
+#[case::mit_sidecar_archive_allowed_foreign_warning_deny_warnings_incomplete("inspection-311")]
+#[case::mit_sidecar_archive_archive_required_denied_incomplete("inspection-312")]
+#[case::mit_sidecar_archive_archive_required_denied_deny_warnings_incomplete("inspection-313")]
+#[case::mit_sidecar_archive_archive_required_denied_warning_incomplete("inspection-314")]
+#[case::mit_sidecar_archive_archive_required_denied_warning_deny_warnings_incomplete(
+    "inspection-315"
+)]
+#[case::mit_sidecar_archive_archive_required_denied_duplicate_incomplete("inspection-316")]
+#[case::mit_sidecar_archive_archive_required_denied_duplicate_deny_warnings_incomplete(
+    "inspection-317"
+)]
+#[case::mit_sidecar_archive_archive_required_denied_duplicate_warning_incomplete("inspection-318")]
+#[case::mit_sidecar_archive_archive_required_denied_duplicate_warning_deny_warnings_incomplete(
+    "inspection-319"
+)]
+#[case::mit_sidecar_archive_archive_required_denied_foreign_incomplete("inspection-320")]
+#[case::mit_sidecar_archive_archive_required_denied_foreign_deny_warnings_incomplete(
+    "inspection-321"
+)]
+#[case::mit_sidecar_archive_archive_required_denied_foreign_warning_incomplete("inspection-322")]
+#[case::mit_sidecar_archive_archive_required_denied_foreign_warning_deny_warnings_incomplete(
+    "inspection-323"
+)]
+#[case::mit_sidecar_archive_archive_required_allowed_incomplete("inspection-324")]
+#[case::mit_sidecar_archive_archive_required_allowed_deny_warnings_incomplete("inspection-325")]
+#[case::mit_sidecar_archive_archive_required_allowed_warning_incomplete("inspection-326")]
+#[case::mit_sidecar_archive_archive_required_allowed_warning_deny_warnings_incomplete(
+    "inspection-327"
+)]
+#[case::mit_sidecar_archive_archive_required_allowed_duplicate_incomplete("inspection-328")]
+#[case::mit_sidecar_archive_archive_required_allowed_duplicate_deny_warnings_incomplete(
+    "inspection-329"
+)]
+#[case::mit_sidecar_archive_archive_required_allowed_duplicate_warning_incomplete("inspection-330")]
+#[case::mit_sidecar_archive_archive_required_allowed_duplicate_warning_deny_warnings_incomplete(
+    "inspection-331"
+)]
+#[case::mit_sidecar_archive_archive_required_allowed_foreign_incomplete("inspection-332")]
+#[case::mit_sidecar_archive_archive_required_allowed_foreign_deny_warnings_incomplete(
+    "inspection-333"
+)]
+#[case::mit_sidecar_archive_archive_required_allowed_foreign_warning_incomplete("inspection-334")]
+#[case::mit_sidecar_archive_archive_required_allowed_foreign_warning_deny_warnings_incomplete(
+    "inspection-335"
+)]
+#[case::mit_archive_missing_denied_incomplete("inspection-336")]
+#[case::mit_archive_missing_denied_deny_warnings_incomplete("inspection-337")]
+#[case::mit_archive_missing_denied_warning_incomplete("inspection-338")]
+#[case::mit_archive_missing_denied_warning_deny_warnings_incomplete("inspection-339")]
+#[case::mit_archive_missing_denied_duplicate_incomplete("inspection-340")]
+#[case::mit_archive_missing_denied_duplicate_deny_warnings_incomplete("inspection-341")]
+#[case::mit_archive_missing_denied_duplicate_warning_incomplete("inspection-342")]
+#[case::mit_archive_missing_denied_duplicate_warning_deny_warnings_incomplete("inspection-343")]
+#[case::mit_archive_missing_denied_foreign_incomplete("inspection-344")]
+#[case::mit_archive_missing_denied_foreign_deny_warnings_incomplete("inspection-345")]
+#[case::mit_archive_missing_denied_foreign_warning_incomplete("inspection-346")]
+#[case::mit_archive_missing_denied_foreign_warning_deny_warnings_incomplete("inspection-347")]
+#[case::mit_archive_missing_allowed_incomplete("inspection-348")]
+#[case::mit_archive_missing_allowed_deny_warnings_incomplete("inspection-349")]
+#[case::mit_archive_missing_allowed_warning_incomplete("inspection-350")]
+#[case::mit_archive_missing_allowed_warning_deny_warnings_incomplete("inspection-351")]
+#[case::mit_archive_missing_allowed_duplicate_incomplete("inspection-352")]
+#[case::mit_archive_missing_allowed_duplicate_deny_warnings_incomplete("inspection-353")]
+#[case::mit_archive_missing_allowed_duplicate_warning_incomplete("inspection-354")]
+#[case::mit_archive_missing_allowed_duplicate_warning_deny_warnings_incomplete("inspection-355")]
+#[case::mit_archive_missing_allowed_foreign_incomplete("inspection-356")]
+#[case::mit_archive_missing_allowed_foreign_deny_warnings_incomplete("inspection-357")]
+#[case::mit_archive_missing_allowed_foreign_warning_incomplete("inspection-358")]
+#[case::mit_archive_missing_allowed_foreign_warning_deny_warnings_incomplete("inspection-359")]
+#[case::mit_archive_missing_archive_required_denied_incomplete("inspection-360")]
+#[case::mit_archive_missing_archive_required_denied_deny_warnings_incomplete("inspection-361")]
+#[case::mit_archive_missing_archive_required_denied_warning_incomplete("inspection-362")]
+#[case::mit_archive_missing_archive_required_denied_warning_deny_warnings_incomplete(
+    "inspection-363"
+)]
+#[case::mit_archive_missing_archive_required_denied_duplicate_incomplete("inspection-364")]
+#[case::mit_archive_missing_archive_required_denied_duplicate_deny_warnings_incomplete(
+    "inspection-365"
+)]
+#[case::mit_archive_missing_archive_required_denied_duplicate_warning_incomplete("inspection-366")]
+#[case::mit_archive_missing_archive_required_denied_duplicate_warning_deny_warnings_incomplete(
+    "inspection-367"
+)]
+#[case::mit_archive_missing_archive_required_denied_foreign_incomplete("inspection-368")]
+#[case::mit_archive_missing_archive_required_denied_foreign_deny_warnings_incomplete(
+    "inspection-369"
+)]
+#[case::mit_archive_missing_archive_required_denied_foreign_warning_incomplete("inspection-370")]
+#[case::mit_archive_missing_archive_required_denied_foreign_warning_deny_warnings_incomplete(
+    "inspection-371"
+)]
+#[case::mit_archive_missing_archive_required_allowed_incomplete("inspection-372")]
+#[case::mit_archive_missing_archive_required_allowed_deny_warnings_incomplete("inspection-373")]
+#[case::mit_archive_missing_archive_required_allowed_warning_incomplete("inspection-374")]
+#[case::mit_archive_missing_archive_required_allowed_warning_deny_warnings_incomplete(
+    "inspection-375"
+)]
+#[case::mit_archive_missing_archive_required_allowed_duplicate_incomplete("inspection-376")]
+#[case::mit_archive_missing_archive_required_allowed_duplicate_deny_warnings_incomplete(
+    "inspection-377"
+)]
+#[case::mit_archive_missing_archive_required_allowed_duplicate_warning_incomplete("inspection-378")]
+#[case::mit_archive_missing_archive_required_allowed_duplicate_warning_deny_warnings_incomplete(
+    "inspection-379"
+)]
+#[case::mit_archive_missing_archive_required_allowed_foreign_incomplete("inspection-380")]
+#[case::mit_archive_missing_archive_required_allowed_foreign_deny_warnings_incomplete(
+    "inspection-381"
+)]
+#[case::mit_archive_missing_archive_required_allowed_foreign_warning_incomplete("inspection-382")]
+#[case::mit_archive_missing_archive_required_allowed_foreign_warning_deny_warnings_incomplete(
+    "inspection-383"
+)]
+#[case::mit_archive_sidecar_denied("inspection-384")]
+#[case::mit_archive_sidecar_denied_deny_warnings_denied("inspection-385")]
+#[case::mit_archive_sidecar_denied_warning_denied("inspection-386")]
+#[case::mit_archive_sidecar_denied_warning_deny_warnings_denied("inspection-387")]
+#[case::mit_archive_sidecar_denied_duplicate_incomplete("inspection-388")]
+#[case::mit_archive_sidecar_denied_duplicate_deny_warnings_incomplete("inspection-389")]
+#[case::mit_archive_sidecar_denied_duplicate_warning_incomplete("inspection-390")]
+#[case::mit_archive_sidecar_denied_duplicate_warning_deny_warnings_incomplete("inspection-391")]
+#[case::mit_archive_sidecar_denied_foreign_incomplete("inspection-392")]
+#[case::mit_archive_sidecar_denied_foreign_deny_warnings_incomplete("inspection-393")]
+#[case::mit_archive_sidecar_denied_foreign_warning_incomplete("inspection-394")]
+#[case::mit_archive_sidecar_denied_foreign_warning_deny_warnings_incomplete("inspection-395")]
+#[case::mit_archive_sidecar_allowed_ok("inspection-396")]
+#[case::mit_archive_sidecar_allowed_deny_warnings_ok("inspection-397")]
+#[case::mit_archive_sidecar_allowed_warning_ok("inspection-398")]
+#[case::mit_archive_sidecar_allowed_warning_deny_warnings_denied("inspection-399")]
+#[case::mit_archive_sidecar_allowed_duplicate_incomplete("inspection-400")]
+#[case::mit_archive_sidecar_allowed_duplicate_deny_warnings_incomplete("inspection-401")]
+#[case::mit_archive_sidecar_allowed_duplicate_warning_incomplete("inspection-402")]
+#[case::mit_archive_sidecar_allowed_duplicate_warning_deny_warnings_incomplete("inspection-403")]
+#[case::mit_archive_sidecar_allowed_foreign_incomplete("inspection-404")]
+#[case::mit_archive_sidecar_allowed_foreign_deny_warnings_incomplete("inspection-405")]
+#[case::mit_archive_sidecar_allowed_foreign_warning_incomplete("inspection-406")]
+#[case::mit_archive_sidecar_allowed_foreign_warning_deny_warnings_incomplete("inspection-407")]
+#[case::mit_archive_sidecar_archive_required_denied_incomplete("inspection-408")]
+#[case::mit_archive_sidecar_archive_required_denied_deny_warnings_incomplete("inspection-409")]
+#[case::mit_archive_sidecar_archive_required_denied_warning_incomplete("inspection-410")]
+#[case::mit_archive_sidecar_archive_required_denied_warning_deny_warnings_incomplete(
+    "inspection-411"
+)]
+#[case::mit_archive_sidecar_archive_required_denied_duplicate_incomplete("inspection-412")]
+#[case::mit_archive_sidecar_archive_required_denied_duplicate_deny_warnings_incomplete(
+    "inspection-413"
+)]
+#[case::mit_archive_sidecar_archive_required_denied_duplicate_warning_incomplete("inspection-414")]
+#[case::mit_archive_sidecar_archive_required_denied_duplicate_warning_deny_warnings_incomplete(
+    "inspection-415"
+)]
+#[case::mit_archive_sidecar_archive_required_denied_foreign_incomplete("inspection-416")]
+#[case::mit_archive_sidecar_archive_required_denied_foreign_deny_warnings_incomplete(
+    "inspection-417"
+)]
+#[case::mit_archive_sidecar_archive_required_denied_foreign_warning_incomplete("inspection-418")]
+#[case::mit_archive_sidecar_archive_required_denied_foreign_warning_deny_warnings_incomplete(
+    "inspection-419"
+)]
+#[case::mit_archive_sidecar_archive_required_allowed_incomplete("inspection-420")]
+#[case::mit_archive_sidecar_archive_required_allowed_deny_warnings_incomplete("inspection-421")]
+#[case::mit_archive_sidecar_archive_required_allowed_warning_incomplete("inspection-422")]
+#[case::mit_archive_sidecar_archive_required_allowed_warning_deny_warnings_incomplete(
+    "inspection-423"
+)]
+#[case::mit_archive_sidecar_archive_required_allowed_duplicate_incomplete("inspection-424")]
+#[case::mit_archive_sidecar_archive_required_allowed_duplicate_deny_warnings_incomplete(
+    "inspection-425"
+)]
+#[case::mit_archive_sidecar_archive_required_allowed_duplicate_warning_incomplete("inspection-426")]
+#[case::mit_archive_sidecar_archive_required_allowed_duplicate_warning_deny_warnings_incomplete(
+    "inspection-427"
+)]
+#[case::mit_archive_sidecar_archive_required_allowed_foreign_incomplete("inspection-428")]
+#[case::mit_archive_sidecar_archive_required_allowed_foreign_deny_warnings_incomplete(
+    "inspection-429"
+)]
+#[case::mit_archive_sidecar_archive_required_allowed_foreign_warning_incomplete("inspection-430")]
+#[case::mit_archive_sidecar_archive_required_allowed_foreign_warning_deny_warnings_incomplete(
+    "inspection-431"
+)]
+#[case::mit_archive_archive_denied("inspection-432")]
+#[case::mit_archive_archive_denied_deny_warnings_denied("inspection-433")]
+#[case::mit_archive_archive_denied_warning_denied("inspection-434")]
+#[case::mit_archive_archive_denied_warning_deny_warnings_denied("inspection-435")]
+#[case::mit_archive_archive_denied_duplicate_incomplete("inspection-436")]
+#[case::mit_archive_archive_denied_duplicate_deny_warnings_incomplete("inspection-437")]
+#[case::mit_archive_archive_denied_duplicate_warning_incomplete("inspection-438")]
+#[case::mit_archive_archive_denied_duplicate_warning_deny_warnings_incomplete("inspection-439")]
+#[case::mit_archive_archive_denied_foreign_incomplete("inspection-440")]
+#[case::mit_archive_archive_denied_foreign_deny_warnings_incomplete("inspection-441")]
+#[case::mit_archive_archive_denied_foreign_warning_incomplete("inspection-442")]
+#[case::mit_archive_archive_denied_foreign_warning_deny_warnings_incomplete("inspection-443")]
+#[case::mit_archive_archive_allowed_ok("inspection-444")]
+#[case::mit_archive_archive_allowed_deny_warnings_ok("inspection-445")]
+#[case::mit_archive_archive_allowed_warning_ok("inspection-446")]
+#[case::mit_archive_archive_allowed_warning_deny_warnings_denied("inspection-447")]
+#[case::mit_archive_archive_allowed_duplicate_incomplete("inspection-448")]
+#[case::mit_archive_archive_allowed_duplicate_deny_warnings_incomplete("inspection-449")]
+#[case::mit_archive_archive_allowed_duplicate_warning_incomplete("inspection-450")]
+#[case::mit_archive_archive_allowed_duplicate_warning_deny_warnings_incomplete("inspection-451")]
+#[case::mit_archive_archive_allowed_foreign_incomplete("inspection-452")]
+#[case::mit_archive_archive_allowed_foreign_deny_warnings_incomplete("inspection-453")]
+#[case::mit_archive_archive_allowed_foreign_warning_incomplete("inspection-454")]
+#[case::mit_archive_archive_allowed_foreign_warning_deny_warnings_incomplete("inspection-455")]
+#[case::mit_archive_archive_archive_required_denied("inspection-456")]
+#[case::mit_archive_archive_archive_required_denied_deny_warnings_denied("inspection-457")]
+#[case::mit_archive_archive_archive_required_denied_warning_denied("inspection-458")]
+#[case::mit_archive_archive_archive_required_denied_warning_deny_warnings_denied("inspection-459")]
+#[case::mit_archive_archive_archive_required_denied_duplicate_incomplete("inspection-460")]
+#[case::mit_archive_archive_archive_required_denied_duplicate_deny_warnings_incomplete(
+    "inspection-461"
+)]
+#[case::mit_archive_archive_archive_required_denied_duplicate_warning_incomplete("inspection-462")]
+#[case::mit_archive_archive_archive_required_denied_duplicate_warning_deny_warnings_incomplete(
+    "inspection-463"
+)]
+#[case::mit_archive_archive_archive_required_denied_foreign_incomplete("inspection-464")]
+#[case::mit_archive_archive_archive_required_denied_foreign_deny_warnings_incomplete(
+    "inspection-465"
+)]
+#[case::mit_archive_archive_archive_required_denied_foreign_warning_incomplete("inspection-466")]
+#[case::mit_archive_archive_archive_required_denied_foreign_warning_deny_warnings_incomplete(
+    "inspection-467"
+)]
+#[case::mit_archive_archive_archive_required_allowed_ok("inspection-468")]
+#[case::mit_archive_archive_archive_required_allowed_deny_warnings_ok("inspection-469")]
+#[case::mit_archive_archive_archive_required_allowed_warning_ok("inspection-470")]
+#[case::mit_archive_archive_archive_required_allowed_warning_deny_warnings_denied("inspection-471")]
+#[case::mit_archive_archive_archive_required_allowed_duplicate_incomplete("inspection-472")]
+#[case::mit_archive_archive_archive_required_allowed_duplicate_deny_warnings_incomplete(
+    "inspection-473"
+)]
+#[case::mit_archive_archive_archive_required_allowed_duplicate_warning_incomplete("inspection-474")]
+#[case::mit_archive_archive_archive_required_allowed_duplicate_warning_deny_warnings_incomplete(
+    "inspection-475"
+)]
+#[case::mit_archive_archive_archive_required_allowed_foreign_incomplete("inspection-476")]
+#[case::mit_archive_archive_archive_required_allowed_foreign_deny_warnings_incomplete(
+    "inspection-477"
+)]
+#[case::mit_archive_archive_archive_required_allowed_foreign_warning_incomplete("inspection-478")]
+#[case::mit_archive_archive_archive_required_allowed_foreign_warning_deny_warnings_incomplete(
+    "inspection-479"
+)]
+#[case::mit_or_custom_missing_missing_denied_incomplete("inspection-480")]
+#[case::mit_or_custom_missing_missing_denied_deny_warnings_incomplete("inspection-481")]
+#[case::mit_or_custom_missing_missing_denied_warning_incomplete("inspection-482")]
+#[case::mit_or_custom_missing_missing_denied_warning_deny_warnings_incomplete("inspection-483")]
+#[case::mit_or_custom_missing_missing_denied_duplicate_incomplete("inspection-484")]
+#[case::mit_or_custom_missing_missing_denied_duplicate_deny_warnings_incomplete("inspection-485")]
+#[case::mit_or_custom_missing_missing_denied_duplicate_warning_incomplete("inspection-486")]
+#[case::mit_or_custom_missing_missing_denied_duplicate_warning_deny_warnings_incomplete(
+    "inspection-487"
+)]
+#[case::mit_or_custom_missing_missing_denied_foreign_incomplete("inspection-488")]
+#[case::mit_or_custom_missing_missing_denied_foreign_deny_warnings_incomplete("inspection-489")]
+#[case::mit_or_custom_missing_missing_denied_foreign_warning_incomplete("inspection-490")]
+#[case::mit_or_custom_missing_missing_denied_foreign_warning_deny_warnings_incomplete(
+    "inspection-491"
+)]
+#[case::mit_or_custom_missing_missing_allowed_incomplete("inspection-492")]
+#[case::mit_or_custom_missing_missing_allowed_deny_warnings_incomplete("inspection-493")]
+#[case::mit_or_custom_missing_missing_allowed_warning_incomplete("inspection-494")]
+#[case::mit_or_custom_missing_missing_allowed_warning_deny_warnings_incomplete("inspection-495")]
+#[case::mit_or_custom_missing_missing_allowed_duplicate_incomplete("inspection-496")]
+#[case::mit_or_custom_missing_missing_allowed_duplicate_deny_warnings_incomplete("inspection-497")]
+#[case::mit_or_custom_missing_missing_allowed_duplicate_warning_incomplete("inspection-498")]
+#[case::mit_or_custom_missing_missing_allowed_duplicate_warning_deny_warnings_incomplete(
+    "inspection-499"
+)]
+#[case::mit_or_custom_missing_missing_allowed_foreign_incomplete("inspection-500")]
+#[case::mit_or_custom_missing_missing_allowed_foreign_deny_warnings_incomplete("inspection-501")]
+#[case::mit_or_custom_missing_missing_allowed_foreign_warning_incomplete("inspection-502")]
+#[case::mit_or_custom_missing_missing_allowed_foreign_warning_deny_warnings_incomplete(
+    "inspection-503"
+)]
+#[case::mit_or_custom_missing_missing_archive_required_denied_incomplete("inspection-504")]
+#[case::mit_or_custom_missing_missing_archive_required_denied_deny_warnings_incomplete(
+    "inspection-505"
+)]
+#[case::mit_or_custom_missing_missing_archive_required_denied_warning_incomplete("inspection-506")]
+#[case::mit_or_custom_missing_missing_archive_required_denied_warning_deny_warnings_incomplete(
+    "inspection-507"
+)]
+#[case::mit_or_custom_missing_missing_archive_required_denied_duplicate_incomplete(
+    "inspection-508"
+)]
+#[case::mit_or_custom_missing_missing_archive_required_denied_duplicate_deny_warnings_incomplete(
+    "inspection-509"
+)]
+#[case::mit_or_custom_missing_missing_archive_required_denied_duplicate_warning_incomplete(
+    "inspection-510"
+)]
+#[case::mit_or_custom_missing_missing_archive_required_denied_duplicate_warning_deny_warnings_incomplete("inspection-511")]
+#[case::mit_or_custom_missing_missing_archive_required_denied_foreign_incomplete("inspection-512")]
+#[case::mit_or_custom_missing_missing_archive_required_denied_foreign_deny_warnings_incomplete(
+    "inspection-513"
+)]
+#[case::mit_or_custom_missing_missing_archive_required_denied_foreign_warning_incomplete(
+    "inspection-514"
+)]
+#[case::mit_or_custom_missing_missing_archive_required_denied_foreign_warning_deny_warnings_incomplete("inspection-515")]
+#[case::mit_or_custom_missing_missing_archive_required_allowed_incomplete("inspection-516")]
+#[case::mit_or_custom_missing_missing_archive_required_allowed_deny_warnings_incomplete(
+    "inspection-517"
+)]
+#[case::mit_or_custom_missing_missing_archive_required_allowed_warning_incomplete("inspection-518")]
+#[case::mit_or_custom_missing_missing_archive_required_allowed_warning_deny_warnings_incomplete(
+    "inspection-519"
+)]
+#[case::mit_or_custom_missing_missing_archive_required_allowed_duplicate_incomplete(
+    "inspection-520"
+)]
+#[case::mit_or_custom_missing_missing_archive_required_allowed_duplicate_deny_warnings_incomplete(
+    "inspection-521"
+)]
+#[case::mit_or_custom_missing_missing_archive_required_allowed_duplicate_warning_incomplete(
+    "inspection-522"
+)]
+#[case::mit_or_custom_missing_missing_archive_required_allowed_duplicate_warning_deny_warnings_incomplete("inspection-523")]
+#[case::mit_or_custom_missing_missing_archive_required_allowed_foreign_incomplete("inspection-524")]
+#[case::mit_or_custom_missing_missing_archive_required_allowed_foreign_deny_warnings_incomplete(
+    "inspection-525"
+)]
+#[case::mit_or_custom_missing_missing_archive_required_allowed_foreign_warning_incomplete(
+    "inspection-526"
+)]
+#[case::mit_or_custom_missing_missing_archive_required_allowed_foreign_warning_deny_warnings_incomplete("inspection-527")]
+#[case::mit_or_custom_missing_sidecar_denied_incomplete("inspection-528")]
+#[case::mit_or_custom_missing_sidecar_denied_deny_warnings_incomplete("inspection-529")]
+#[case::mit_or_custom_missing_sidecar_denied_warning_incomplete("inspection-530")]
+#[case::mit_or_custom_missing_sidecar_denied_warning_deny_warnings_incomplete("inspection-531")]
+#[case::mit_or_custom_missing_sidecar_denied_duplicate_incomplete("inspection-532")]
+#[case::mit_or_custom_missing_sidecar_denied_duplicate_deny_warnings_incomplete("inspection-533")]
+#[case::mit_or_custom_missing_sidecar_denied_duplicate_warning_incomplete("inspection-534")]
+#[case::mit_or_custom_missing_sidecar_denied_duplicate_warning_deny_warnings_incomplete(
+    "inspection-535"
+)]
+#[case::mit_or_custom_missing_sidecar_denied_foreign_incomplete("inspection-536")]
+#[case::mit_or_custom_missing_sidecar_denied_foreign_deny_warnings_incomplete("inspection-537")]
+#[case::mit_or_custom_missing_sidecar_denied_foreign_warning_incomplete("inspection-538")]
+#[case::mit_or_custom_missing_sidecar_denied_foreign_warning_deny_warnings_incomplete(
+    "inspection-539"
+)]
+#[case::mit_or_custom_missing_sidecar_allowed_incomplete("inspection-540")]
+#[case::mit_or_custom_missing_sidecar_allowed_deny_warnings_incomplete("inspection-541")]
+#[case::mit_or_custom_missing_sidecar_allowed_warning_incomplete("inspection-542")]
+#[case::mit_or_custom_missing_sidecar_allowed_warning_deny_warnings_incomplete("inspection-543")]
+#[case::mit_or_custom_missing_sidecar_allowed_duplicate_incomplete("inspection-544")]
+#[case::mit_or_custom_missing_sidecar_allowed_duplicate_deny_warnings_incomplete("inspection-545")]
+#[case::mit_or_custom_missing_sidecar_allowed_duplicate_warning_incomplete("inspection-546")]
+#[case::mit_or_custom_missing_sidecar_allowed_duplicate_warning_deny_warnings_incomplete(
+    "inspection-547"
+)]
+#[case::mit_or_custom_missing_sidecar_allowed_foreign_incomplete("inspection-548")]
+#[case::mit_or_custom_missing_sidecar_allowed_foreign_deny_warnings_incomplete("inspection-549")]
+#[case::mit_or_custom_missing_sidecar_allowed_foreign_warning_incomplete("inspection-550")]
+#[case::mit_or_custom_missing_sidecar_allowed_foreign_warning_deny_warnings_incomplete(
+    "inspection-551"
+)]
+#[case::mit_or_custom_missing_sidecar_archive_required_denied_incomplete("inspection-552")]
+#[case::mit_or_custom_missing_sidecar_archive_required_denied_deny_warnings_incomplete(
+    "inspection-553"
+)]
+#[case::mit_or_custom_missing_sidecar_archive_required_denied_warning_incomplete("inspection-554")]
+#[case::mit_or_custom_missing_sidecar_archive_required_denied_warning_deny_warnings_incomplete(
+    "inspection-555"
+)]
+#[case::mit_or_custom_missing_sidecar_archive_required_denied_duplicate_incomplete(
+    "inspection-556"
+)]
+#[case::mit_or_custom_missing_sidecar_archive_required_denied_duplicate_deny_warnings_incomplete(
+    "inspection-557"
+)]
+#[case::mit_or_custom_missing_sidecar_archive_required_denied_duplicate_warning_incomplete(
+    "inspection-558"
+)]
+#[case::mit_or_custom_missing_sidecar_archive_required_denied_duplicate_warning_deny_warnings_incomplete("inspection-559")]
+#[case::mit_or_custom_missing_sidecar_archive_required_denied_foreign_incomplete("inspection-560")]
+#[case::mit_or_custom_missing_sidecar_archive_required_denied_foreign_deny_warnings_incomplete(
+    "inspection-561"
+)]
+#[case::mit_or_custom_missing_sidecar_archive_required_denied_foreign_warning_incomplete(
+    "inspection-562"
+)]
+#[case::mit_or_custom_missing_sidecar_archive_required_denied_foreign_warning_deny_warnings_incomplete("inspection-563")]
+#[case::mit_or_custom_missing_sidecar_archive_required_allowed_incomplete("inspection-564")]
+#[case::mit_or_custom_missing_sidecar_archive_required_allowed_deny_warnings_incomplete(
+    "inspection-565"
+)]
+#[case::mit_or_custom_missing_sidecar_archive_required_allowed_warning_incomplete("inspection-566")]
+#[case::mit_or_custom_missing_sidecar_archive_required_allowed_warning_deny_warnings_incomplete(
+    "inspection-567"
+)]
+#[case::mit_or_custom_missing_sidecar_archive_required_allowed_duplicate_incomplete(
+    "inspection-568"
+)]
+#[case::mit_or_custom_missing_sidecar_archive_required_allowed_duplicate_deny_warnings_incomplete(
+    "inspection-569"
+)]
+#[case::mit_or_custom_missing_sidecar_archive_required_allowed_duplicate_warning_incomplete(
+    "inspection-570"
+)]
+#[case::mit_or_custom_missing_sidecar_archive_required_allowed_duplicate_warning_deny_warnings_incomplete("inspection-571")]
+#[case::mit_or_custom_missing_sidecar_archive_required_allowed_foreign_incomplete("inspection-572")]
+#[case::mit_or_custom_missing_sidecar_archive_required_allowed_foreign_deny_warnings_incomplete(
+    "inspection-573"
+)]
+#[case::mit_or_custom_missing_sidecar_archive_required_allowed_foreign_warning_incomplete(
+    "inspection-574"
+)]
+#[case::mit_or_custom_missing_sidecar_archive_required_allowed_foreign_warning_deny_warnings_incomplete("inspection-575")]
+#[case::mit_or_custom_missing_archive_denied_incomplete("inspection-576")]
+#[case::mit_or_custom_missing_archive_denied_deny_warnings_incomplete("inspection-577")]
+#[case::mit_or_custom_missing_archive_denied_warning_incomplete("inspection-578")]
+#[case::mit_or_custom_missing_archive_denied_warning_deny_warnings_incomplete("inspection-579")]
+#[case::mit_or_custom_missing_archive_denied_duplicate_incomplete("inspection-580")]
+#[case::mit_or_custom_missing_archive_denied_duplicate_deny_warnings_incomplete("inspection-581")]
+#[case::mit_or_custom_missing_archive_denied_duplicate_warning_incomplete("inspection-582")]
+#[case::mit_or_custom_missing_archive_denied_duplicate_warning_deny_warnings_incomplete(
+    "inspection-583"
+)]
+#[case::mit_or_custom_missing_archive_denied_foreign_incomplete("inspection-584")]
+#[case::mit_or_custom_missing_archive_denied_foreign_deny_warnings_incomplete("inspection-585")]
+#[case::mit_or_custom_missing_archive_denied_foreign_warning_incomplete("inspection-586")]
+#[case::mit_or_custom_missing_archive_denied_foreign_warning_deny_warnings_incomplete(
+    "inspection-587"
+)]
+#[case::mit_or_custom_missing_archive_allowed_incomplete("inspection-588")]
+#[case::mit_or_custom_missing_archive_allowed_deny_warnings_incomplete("inspection-589")]
+#[case::mit_or_custom_missing_archive_allowed_warning_incomplete("inspection-590")]
+#[case::mit_or_custom_missing_archive_allowed_warning_deny_warnings_incomplete("inspection-591")]
+#[case::mit_or_custom_missing_archive_allowed_duplicate_incomplete("inspection-592")]
+#[case::mit_or_custom_missing_archive_allowed_duplicate_deny_warnings_incomplete("inspection-593")]
+#[case::mit_or_custom_missing_archive_allowed_duplicate_warning_incomplete("inspection-594")]
+#[case::mit_or_custom_missing_archive_allowed_duplicate_warning_deny_warnings_incomplete(
+    "inspection-595"
+)]
+#[case::mit_or_custom_missing_archive_allowed_foreign_incomplete("inspection-596")]
+#[case::mit_or_custom_missing_archive_allowed_foreign_deny_warnings_incomplete("inspection-597")]
+#[case::mit_or_custom_missing_archive_allowed_foreign_warning_incomplete("inspection-598")]
+#[case::mit_or_custom_missing_archive_allowed_foreign_warning_deny_warnings_incomplete(
+    "inspection-599"
+)]
+#[case::mit_or_custom_missing_archive_archive_required_denied_incomplete("inspection-600")]
+#[case::mit_or_custom_missing_archive_archive_required_denied_deny_warnings_incomplete(
+    "inspection-601"
+)]
+#[case::mit_or_custom_missing_archive_archive_required_denied_warning_incomplete("inspection-602")]
+#[case::mit_or_custom_missing_archive_archive_required_denied_warning_deny_warnings_incomplete(
+    "inspection-603"
+)]
+#[case::mit_or_custom_missing_archive_archive_required_denied_duplicate_incomplete(
+    "inspection-604"
+)]
+#[case::mit_or_custom_missing_archive_archive_required_denied_duplicate_deny_warnings_incomplete(
+    "inspection-605"
+)]
+#[case::mit_or_custom_missing_archive_archive_required_denied_duplicate_warning_incomplete(
+    "inspection-606"
+)]
+#[case::mit_or_custom_missing_archive_archive_required_denied_duplicate_warning_deny_warnings_incomplete("inspection-607")]
+#[case::mit_or_custom_missing_archive_archive_required_denied_foreign_incomplete("inspection-608")]
+#[case::mit_or_custom_missing_archive_archive_required_denied_foreign_deny_warnings_incomplete(
+    "inspection-609"
+)]
+#[case::mit_or_custom_missing_archive_archive_required_denied_foreign_warning_incomplete(
+    "inspection-610"
+)]
+#[case::mit_or_custom_missing_archive_archive_required_denied_foreign_warning_deny_warnings_incomplete("inspection-611")]
+#[case::mit_or_custom_missing_archive_archive_required_allowed_incomplete("inspection-612")]
+#[case::mit_or_custom_missing_archive_archive_required_allowed_deny_warnings_incomplete(
+    "inspection-613"
+)]
+#[case::mit_or_custom_missing_archive_archive_required_allowed_warning_incomplete("inspection-614")]
+#[case::mit_or_custom_missing_archive_archive_required_allowed_warning_deny_warnings_incomplete(
+    "inspection-615"
+)]
+#[case::mit_or_custom_missing_archive_archive_required_allowed_duplicate_incomplete(
+    "inspection-616"
+)]
+#[case::mit_or_custom_missing_archive_archive_required_allowed_duplicate_deny_warnings_incomplete(
+    "inspection-617"
+)]
+#[case::mit_or_custom_missing_archive_archive_required_allowed_duplicate_warning_incomplete(
+    "inspection-618"
+)]
+#[case::mit_or_custom_missing_archive_archive_required_allowed_duplicate_warning_deny_warnings_incomplete("inspection-619")]
+#[case::mit_or_custom_missing_archive_archive_required_allowed_foreign_incomplete("inspection-620")]
+#[case::mit_or_custom_missing_archive_archive_required_allowed_foreign_deny_warnings_incomplete(
+    "inspection-621"
+)]
+#[case::mit_or_custom_missing_archive_archive_required_allowed_foreign_warning_incomplete(
+    "inspection-622"
+)]
+#[case::mit_or_custom_missing_archive_archive_required_allowed_foreign_warning_deny_warnings_incomplete("inspection-623")]
+#[case::mit_or_custom_sidecar_missing_denied_incomplete("inspection-624")]
+#[case::mit_or_custom_sidecar_missing_denied_deny_warnings_incomplete("inspection-625")]
+#[case::mit_or_custom_sidecar_missing_denied_warning_incomplete("inspection-626")]
+#[case::mit_or_custom_sidecar_missing_denied_warning_deny_warnings_incomplete("inspection-627")]
+#[case::mit_or_custom_sidecar_missing_denied_duplicate_incomplete("inspection-628")]
+#[case::mit_or_custom_sidecar_missing_denied_duplicate_deny_warnings_incomplete("inspection-629")]
+#[case::mit_or_custom_sidecar_missing_denied_duplicate_warning_incomplete("inspection-630")]
+#[case::mit_or_custom_sidecar_missing_denied_duplicate_warning_deny_warnings_incomplete(
+    "inspection-631"
+)]
+#[case::mit_or_custom_sidecar_missing_denied_foreign_incomplete("inspection-632")]
+#[case::mit_or_custom_sidecar_missing_denied_foreign_deny_warnings_incomplete("inspection-633")]
+#[case::mit_or_custom_sidecar_missing_denied_foreign_warning_incomplete("inspection-634")]
+#[case::mit_or_custom_sidecar_missing_denied_foreign_warning_deny_warnings_incomplete(
+    "inspection-635"
+)]
+#[case::mit_or_custom_sidecar_missing_allowed_incomplete("inspection-636")]
+#[case::mit_or_custom_sidecar_missing_allowed_deny_warnings_incomplete("inspection-637")]
+#[case::mit_or_custom_sidecar_missing_allowed_warning_incomplete("inspection-638")]
+#[case::mit_or_custom_sidecar_missing_allowed_warning_deny_warnings_incomplete("inspection-639")]
+#[case::mit_or_custom_sidecar_missing_allowed_duplicate_incomplete("inspection-640")]
+#[case::mit_or_custom_sidecar_missing_allowed_duplicate_deny_warnings_incomplete("inspection-641")]
+#[case::mit_or_custom_sidecar_missing_allowed_duplicate_warning_incomplete("inspection-642")]
+#[case::mit_or_custom_sidecar_missing_allowed_duplicate_warning_deny_warnings_incomplete(
+    "inspection-643"
+)]
+#[case::mit_or_custom_sidecar_missing_allowed_foreign_incomplete("inspection-644")]
+#[case::mit_or_custom_sidecar_missing_allowed_foreign_deny_warnings_incomplete("inspection-645")]
+#[case::mit_or_custom_sidecar_missing_allowed_foreign_warning_incomplete("inspection-646")]
+#[case::mit_or_custom_sidecar_missing_allowed_foreign_warning_deny_warnings_incomplete(
+    "inspection-647"
+)]
+#[case::mit_or_custom_sidecar_missing_archive_required_denied_incomplete("inspection-648")]
+#[case::mit_or_custom_sidecar_missing_archive_required_denied_deny_warnings_incomplete(
+    "inspection-649"
+)]
+#[case::mit_or_custom_sidecar_missing_archive_required_denied_warning_incomplete("inspection-650")]
+#[case::mit_or_custom_sidecar_missing_archive_required_denied_warning_deny_warnings_incomplete(
+    "inspection-651"
+)]
+#[case::mit_or_custom_sidecar_missing_archive_required_denied_duplicate_incomplete(
+    "inspection-652"
+)]
+#[case::mit_or_custom_sidecar_missing_archive_required_denied_duplicate_deny_warnings_incomplete(
+    "inspection-653"
+)]
+#[case::mit_or_custom_sidecar_missing_archive_required_denied_duplicate_warning_incomplete(
+    "inspection-654"
+)]
+#[case::mit_or_custom_sidecar_missing_archive_required_denied_duplicate_warning_deny_warnings_incomplete("inspection-655")]
+#[case::mit_or_custom_sidecar_missing_archive_required_denied_foreign_incomplete("inspection-656")]
+#[case::mit_or_custom_sidecar_missing_archive_required_denied_foreign_deny_warnings_incomplete(
+    "inspection-657"
+)]
+#[case::mit_or_custom_sidecar_missing_archive_required_denied_foreign_warning_incomplete(
+    "inspection-658"
+)]
+#[case::mit_or_custom_sidecar_missing_archive_required_denied_foreign_warning_deny_warnings_incomplete("inspection-659")]
+#[case::mit_or_custom_sidecar_missing_archive_required_allowed_incomplete("inspection-660")]
+#[case::mit_or_custom_sidecar_missing_archive_required_allowed_deny_warnings_incomplete(
+    "inspection-661"
+)]
+#[case::mit_or_custom_sidecar_missing_archive_required_allowed_warning_incomplete("inspection-662")]
+#[case::mit_or_custom_sidecar_missing_archive_required_allowed_warning_deny_warnings_incomplete(
+    "inspection-663"
+)]
+#[case::mit_or_custom_sidecar_missing_archive_required_allowed_duplicate_incomplete(
+    "inspection-664"
+)]
+#[case::mit_or_custom_sidecar_missing_archive_required_allowed_duplicate_deny_warnings_incomplete(
+    "inspection-665"
+)]
+#[case::mit_or_custom_sidecar_missing_archive_required_allowed_duplicate_warning_incomplete(
+    "inspection-666"
+)]
+#[case::mit_or_custom_sidecar_missing_archive_required_allowed_duplicate_warning_deny_warnings_incomplete("inspection-667")]
+#[case::mit_or_custom_sidecar_missing_archive_required_allowed_foreign_incomplete("inspection-668")]
+#[case::mit_or_custom_sidecar_missing_archive_required_allowed_foreign_deny_warnings_incomplete(
+    "inspection-669"
+)]
+#[case::mit_or_custom_sidecar_missing_archive_required_allowed_foreign_warning_incomplete(
+    "inspection-670"
+)]
+#[case::mit_or_custom_sidecar_missing_archive_required_allowed_foreign_warning_deny_warnings_incomplete("inspection-671")]
+#[case::mit_or_custom_sidecar_sidecar_denied("inspection-672")]
+#[case::mit_or_custom_sidecar_sidecar_denied_deny_warnings_denied("inspection-673")]
+#[case::mit_or_custom_sidecar_sidecar_denied_warning_denied("inspection-674")]
+#[case::mit_or_custom_sidecar_sidecar_denied_warning_deny_warnings_denied("inspection-675")]
+#[case::mit_or_custom_sidecar_sidecar_denied_duplicate_incomplete("inspection-676")]
+#[case::mit_or_custom_sidecar_sidecar_denied_duplicate_deny_warnings_incomplete("inspection-677")]
+#[case::mit_or_custom_sidecar_sidecar_denied_duplicate_warning_incomplete("inspection-678")]
+#[case::mit_or_custom_sidecar_sidecar_denied_duplicate_warning_deny_warnings_incomplete(
+    "inspection-679"
+)]
+#[case::mit_or_custom_sidecar_sidecar_denied_foreign_incomplete("inspection-680")]
+#[case::mit_or_custom_sidecar_sidecar_denied_foreign_deny_warnings_incomplete("inspection-681")]
+#[case::mit_or_custom_sidecar_sidecar_denied_foreign_warning_incomplete("inspection-682")]
+#[case::mit_or_custom_sidecar_sidecar_denied_foreign_warning_deny_warnings_incomplete(
+    "inspection-683"
+)]
+#[case::mit_or_custom_sidecar_sidecar_allowed_ok("inspection-684")]
+#[case::mit_or_custom_sidecar_sidecar_allowed_deny_warnings_ok("inspection-685")]
+#[case::mit_or_custom_sidecar_sidecar_allowed_warning_ok("inspection-686")]
+#[case::mit_or_custom_sidecar_sidecar_allowed_warning_deny_warnings_denied("inspection-687")]
+#[case::mit_or_custom_sidecar_sidecar_allowed_duplicate_incomplete("inspection-688")]
+#[case::mit_or_custom_sidecar_sidecar_allowed_duplicate_deny_warnings_incomplete("inspection-689")]
+#[case::mit_or_custom_sidecar_sidecar_allowed_duplicate_warning_incomplete("inspection-690")]
+#[case::mit_or_custom_sidecar_sidecar_allowed_duplicate_warning_deny_warnings_incomplete(
+    "inspection-691"
+)]
+#[case::mit_or_custom_sidecar_sidecar_allowed_foreign_incomplete("inspection-692")]
+#[case::mit_or_custom_sidecar_sidecar_allowed_foreign_deny_warnings_incomplete("inspection-693")]
+#[case::mit_or_custom_sidecar_sidecar_allowed_foreign_warning_incomplete("inspection-694")]
+#[case::mit_or_custom_sidecar_sidecar_allowed_foreign_warning_deny_warnings_incomplete(
+    "inspection-695"
+)]
+#[case::mit_or_custom_sidecar_sidecar_archive_required_denied_incomplete("inspection-696")]
+#[case::mit_or_custom_sidecar_sidecar_archive_required_denied_deny_warnings_incomplete(
+    "inspection-697"
+)]
+#[case::mit_or_custom_sidecar_sidecar_archive_required_denied_warning_incomplete("inspection-698")]
+#[case::mit_or_custom_sidecar_sidecar_archive_required_denied_warning_deny_warnings_incomplete(
+    "inspection-699"
+)]
+#[case::mit_or_custom_sidecar_sidecar_archive_required_denied_duplicate_incomplete(
+    "inspection-700"
+)]
+#[case::mit_or_custom_sidecar_sidecar_archive_required_denied_duplicate_deny_warnings_incomplete(
+    "inspection-701"
+)]
+#[case::mit_or_custom_sidecar_sidecar_archive_required_denied_duplicate_warning_incomplete(
+    "inspection-702"
+)]
+#[case::mit_or_custom_sidecar_sidecar_archive_required_denied_duplicate_warning_deny_warnings_incomplete("inspection-703")]
+#[case::mit_or_custom_sidecar_sidecar_archive_required_denied_foreign_incomplete("inspection-704")]
+#[case::mit_or_custom_sidecar_sidecar_archive_required_denied_foreign_deny_warnings_incomplete(
+    "inspection-705"
+)]
+#[case::mit_or_custom_sidecar_sidecar_archive_required_denied_foreign_warning_incomplete(
+    "inspection-706"
+)]
+#[case::mit_or_custom_sidecar_sidecar_archive_required_denied_foreign_warning_deny_warnings_incomplete("inspection-707")]
+#[case::mit_or_custom_sidecar_sidecar_archive_required_allowed_incomplete("inspection-708")]
+#[case::mit_or_custom_sidecar_sidecar_archive_required_allowed_deny_warnings_incomplete(
+    "inspection-709"
+)]
+#[case::mit_or_custom_sidecar_sidecar_archive_required_allowed_warning_incomplete("inspection-710")]
+#[case::mit_or_custom_sidecar_sidecar_archive_required_allowed_warning_deny_warnings_incomplete(
+    "inspection-711"
+)]
+#[case::mit_or_custom_sidecar_sidecar_archive_required_allowed_duplicate_incomplete(
+    "inspection-712"
+)]
+#[case::mit_or_custom_sidecar_sidecar_archive_required_allowed_duplicate_deny_warnings_incomplete(
+    "inspection-713"
+)]
+#[case::mit_or_custom_sidecar_sidecar_archive_required_allowed_duplicate_warning_incomplete(
+    "inspection-714"
+)]
+#[case::mit_or_custom_sidecar_sidecar_archive_required_allowed_duplicate_warning_deny_warnings_incomplete("inspection-715")]
+#[case::mit_or_custom_sidecar_sidecar_archive_required_allowed_foreign_incomplete("inspection-716")]
+#[case::mit_or_custom_sidecar_sidecar_archive_required_allowed_foreign_deny_warnings_incomplete(
+    "inspection-717"
+)]
+#[case::mit_or_custom_sidecar_sidecar_archive_required_allowed_foreign_warning_incomplete(
+    "inspection-718"
+)]
+#[case::mit_or_custom_sidecar_sidecar_archive_required_allowed_foreign_warning_deny_warnings_incomplete("inspection-719")]
+#[case::mit_or_custom_sidecar_archive_denied("inspection-720")]
+#[case::mit_or_custom_sidecar_archive_denied_deny_warnings_denied("inspection-721")]
+#[case::mit_or_custom_sidecar_archive_denied_warning_denied("inspection-722")]
+#[case::mit_or_custom_sidecar_archive_denied_warning_deny_warnings_denied("inspection-723")]
+#[case::mit_or_custom_sidecar_archive_denied_duplicate_incomplete("inspection-724")]
+#[case::mit_or_custom_sidecar_archive_denied_duplicate_deny_warnings_incomplete("inspection-725")]
+#[case::mit_or_custom_sidecar_archive_denied_duplicate_warning_incomplete("inspection-726")]
+#[case::mit_or_custom_sidecar_archive_denied_duplicate_warning_deny_warnings_incomplete(
+    "inspection-727"
+)]
+#[case::mit_or_custom_sidecar_archive_denied_foreign_incomplete("inspection-728")]
+#[case::mit_or_custom_sidecar_archive_denied_foreign_deny_warnings_incomplete("inspection-729")]
+#[case::mit_or_custom_sidecar_archive_denied_foreign_warning_incomplete("inspection-730")]
+#[case::mit_or_custom_sidecar_archive_denied_foreign_warning_deny_warnings_incomplete(
+    "inspection-731"
+)]
+#[case::mit_or_custom_sidecar_archive_allowed_ok("inspection-732")]
+#[case::mit_or_custom_sidecar_archive_allowed_deny_warnings_ok("inspection-733")]
+#[case::mit_or_custom_sidecar_archive_allowed_warning_ok("inspection-734")]
+#[case::mit_or_custom_sidecar_archive_allowed_warning_deny_warnings_denied("inspection-735")]
+#[case::mit_or_custom_sidecar_archive_allowed_duplicate_incomplete("inspection-736")]
+#[case::mit_or_custom_sidecar_archive_allowed_duplicate_deny_warnings_incomplete("inspection-737")]
+#[case::mit_or_custom_sidecar_archive_allowed_duplicate_warning_incomplete("inspection-738")]
+#[case::mit_or_custom_sidecar_archive_allowed_duplicate_warning_deny_warnings_incomplete(
+    "inspection-739"
+)]
+#[case::mit_or_custom_sidecar_archive_allowed_foreign_incomplete("inspection-740")]
+#[case::mit_or_custom_sidecar_archive_allowed_foreign_deny_warnings_incomplete("inspection-741")]
+#[case::mit_or_custom_sidecar_archive_allowed_foreign_warning_incomplete("inspection-742")]
+#[case::mit_or_custom_sidecar_archive_allowed_foreign_warning_deny_warnings_incomplete(
+    "inspection-743"
+)]
+#[case::mit_or_custom_sidecar_archive_archive_required_denied_incomplete("inspection-744")]
+#[case::mit_or_custom_sidecar_archive_archive_required_denied_deny_warnings_incomplete(
+    "inspection-745"
+)]
+#[case::mit_or_custom_sidecar_archive_archive_required_denied_warning_incomplete("inspection-746")]
+#[case::mit_or_custom_sidecar_archive_archive_required_denied_warning_deny_warnings_incomplete(
+    "inspection-747"
+)]
+#[case::mit_or_custom_sidecar_archive_archive_required_denied_duplicate_incomplete(
+    "inspection-748"
+)]
+#[case::mit_or_custom_sidecar_archive_archive_required_denied_duplicate_deny_warnings_incomplete(
+    "inspection-749"
+)]
+#[case::mit_or_custom_sidecar_archive_archive_required_denied_duplicate_warning_incomplete(
+    "inspection-750"
+)]
+#[case::mit_or_custom_sidecar_archive_archive_required_denied_duplicate_warning_deny_warnings_incomplete("inspection-751")]
+#[case::mit_or_custom_sidecar_archive_archive_required_denied_foreign_incomplete("inspection-752")]
+#[case::mit_or_custom_sidecar_archive_archive_required_denied_foreign_deny_warnings_incomplete(
+    "inspection-753"
+)]
+#[case::mit_or_custom_sidecar_archive_archive_required_denied_foreign_warning_incomplete(
+    "inspection-754"
+)]
+#[case::mit_or_custom_sidecar_archive_archive_required_denied_foreign_warning_deny_warnings_incomplete("inspection-755")]
+#[case::mit_or_custom_sidecar_archive_archive_required_allowed_incomplete("inspection-756")]
+#[case::mit_or_custom_sidecar_archive_archive_required_allowed_deny_warnings_incomplete(
+    "inspection-757"
+)]
+#[case::mit_or_custom_sidecar_archive_archive_required_allowed_warning_incomplete("inspection-758")]
+#[case::mit_or_custom_sidecar_archive_archive_required_allowed_warning_deny_warnings_incomplete(
+    "inspection-759"
+)]
+#[case::mit_or_custom_sidecar_archive_archive_required_allowed_duplicate_incomplete(
+    "inspection-760"
+)]
+#[case::mit_or_custom_sidecar_archive_archive_required_allowed_duplicate_deny_warnings_incomplete(
+    "inspection-761"
+)]
+#[case::mit_or_custom_sidecar_archive_archive_required_allowed_duplicate_warning_incomplete(
+    "inspection-762"
+)]
+#[case::mit_or_custom_sidecar_archive_archive_required_allowed_duplicate_warning_deny_warnings_incomplete("inspection-763")]
+#[case::mit_or_custom_sidecar_archive_archive_required_allowed_foreign_incomplete("inspection-764")]
+#[case::mit_or_custom_sidecar_archive_archive_required_allowed_foreign_deny_warnings_incomplete(
+    "inspection-765"
+)]
+#[case::mit_or_custom_sidecar_archive_archive_required_allowed_foreign_warning_incomplete(
+    "inspection-766"
+)]
+#[case::mit_or_custom_sidecar_archive_archive_required_allowed_foreign_warning_deny_warnings_incomplete("inspection-767")]
+#[case::mit_or_custom_archive_missing_denied_incomplete("inspection-768")]
+#[case::mit_or_custom_archive_missing_denied_deny_warnings_incomplete("inspection-769")]
+#[case::mit_or_custom_archive_missing_denied_warning_incomplete("inspection-770")]
+#[case::mit_or_custom_archive_missing_denied_warning_deny_warnings_incomplete("inspection-771")]
+#[case::mit_or_custom_archive_missing_denied_duplicate_incomplete("inspection-772")]
+#[case::mit_or_custom_archive_missing_denied_duplicate_deny_warnings_incomplete("inspection-773")]
+#[case::mit_or_custom_archive_missing_denied_duplicate_warning_incomplete("inspection-774")]
+#[case::mit_or_custom_archive_missing_denied_duplicate_warning_deny_warnings_incomplete(
+    "inspection-775"
+)]
+#[case::mit_or_custom_archive_missing_denied_foreign_incomplete("inspection-776")]
+#[case::mit_or_custom_archive_missing_denied_foreign_deny_warnings_incomplete("inspection-777")]
+#[case::mit_or_custom_archive_missing_denied_foreign_warning_incomplete("inspection-778")]
+#[case::mit_or_custom_archive_missing_denied_foreign_warning_deny_warnings_incomplete(
+    "inspection-779"
+)]
+#[case::mit_or_custom_archive_missing_allowed_incomplete("inspection-780")]
+#[case::mit_or_custom_archive_missing_allowed_deny_warnings_incomplete("inspection-781")]
+#[case::mit_or_custom_archive_missing_allowed_warning_incomplete("inspection-782")]
+#[case::mit_or_custom_archive_missing_allowed_warning_deny_warnings_incomplete("inspection-783")]
+#[case::mit_or_custom_archive_missing_allowed_duplicate_incomplete("inspection-784")]
+#[case::mit_or_custom_archive_missing_allowed_duplicate_deny_warnings_incomplete("inspection-785")]
+#[case::mit_or_custom_archive_missing_allowed_duplicate_warning_incomplete("inspection-786")]
+#[case::mit_or_custom_archive_missing_allowed_duplicate_warning_deny_warnings_incomplete(
+    "inspection-787"
+)]
+#[case::mit_or_custom_archive_missing_allowed_foreign_incomplete("inspection-788")]
+#[case::mit_or_custom_archive_missing_allowed_foreign_deny_warnings_incomplete("inspection-789")]
+#[case::mit_or_custom_archive_missing_allowed_foreign_warning_incomplete("inspection-790")]
+#[case::mit_or_custom_archive_missing_allowed_foreign_warning_deny_warnings_incomplete(
+    "inspection-791"
+)]
+#[case::mit_or_custom_archive_missing_archive_required_denied_incomplete("inspection-792")]
+#[case::mit_or_custom_archive_missing_archive_required_denied_deny_warnings_incomplete(
+    "inspection-793"
+)]
+#[case::mit_or_custom_archive_missing_archive_required_denied_warning_incomplete("inspection-794")]
+#[case::mit_or_custom_archive_missing_archive_required_denied_warning_deny_warnings_incomplete(
+    "inspection-795"
+)]
+#[case::mit_or_custom_archive_missing_archive_required_denied_duplicate_incomplete(
+    "inspection-796"
+)]
+#[case::mit_or_custom_archive_missing_archive_required_denied_duplicate_deny_warnings_incomplete(
+    "inspection-797"
+)]
+#[case::mit_or_custom_archive_missing_archive_required_denied_duplicate_warning_incomplete(
+    "inspection-798"
+)]
+#[case::mit_or_custom_archive_missing_archive_required_denied_duplicate_warning_deny_warnings_incomplete("inspection-799")]
+#[case::mit_or_custom_archive_missing_archive_required_denied_foreign_incomplete("inspection-800")]
+#[case::mit_or_custom_archive_missing_archive_required_denied_foreign_deny_warnings_incomplete(
+    "inspection-801"
+)]
+#[case::mit_or_custom_archive_missing_archive_required_denied_foreign_warning_incomplete(
+    "inspection-802"
+)]
+#[case::mit_or_custom_archive_missing_archive_required_denied_foreign_warning_deny_warnings_incomplete("inspection-803")]
+#[case::mit_or_custom_archive_missing_archive_required_allowed_incomplete("inspection-804")]
+#[case::mit_or_custom_archive_missing_archive_required_allowed_deny_warnings_incomplete(
+    "inspection-805"
+)]
+#[case::mit_or_custom_archive_missing_archive_required_allowed_warning_incomplete("inspection-806")]
+#[case::mit_or_custom_archive_missing_archive_required_allowed_warning_deny_warnings_incomplete(
+    "inspection-807"
+)]
+#[case::mit_or_custom_archive_missing_archive_required_allowed_duplicate_incomplete(
+    "inspection-808"
+)]
+#[case::mit_or_custom_archive_missing_archive_required_allowed_duplicate_deny_warnings_incomplete(
+    "inspection-809"
+)]
+#[case::mit_or_custom_archive_missing_archive_required_allowed_duplicate_warning_incomplete(
+    "inspection-810"
+)]
+#[case::mit_or_custom_archive_missing_archive_required_allowed_duplicate_warning_deny_warnings_incomplete("inspection-811")]
+#[case::mit_or_custom_archive_missing_archive_required_allowed_foreign_incomplete("inspection-812")]
+#[case::mit_or_custom_archive_missing_archive_required_allowed_foreign_deny_warnings_incomplete(
+    "inspection-813"
+)]
+#[case::mit_or_custom_archive_missing_archive_required_allowed_foreign_warning_incomplete(
+    "inspection-814"
+)]
+#[case::mit_or_custom_archive_missing_archive_required_allowed_foreign_warning_deny_warnings_incomplete("inspection-815")]
+#[case::mit_or_custom_archive_sidecar_denied("inspection-816")]
+#[case::mit_or_custom_archive_sidecar_denied_deny_warnings_denied("inspection-817")]
+#[case::mit_or_custom_archive_sidecar_denied_warning_denied("inspection-818")]
+#[case::mit_or_custom_archive_sidecar_denied_warning_deny_warnings_denied("inspection-819")]
+#[case::mit_or_custom_archive_sidecar_denied_duplicate_incomplete("inspection-820")]
+#[case::mit_or_custom_archive_sidecar_denied_duplicate_deny_warnings_incomplete("inspection-821")]
+#[case::mit_or_custom_archive_sidecar_denied_duplicate_warning_incomplete("inspection-822")]
+#[case::mit_or_custom_archive_sidecar_denied_duplicate_warning_deny_warnings_incomplete(
+    "inspection-823"
+)]
+#[case::mit_or_custom_archive_sidecar_denied_foreign_incomplete("inspection-824")]
+#[case::mit_or_custom_archive_sidecar_denied_foreign_deny_warnings_incomplete("inspection-825")]
+#[case::mit_or_custom_archive_sidecar_denied_foreign_warning_incomplete("inspection-826")]
+#[case::mit_or_custom_archive_sidecar_denied_foreign_warning_deny_warnings_incomplete(
+    "inspection-827"
+)]
+#[case::mit_or_custom_archive_sidecar_allowed_ok("inspection-828")]
+#[case::mit_or_custom_archive_sidecar_allowed_deny_warnings_ok("inspection-829")]
+#[case::mit_or_custom_archive_sidecar_allowed_warning_ok("inspection-830")]
+#[case::mit_or_custom_archive_sidecar_allowed_warning_deny_warnings_denied("inspection-831")]
+#[case::mit_or_custom_archive_sidecar_allowed_duplicate_incomplete("inspection-832")]
+#[case::mit_or_custom_archive_sidecar_allowed_duplicate_deny_warnings_incomplete("inspection-833")]
+#[case::mit_or_custom_archive_sidecar_allowed_duplicate_warning_incomplete("inspection-834")]
+#[case::mit_or_custom_archive_sidecar_allowed_duplicate_warning_deny_warnings_incomplete(
+    "inspection-835"
+)]
+#[case::mit_or_custom_archive_sidecar_allowed_foreign_incomplete("inspection-836")]
+#[case::mit_or_custom_archive_sidecar_allowed_foreign_deny_warnings_incomplete("inspection-837")]
+#[case::mit_or_custom_archive_sidecar_allowed_foreign_warning_incomplete("inspection-838")]
+#[case::mit_or_custom_archive_sidecar_allowed_foreign_warning_deny_warnings_incomplete(
+    "inspection-839"
+)]
+#[case::mit_or_custom_archive_sidecar_archive_required_denied_incomplete("inspection-840")]
+#[case::mit_or_custom_archive_sidecar_archive_required_denied_deny_warnings_incomplete(
+    "inspection-841"
+)]
+#[case::mit_or_custom_archive_sidecar_archive_required_denied_warning_incomplete("inspection-842")]
+#[case::mit_or_custom_archive_sidecar_archive_required_denied_warning_deny_warnings_incomplete(
+    "inspection-843"
+)]
+#[case::mit_or_custom_archive_sidecar_archive_required_denied_duplicate_incomplete(
+    "inspection-844"
+)]
+#[case::mit_or_custom_archive_sidecar_archive_required_denied_duplicate_deny_warnings_incomplete(
+    "inspection-845"
+)]
+#[case::mit_or_custom_archive_sidecar_archive_required_denied_duplicate_warning_incomplete(
+    "inspection-846"
+)]
+#[case::mit_or_custom_archive_sidecar_archive_required_denied_duplicate_warning_deny_warnings_incomplete("inspection-847")]
+#[case::mit_or_custom_archive_sidecar_archive_required_denied_foreign_incomplete("inspection-848")]
+#[case::mit_or_custom_archive_sidecar_archive_required_denied_foreign_deny_warnings_incomplete(
+    "inspection-849"
+)]
+#[case::mit_or_custom_archive_sidecar_archive_required_denied_foreign_warning_incomplete(
+    "inspection-850"
+)]
+#[case::mit_or_custom_archive_sidecar_archive_required_denied_foreign_warning_deny_warnings_incomplete("inspection-851")]
+#[case::mit_or_custom_archive_sidecar_archive_required_allowed_incomplete("inspection-852")]
+#[case::mit_or_custom_archive_sidecar_archive_required_allowed_deny_warnings_incomplete(
+    "inspection-853"
+)]
+#[case::mit_or_custom_archive_sidecar_archive_required_allowed_warning_incomplete("inspection-854")]
+#[case::mit_or_custom_archive_sidecar_archive_required_allowed_warning_deny_warnings_incomplete(
+    "inspection-855"
+)]
+#[case::mit_or_custom_archive_sidecar_archive_required_allowed_duplicate_incomplete(
+    "inspection-856"
+)]
+#[case::mit_or_custom_archive_sidecar_archive_required_allowed_duplicate_deny_warnings_incomplete(
+    "inspection-857"
+)]
+#[case::mit_or_custom_archive_sidecar_archive_required_allowed_duplicate_warning_incomplete(
+    "inspection-858"
+)]
+#[case::mit_or_custom_archive_sidecar_archive_required_allowed_duplicate_warning_deny_warnings_incomplete("inspection-859")]
+#[case::mit_or_custom_archive_sidecar_archive_required_allowed_foreign_incomplete("inspection-860")]
+#[case::mit_or_custom_archive_sidecar_archive_required_allowed_foreign_deny_warnings_incomplete(
+    "inspection-861"
+)]
+#[case::mit_or_custom_archive_sidecar_archive_required_allowed_foreign_warning_incomplete(
+    "inspection-862"
+)]
+#[case::mit_or_custom_archive_sidecar_archive_required_allowed_foreign_warning_deny_warnings_incomplete("inspection-863")]
+#[case::mit_or_custom_archive_archive_denied("inspection-864")]
+#[case::mit_or_custom_archive_archive_denied_deny_warnings_denied("inspection-865")]
+#[case::mit_or_custom_archive_archive_denied_warning_denied("inspection-866")]
+#[case::mit_or_custom_archive_archive_denied_warning_deny_warnings_denied("inspection-867")]
+#[case::mit_or_custom_archive_archive_denied_duplicate_incomplete("inspection-868")]
+#[case::mit_or_custom_archive_archive_denied_duplicate_deny_warnings_incomplete("inspection-869")]
+#[case::mit_or_custom_archive_archive_denied_duplicate_warning_incomplete("inspection-870")]
+#[case::mit_or_custom_archive_archive_denied_duplicate_warning_deny_warnings_incomplete(
+    "inspection-871"
+)]
+#[case::mit_or_custom_archive_archive_denied_foreign_incomplete("inspection-872")]
+#[case::mit_or_custom_archive_archive_denied_foreign_deny_warnings_incomplete("inspection-873")]
+#[case::mit_or_custom_archive_archive_denied_foreign_warning_incomplete("inspection-874")]
+#[case::mit_or_custom_archive_archive_denied_foreign_warning_deny_warnings_incomplete(
+    "inspection-875"
+)]
+#[case::mit_or_custom_archive_archive_allowed_ok("inspection-876")]
+#[case::mit_or_custom_archive_archive_allowed_deny_warnings_ok("inspection-877")]
+#[case::mit_or_custom_archive_archive_allowed_warning_ok("inspection-878")]
+#[case::mit_or_custom_archive_archive_allowed_warning_deny_warnings_denied("inspection-879")]
+#[case::mit_or_custom_archive_archive_allowed_duplicate_incomplete("inspection-880")]
+#[case::mit_or_custom_archive_archive_allowed_duplicate_deny_warnings_incomplete("inspection-881")]
+#[case::mit_or_custom_archive_archive_allowed_duplicate_warning_incomplete("inspection-882")]
+#[case::mit_or_custom_archive_archive_allowed_duplicate_warning_deny_warnings_incomplete(
+    "inspection-883"
+)]
+#[case::mit_or_custom_archive_archive_allowed_foreign_incomplete("inspection-884")]
+#[case::mit_or_custom_archive_archive_allowed_foreign_deny_warnings_incomplete("inspection-885")]
+#[case::mit_or_custom_archive_archive_allowed_foreign_warning_incomplete("inspection-886")]
+#[case::mit_or_custom_archive_archive_allowed_foreign_warning_deny_warnings_incomplete(
+    "inspection-887"
+)]
+#[case::mit_or_custom_archive_archive_archive_required_denied("inspection-888")]
+#[case::mit_or_custom_archive_archive_archive_required_denied_deny_warnings_denied(
+    "inspection-889"
+)]
+#[case::mit_or_custom_archive_archive_archive_required_denied_warning_denied("inspection-890")]
+#[case::mit_or_custom_archive_archive_archive_required_denied_warning_deny_warnings_denied(
+    "inspection-891"
+)]
+#[case::mit_or_custom_archive_archive_archive_required_denied_duplicate_incomplete(
+    "inspection-892"
+)]
+#[case::mit_or_custom_archive_archive_archive_required_denied_duplicate_deny_warnings_incomplete(
+    "inspection-893"
+)]
+#[case::mit_or_custom_archive_archive_archive_required_denied_duplicate_warning_incomplete(
+    "inspection-894"
+)]
+#[case::mit_or_custom_archive_archive_archive_required_denied_duplicate_warning_deny_warnings_incomplete("inspection-895")]
+#[case::mit_or_custom_archive_archive_archive_required_denied_foreign_incomplete("inspection-896")]
+#[case::mit_or_custom_archive_archive_archive_required_denied_foreign_deny_warnings_incomplete(
+    "inspection-897"
+)]
+#[case::mit_or_custom_archive_archive_archive_required_denied_foreign_warning_incomplete(
+    "inspection-898"
+)]
+#[case::mit_or_custom_archive_archive_archive_required_denied_foreign_warning_deny_warnings_incomplete("inspection-899")]
+#[case::mit_or_custom_archive_archive_archive_required_allowed_ok("inspection-900")]
+#[case::mit_or_custom_archive_archive_archive_required_allowed_deny_warnings_ok("inspection-901")]
+#[case::mit_or_custom_archive_archive_archive_required_allowed_warning_ok("inspection-902")]
+#[case::mit_or_custom_archive_archive_archive_required_allowed_warning_deny_warnings_denied(
+    "inspection-903"
+)]
+#[case::mit_or_custom_archive_archive_archive_required_allowed_duplicate_incomplete(
+    "inspection-904"
+)]
+#[case::mit_or_custom_archive_archive_archive_required_allowed_duplicate_deny_warnings_incomplete(
+    "inspection-905"
+)]
+#[case::mit_or_custom_archive_archive_archive_required_allowed_duplicate_warning_incomplete(
+    "inspection-906"
+)]
+#[case::mit_or_custom_archive_archive_archive_required_allowed_duplicate_warning_deny_warnings_incomplete("inspection-907")]
+#[case::mit_or_custom_archive_archive_archive_required_allowed_foreign_incomplete("inspection-908")]
+#[case::mit_or_custom_archive_archive_archive_required_allowed_foreign_deny_warnings_incomplete(
+    "inspection-909"
+)]
+#[case::mit_or_custom_archive_archive_archive_required_allowed_foreign_warning_incomplete(
+    "inspection-910"
+)]
+#[case::mit_or_custom_archive_archive_archive_required_allowed_foreign_warning_deny_warnings_incomplete("inspection-911")]
+#[case::custom_missing_missing_denied_incomplete("inspection-912")]
+#[case::custom_missing_missing_denied_deny_warnings_incomplete("inspection-913")]
+#[case::custom_missing_missing_denied_warning_incomplete("inspection-914")]
+#[case::custom_missing_missing_denied_warning_deny_warnings_incomplete("inspection-915")]
+#[case::custom_missing_missing_denied_duplicate_incomplete("inspection-916")]
+#[case::custom_missing_missing_denied_duplicate_deny_warnings_incomplete("inspection-917")]
+#[case::custom_missing_missing_denied_duplicate_warning_incomplete("inspection-918")]
+#[case::custom_missing_missing_denied_duplicate_warning_deny_warnings_incomplete("inspection-919")]
+#[case::custom_missing_missing_denied_foreign_incomplete("inspection-920")]
+#[case::custom_missing_missing_denied_foreign_deny_warnings_incomplete("inspection-921")]
+#[case::custom_missing_missing_denied_foreign_warning_incomplete("inspection-922")]
+#[case::custom_missing_missing_denied_foreign_warning_deny_warnings_incomplete("inspection-923")]
+#[case::custom_missing_missing_allowed_incomplete("inspection-924")]
+#[case::custom_missing_missing_allowed_deny_warnings_incomplete("inspection-925")]
+#[case::custom_missing_missing_allowed_warning_incomplete("inspection-926")]
+#[case::custom_missing_missing_allowed_warning_deny_warnings_incomplete("inspection-927")]
+#[case::custom_missing_missing_allowed_duplicate_incomplete("inspection-928")]
+#[case::custom_missing_missing_allowed_duplicate_deny_warnings_incomplete("inspection-929")]
+#[case::custom_missing_missing_allowed_duplicate_warning_incomplete("inspection-930")]
+#[case::custom_missing_missing_allowed_duplicate_warning_deny_warnings_incomplete("inspection-931")]
+#[case::custom_missing_missing_allowed_foreign_incomplete("inspection-932")]
+#[case::custom_missing_missing_allowed_foreign_deny_warnings_incomplete("inspection-933")]
+#[case::custom_missing_missing_allowed_foreign_warning_incomplete("inspection-934")]
+#[case::custom_missing_missing_allowed_foreign_warning_deny_warnings_incomplete("inspection-935")]
+#[case::custom_missing_missing_archive_required_denied_incomplete("inspection-936")]
+#[case::custom_missing_missing_archive_required_denied_deny_warnings_incomplete("inspection-937")]
+#[case::custom_missing_missing_archive_required_denied_warning_incomplete("inspection-938")]
+#[case::custom_missing_missing_archive_required_denied_warning_deny_warnings_incomplete(
+    "inspection-939"
+)]
+#[case::custom_missing_missing_archive_required_denied_duplicate_incomplete("inspection-940")]
+#[case::custom_missing_missing_archive_required_denied_duplicate_deny_warnings_incomplete(
+    "inspection-941"
+)]
+#[case::custom_missing_missing_archive_required_denied_duplicate_warning_incomplete(
+    "inspection-942"
+)]
+#[case::custom_missing_missing_archive_required_denied_duplicate_warning_deny_warnings_incomplete(
+    "inspection-943"
+)]
+#[case::custom_missing_missing_archive_required_denied_foreign_incomplete("inspection-944")]
+#[case::custom_missing_missing_archive_required_denied_foreign_deny_warnings_incomplete(
+    "inspection-945"
+)]
+#[case::custom_missing_missing_archive_required_denied_foreign_warning_incomplete("inspection-946")]
+#[case::custom_missing_missing_archive_required_denied_foreign_warning_deny_warnings_incomplete(
+    "inspection-947"
+)]
+#[case::custom_missing_missing_archive_required_allowed_incomplete("inspection-948")]
+#[case::custom_missing_missing_archive_required_allowed_deny_warnings_incomplete("inspection-949")]
+#[case::custom_missing_missing_archive_required_allowed_warning_incomplete("inspection-950")]
+#[case::custom_missing_missing_archive_required_allowed_warning_deny_warnings_incomplete(
+    "inspection-951"
+)]
+#[case::custom_missing_missing_archive_required_allowed_duplicate_incomplete("inspection-952")]
+#[case::custom_missing_missing_archive_required_allowed_duplicate_deny_warnings_incomplete(
+    "inspection-953"
+)]
+#[case::custom_missing_missing_archive_required_allowed_duplicate_warning_incomplete(
+    "inspection-954"
+)]
+#[case::custom_missing_missing_archive_required_allowed_duplicate_warning_deny_warnings_incomplete(
+    "inspection-955"
+)]
+#[case::custom_missing_missing_archive_required_allowed_foreign_incomplete("inspection-956")]
+#[case::custom_missing_missing_archive_required_allowed_foreign_deny_warnings_incomplete(
+    "inspection-957"
+)]
+#[case::custom_missing_missing_archive_required_allowed_foreign_warning_incomplete(
+    "inspection-958"
+)]
+#[case::custom_missing_missing_archive_required_allowed_foreign_warning_deny_warnings_incomplete(
+    "inspection-959"
+)]
+#[case::custom_missing_sidecar_denied_incomplete("inspection-960")]
+#[case::custom_missing_sidecar_denied_deny_warnings_incomplete("inspection-961")]
+#[case::custom_missing_sidecar_denied_warning_incomplete("inspection-962")]
+#[case::custom_missing_sidecar_denied_warning_deny_warnings_incomplete("inspection-963")]
+#[case::custom_missing_sidecar_denied_duplicate_incomplete("inspection-964")]
+#[case::custom_missing_sidecar_denied_duplicate_deny_warnings_incomplete("inspection-965")]
+#[case::custom_missing_sidecar_denied_duplicate_warning_incomplete("inspection-966")]
+#[case::custom_missing_sidecar_denied_duplicate_warning_deny_warnings_incomplete("inspection-967")]
+#[case::custom_missing_sidecar_denied_foreign_incomplete("inspection-968")]
+#[case::custom_missing_sidecar_denied_foreign_deny_warnings_incomplete("inspection-969")]
+#[case::custom_missing_sidecar_denied_foreign_warning_incomplete("inspection-970")]
+#[case::custom_missing_sidecar_denied_foreign_warning_deny_warnings_incomplete("inspection-971")]
+#[case::custom_missing_sidecar_allowed_incomplete("inspection-972")]
+#[case::custom_missing_sidecar_allowed_deny_warnings_incomplete("inspection-973")]
+#[case::custom_missing_sidecar_allowed_warning_incomplete("inspection-974")]
+#[case::custom_missing_sidecar_allowed_warning_deny_warnings_incomplete("inspection-975")]
+#[case::custom_missing_sidecar_allowed_duplicate_incomplete("inspection-976")]
+#[case::custom_missing_sidecar_allowed_duplicate_deny_warnings_incomplete("inspection-977")]
+#[case::custom_missing_sidecar_allowed_duplicate_warning_incomplete("inspection-978")]
+#[case::custom_missing_sidecar_allowed_duplicate_warning_deny_warnings_incomplete("inspection-979")]
+#[case::custom_missing_sidecar_allowed_foreign_incomplete("inspection-980")]
+#[case::custom_missing_sidecar_allowed_foreign_deny_warnings_incomplete("inspection-981")]
+#[case::custom_missing_sidecar_allowed_foreign_warning_incomplete("inspection-982")]
+#[case::custom_missing_sidecar_allowed_foreign_warning_deny_warnings_incomplete("inspection-983")]
+#[case::custom_missing_sidecar_archive_required_denied_incomplete("inspection-984")]
+#[case::custom_missing_sidecar_archive_required_denied_deny_warnings_incomplete("inspection-985")]
+#[case::custom_missing_sidecar_archive_required_denied_warning_incomplete("inspection-986")]
+#[case::custom_missing_sidecar_archive_required_denied_warning_deny_warnings_incomplete(
+    "inspection-987"
+)]
+#[case::custom_missing_sidecar_archive_required_denied_duplicate_incomplete("inspection-988")]
+#[case::custom_missing_sidecar_archive_required_denied_duplicate_deny_warnings_incomplete(
+    "inspection-989"
+)]
+#[case::custom_missing_sidecar_archive_required_denied_duplicate_warning_incomplete(
+    "inspection-990"
+)]
+#[case::custom_missing_sidecar_archive_required_denied_duplicate_warning_deny_warnings_incomplete(
+    "inspection-991"
+)]
+#[case::custom_missing_sidecar_archive_required_denied_foreign_incomplete("inspection-992")]
+#[case::custom_missing_sidecar_archive_required_denied_foreign_deny_warnings_incomplete(
+    "inspection-993"
+)]
+#[case::custom_missing_sidecar_archive_required_denied_foreign_warning_incomplete("inspection-994")]
+#[case::custom_missing_sidecar_archive_required_denied_foreign_warning_deny_warnings_incomplete(
+    "inspection-995"
+)]
+#[case::custom_missing_sidecar_archive_required_allowed_incomplete("inspection-996")]
+#[case::custom_missing_sidecar_archive_required_allowed_deny_warnings_incomplete("inspection-997")]
+#[case::custom_missing_sidecar_archive_required_allowed_warning_incomplete("inspection-998")]
+#[case::custom_missing_sidecar_archive_required_allowed_warning_deny_warnings_incomplete(
+    "inspection-999"
+)]
+#[case::custom_missing_sidecar_archive_required_allowed_duplicate_incomplete("inspection-1000")]
+#[case::custom_missing_sidecar_archive_required_allowed_duplicate_deny_warnings_incomplete(
+    "inspection-1001"
+)]
+#[case::custom_missing_sidecar_archive_required_allowed_duplicate_warning_incomplete(
+    "inspection-1002"
+)]
+#[case::custom_missing_sidecar_archive_required_allowed_duplicate_warning_deny_warnings_incomplete(
+    "inspection-1003"
+)]
+#[case::custom_missing_sidecar_archive_required_allowed_foreign_incomplete("inspection-1004")]
+#[case::custom_missing_sidecar_archive_required_allowed_foreign_deny_warnings_incomplete(
+    "inspection-1005"
+)]
+#[case::custom_missing_sidecar_archive_required_allowed_foreign_warning_incomplete(
+    "inspection-1006"
+)]
+#[case::custom_missing_sidecar_archive_required_allowed_foreign_warning_deny_warnings_incomplete(
+    "inspection-1007"
+)]
+#[case::custom_missing_archive_denied_incomplete("inspection-1008")]
+#[case::custom_missing_archive_denied_deny_warnings_incomplete("inspection-1009")]
+#[case::custom_missing_archive_denied_warning_incomplete("inspection-1010")]
+#[case::custom_missing_archive_denied_warning_deny_warnings_incomplete("inspection-1011")]
+#[case::custom_missing_archive_denied_duplicate_incomplete("inspection-1012")]
+#[case::custom_missing_archive_denied_duplicate_deny_warnings_incomplete("inspection-1013")]
+#[case::custom_missing_archive_denied_duplicate_warning_incomplete("inspection-1014")]
+#[case::custom_missing_archive_denied_duplicate_warning_deny_warnings_incomplete("inspection-1015")]
+#[case::custom_missing_archive_denied_foreign_incomplete("inspection-1016")]
+#[case::custom_missing_archive_denied_foreign_deny_warnings_incomplete("inspection-1017")]
+#[case::custom_missing_archive_denied_foreign_warning_incomplete("inspection-1018")]
+#[case::custom_missing_archive_denied_foreign_warning_deny_warnings_incomplete("inspection-1019")]
+#[case::custom_missing_archive_allowed_incomplete("inspection-1020")]
+#[case::custom_missing_archive_allowed_deny_warnings_incomplete("inspection-1021")]
+#[case::custom_missing_archive_allowed_warning_incomplete("inspection-1022")]
+#[case::custom_missing_archive_allowed_warning_deny_warnings_incomplete("inspection-1023")]
+#[case::custom_missing_archive_allowed_duplicate_incomplete("inspection-1024")]
+#[case::custom_missing_archive_allowed_duplicate_deny_warnings_incomplete("inspection-1025")]
+#[case::custom_missing_archive_allowed_duplicate_warning_incomplete("inspection-1026")]
+#[case::custom_missing_archive_allowed_duplicate_warning_deny_warnings_incomplete(
+    "inspection-1027"
+)]
+#[case::custom_missing_archive_allowed_foreign_incomplete("inspection-1028")]
+#[case::custom_missing_archive_allowed_foreign_deny_warnings_incomplete("inspection-1029")]
+#[case::custom_missing_archive_allowed_foreign_warning_incomplete("inspection-1030")]
+#[case::custom_missing_archive_allowed_foreign_warning_deny_warnings_incomplete("inspection-1031")]
+#[case::custom_missing_archive_archive_required_denied_incomplete("inspection-1032")]
+#[case::custom_missing_archive_archive_required_denied_deny_warnings_incomplete("inspection-1033")]
+#[case::custom_missing_archive_archive_required_denied_warning_incomplete("inspection-1034")]
+#[case::custom_missing_archive_archive_required_denied_warning_deny_warnings_incomplete(
+    "inspection-1035"
+)]
+#[case::custom_missing_archive_archive_required_denied_duplicate_incomplete("inspection-1036")]
+#[case::custom_missing_archive_archive_required_denied_duplicate_deny_warnings_incomplete(
+    "inspection-1037"
+)]
+#[case::custom_missing_archive_archive_required_denied_duplicate_warning_incomplete(
+    "inspection-1038"
+)]
+#[case::custom_missing_archive_archive_required_denied_duplicate_warning_deny_warnings_incomplete(
+    "inspection-1039"
+)]
+#[case::custom_missing_archive_archive_required_denied_foreign_incomplete("inspection-1040")]
+#[case::custom_missing_archive_archive_required_denied_foreign_deny_warnings_incomplete(
+    "inspection-1041"
+)]
+#[case::custom_missing_archive_archive_required_denied_foreign_warning_incomplete(
+    "inspection-1042"
+)]
+#[case::custom_missing_archive_archive_required_denied_foreign_warning_deny_warnings_incomplete(
+    "inspection-1043"
+)]
+#[case::custom_missing_archive_archive_required_allowed_incomplete("inspection-1044")]
+#[case::custom_missing_archive_archive_required_allowed_deny_warnings_incomplete("inspection-1045")]
+#[case::custom_missing_archive_archive_required_allowed_warning_incomplete("inspection-1046")]
+#[case::custom_missing_archive_archive_required_allowed_warning_deny_warnings_incomplete(
+    "inspection-1047"
+)]
+#[case::custom_missing_archive_archive_required_allowed_duplicate_incomplete("inspection-1048")]
+#[case::custom_missing_archive_archive_required_allowed_duplicate_deny_warnings_incomplete(
+    "inspection-1049"
+)]
+#[case::custom_missing_archive_archive_required_allowed_duplicate_warning_incomplete(
+    "inspection-1050"
+)]
+#[case::custom_missing_archive_archive_required_allowed_duplicate_warning_deny_warnings_incomplete(
+    "inspection-1051"
+)]
+#[case::custom_missing_archive_archive_required_allowed_foreign_incomplete("inspection-1052")]
+#[case::custom_missing_archive_archive_required_allowed_foreign_deny_warnings_incomplete(
+    "inspection-1053"
+)]
+#[case::custom_missing_archive_archive_required_allowed_foreign_warning_incomplete(
+    "inspection-1054"
+)]
+#[case::custom_missing_archive_archive_required_allowed_foreign_warning_deny_warnings_incomplete(
+    "inspection-1055"
+)]
+#[case::custom_sidecar_missing_denied_incomplete("inspection-1056")]
+#[case::custom_sidecar_missing_denied_deny_warnings_incomplete("inspection-1057")]
+#[case::custom_sidecar_missing_denied_warning_incomplete("inspection-1058")]
+#[case::custom_sidecar_missing_denied_warning_deny_warnings_incomplete("inspection-1059")]
+#[case::custom_sidecar_missing_denied_duplicate_incomplete("inspection-1060")]
+#[case::custom_sidecar_missing_denied_duplicate_deny_warnings_incomplete("inspection-1061")]
+#[case::custom_sidecar_missing_denied_duplicate_warning_incomplete("inspection-1062")]
+#[case::custom_sidecar_missing_denied_duplicate_warning_deny_warnings_incomplete("inspection-1063")]
+#[case::custom_sidecar_missing_denied_foreign_incomplete("inspection-1064")]
+#[case::custom_sidecar_missing_denied_foreign_deny_warnings_incomplete("inspection-1065")]
+#[case::custom_sidecar_missing_denied_foreign_warning_incomplete("inspection-1066")]
+#[case::custom_sidecar_missing_denied_foreign_warning_deny_warnings_incomplete("inspection-1067")]
+#[case::custom_sidecar_missing_allowed_incomplete("inspection-1068")]
+#[case::custom_sidecar_missing_allowed_deny_warnings_incomplete("inspection-1069")]
+#[case::custom_sidecar_missing_allowed_warning_incomplete("inspection-1070")]
+#[case::custom_sidecar_missing_allowed_warning_deny_warnings_incomplete("inspection-1071")]
+#[case::custom_sidecar_missing_allowed_duplicate_incomplete("inspection-1072")]
+#[case::custom_sidecar_missing_allowed_duplicate_deny_warnings_incomplete("inspection-1073")]
+#[case::custom_sidecar_missing_allowed_duplicate_warning_incomplete("inspection-1074")]
+#[case::custom_sidecar_missing_allowed_duplicate_warning_deny_warnings_incomplete(
+    "inspection-1075"
+)]
+#[case::custom_sidecar_missing_allowed_foreign_incomplete("inspection-1076")]
+#[case::custom_sidecar_missing_allowed_foreign_deny_warnings_incomplete("inspection-1077")]
+#[case::custom_sidecar_missing_allowed_foreign_warning_incomplete("inspection-1078")]
+#[case::custom_sidecar_missing_allowed_foreign_warning_deny_warnings_incomplete("inspection-1079")]
+#[case::custom_sidecar_missing_archive_required_denied_incomplete("inspection-1080")]
+#[case::custom_sidecar_missing_archive_required_denied_deny_warnings_incomplete("inspection-1081")]
+#[case::custom_sidecar_missing_archive_required_denied_warning_incomplete("inspection-1082")]
+#[case::custom_sidecar_missing_archive_required_denied_warning_deny_warnings_incomplete(
+    "inspection-1083"
+)]
+#[case::custom_sidecar_missing_archive_required_denied_duplicate_incomplete("inspection-1084")]
+#[case::custom_sidecar_missing_archive_required_denied_duplicate_deny_warnings_incomplete(
+    "inspection-1085"
+)]
+#[case::custom_sidecar_missing_archive_required_denied_duplicate_warning_incomplete(
+    "inspection-1086"
+)]
+#[case::custom_sidecar_missing_archive_required_denied_duplicate_warning_deny_warnings_incomplete(
+    "inspection-1087"
+)]
+#[case::custom_sidecar_missing_archive_required_denied_foreign_incomplete("inspection-1088")]
+#[case::custom_sidecar_missing_archive_required_denied_foreign_deny_warnings_incomplete(
+    "inspection-1089"
+)]
+#[case::custom_sidecar_missing_archive_required_denied_foreign_warning_incomplete(
+    "inspection-1090"
+)]
+#[case::custom_sidecar_missing_archive_required_denied_foreign_warning_deny_warnings_incomplete(
+    "inspection-1091"
+)]
+#[case::custom_sidecar_missing_archive_required_allowed_incomplete("inspection-1092")]
+#[case::custom_sidecar_missing_archive_required_allowed_deny_warnings_incomplete("inspection-1093")]
+#[case::custom_sidecar_missing_archive_required_allowed_warning_incomplete("inspection-1094")]
+#[case::custom_sidecar_missing_archive_required_allowed_warning_deny_warnings_incomplete(
+    "inspection-1095"
+)]
+#[case::custom_sidecar_missing_archive_required_allowed_duplicate_incomplete("inspection-1096")]
+#[case::custom_sidecar_missing_archive_required_allowed_duplicate_deny_warnings_incomplete(
+    "inspection-1097"
+)]
+#[case::custom_sidecar_missing_archive_required_allowed_duplicate_warning_incomplete(
+    "inspection-1098"
+)]
+#[case::custom_sidecar_missing_archive_required_allowed_duplicate_warning_deny_warnings_incomplete(
+    "inspection-1099"
+)]
+#[case::custom_sidecar_missing_archive_required_allowed_foreign_incomplete("inspection-1100")]
+#[case::custom_sidecar_missing_archive_required_allowed_foreign_deny_warnings_incomplete(
+    "inspection-1101"
+)]
+#[case::custom_sidecar_missing_archive_required_allowed_foreign_warning_incomplete(
+    "inspection-1102"
+)]
+#[case::custom_sidecar_missing_archive_required_allowed_foreign_warning_deny_warnings_incomplete(
+    "inspection-1103"
+)]
+#[case::custom_sidecar_sidecar_denied("inspection-1104")]
+#[case::custom_sidecar_sidecar_denied_deny_warnings_denied("inspection-1105")]
+#[case::custom_sidecar_sidecar_denied_warning_denied("inspection-1106")]
+#[case::custom_sidecar_sidecar_denied_warning_deny_warnings_denied("inspection-1107")]
+#[case::custom_sidecar_sidecar_denied_duplicate_incomplete("inspection-1108")]
+#[case::custom_sidecar_sidecar_denied_duplicate_deny_warnings_incomplete("inspection-1109")]
+#[case::custom_sidecar_sidecar_denied_duplicate_warning_incomplete("inspection-1110")]
+#[case::custom_sidecar_sidecar_denied_duplicate_warning_deny_warnings_incomplete("inspection-1111")]
+#[case::custom_sidecar_sidecar_denied_foreign_incomplete("inspection-1112")]
+#[case::custom_sidecar_sidecar_denied_foreign_deny_warnings_incomplete("inspection-1113")]
+#[case::custom_sidecar_sidecar_denied_foreign_warning_incomplete("inspection-1114")]
+#[case::custom_sidecar_sidecar_denied_foreign_warning_deny_warnings_incomplete("inspection-1115")]
+#[case::custom_sidecar_sidecar_allowed_denied("inspection-1116")]
+#[case::custom_sidecar_sidecar_allowed_deny_warnings_denied("inspection-1117")]
+#[case::custom_sidecar_sidecar_allowed_warning_denied("inspection-1118")]
+#[case::custom_sidecar_sidecar_allowed_warning_deny_warnings_denied("inspection-1119")]
+#[case::custom_sidecar_sidecar_allowed_duplicate_incomplete("inspection-1120")]
+#[case::custom_sidecar_sidecar_allowed_duplicate_deny_warnings_incomplete("inspection-1121")]
+#[case::custom_sidecar_sidecar_allowed_duplicate_warning_incomplete("inspection-1122")]
+#[case::custom_sidecar_sidecar_allowed_duplicate_warning_deny_warnings_incomplete(
+    "inspection-1123"
+)]
+#[case::custom_sidecar_sidecar_allowed_foreign_incomplete("inspection-1124")]
+#[case::custom_sidecar_sidecar_allowed_foreign_deny_warnings_incomplete("inspection-1125")]
+#[case::custom_sidecar_sidecar_allowed_foreign_warning_incomplete("inspection-1126")]
+#[case::custom_sidecar_sidecar_allowed_foreign_warning_deny_warnings_incomplete("inspection-1127")]
+#[case::custom_sidecar_sidecar_archive_required_denied_incomplete("inspection-1128")]
+#[case::custom_sidecar_sidecar_archive_required_denied_deny_warnings_incomplete("inspection-1129")]
+#[case::custom_sidecar_sidecar_archive_required_denied_warning_incomplete("inspection-1130")]
+#[case::custom_sidecar_sidecar_archive_required_denied_warning_deny_warnings_incomplete(
+    "inspection-1131"
+)]
+#[case::custom_sidecar_sidecar_archive_required_denied_duplicate_incomplete("inspection-1132")]
+#[case::custom_sidecar_sidecar_archive_required_denied_duplicate_deny_warnings_incomplete(
+    "inspection-1133"
+)]
+#[case::custom_sidecar_sidecar_archive_required_denied_duplicate_warning_incomplete(
+    "inspection-1134"
+)]
+#[case::custom_sidecar_sidecar_archive_required_denied_duplicate_warning_deny_warnings_incomplete(
+    "inspection-1135"
+)]
+#[case::custom_sidecar_sidecar_archive_required_denied_foreign_incomplete("inspection-1136")]
+#[case::custom_sidecar_sidecar_archive_required_denied_foreign_deny_warnings_incomplete(
+    "inspection-1137"
+)]
+#[case::custom_sidecar_sidecar_archive_required_denied_foreign_warning_incomplete(
+    "inspection-1138"
+)]
+#[case::custom_sidecar_sidecar_archive_required_denied_foreign_warning_deny_warnings_incomplete(
+    "inspection-1139"
+)]
+#[case::custom_sidecar_sidecar_archive_required_allowed_incomplete("inspection-1140")]
+#[case::custom_sidecar_sidecar_archive_required_allowed_deny_warnings_incomplete("inspection-1141")]
+#[case::custom_sidecar_sidecar_archive_required_allowed_warning_incomplete("inspection-1142")]
+#[case::custom_sidecar_sidecar_archive_required_allowed_warning_deny_warnings_incomplete(
+    "inspection-1143"
+)]
+#[case::custom_sidecar_sidecar_archive_required_allowed_duplicate_incomplete("inspection-1144")]
+#[case::custom_sidecar_sidecar_archive_required_allowed_duplicate_deny_warnings_incomplete(
+    "inspection-1145"
+)]
+#[case::custom_sidecar_sidecar_archive_required_allowed_duplicate_warning_incomplete(
+    "inspection-1146"
+)]
+#[case::custom_sidecar_sidecar_archive_required_allowed_duplicate_warning_deny_warnings_incomplete(
+    "inspection-1147"
+)]
+#[case::custom_sidecar_sidecar_archive_required_allowed_foreign_incomplete("inspection-1148")]
+#[case::custom_sidecar_sidecar_archive_required_allowed_foreign_deny_warnings_incomplete(
+    "inspection-1149"
+)]
+#[case::custom_sidecar_sidecar_archive_required_allowed_foreign_warning_incomplete(
+    "inspection-1150"
+)]
+#[case::custom_sidecar_sidecar_archive_required_allowed_foreign_warning_deny_warnings_incomplete(
+    "inspection-1151"
+)]
+#[case::custom_sidecar_archive_denied("inspection-1152")]
+#[case::custom_sidecar_archive_denied_deny_warnings_denied("inspection-1153")]
+#[case::custom_sidecar_archive_denied_warning_denied("inspection-1154")]
+#[case::custom_sidecar_archive_denied_warning_deny_warnings_denied("inspection-1155")]
+#[case::custom_sidecar_archive_denied_duplicate_incomplete("inspection-1156")]
+#[case::custom_sidecar_archive_denied_duplicate_deny_warnings_incomplete("inspection-1157")]
+#[case::custom_sidecar_archive_denied_duplicate_warning_incomplete("inspection-1158")]
+#[case::custom_sidecar_archive_denied_duplicate_warning_deny_warnings_incomplete("inspection-1159")]
+#[case::custom_sidecar_archive_denied_foreign_incomplete("inspection-1160")]
+#[case::custom_sidecar_archive_denied_foreign_deny_warnings_incomplete("inspection-1161")]
+#[case::custom_sidecar_archive_denied_foreign_warning_incomplete("inspection-1162")]
+#[case::custom_sidecar_archive_denied_foreign_warning_deny_warnings_incomplete("inspection-1163")]
+#[case::custom_sidecar_archive_allowed_denied("inspection-1164")]
+#[case::custom_sidecar_archive_allowed_deny_warnings_denied("inspection-1165")]
+#[case::custom_sidecar_archive_allowed_warning_denied("inspection-1166")]
+#[case::custom_sidecar_archive_allowed_warning_deny_warnings_denied("inspection-1167")]
+#[case::custom_sidecar_archive_allowed_duplicate_incomplete("inspection-1168")]
+#[case::custom_sidecar_archive_allowed_duplicate_deny_warnings_incomplete("inspection-1169")]
+#[case::custom_sidecar_archive_allowed_duplicate_warning_incomplete("inspection-1170")]
+#[case::custom_sidecar_archive_allowed_duplicate_warning_deny_warnings_incomplete(
+    "inspection-1171"
+)]
+#[case::custom_sidecar_archive_allowed_foreign_incomplete("inspection-1172")]
+#[case::custom_sidecar_archive_allowed_foreign_deny_warnings_incomplete("inspection-1173")]
+#[case::custom_sidecar_archive_allowed_foreign_warning_incomplete("inspection-1174")]
+#[case::custom_sidecar_archive_allowed_foreign_warning_deny_warnings_incomplete("inspection-1175")]
+#[case::custom_sidecar_archive_archive_required_denied_incomplete("inspection-1176")]
+#[case::custom_sidecar_archive_archive_required_denied_deny_warnings_incomplete("inspection-1177")]
+#[case::custom_sidecar_archive_archive_required_denied_warning_incomplete("inspection-1178")]
+#[case::custom_sidecar_archive_archive_required_denied_warning_deny_warnings_incomplete(
+    "inspection-1179"
+)]
+#[case::custom_sidecar_archive_archive_required_denied_duplicate_incomplete("inspection-1180")]
+#[case::custom_sidecar_archive_archive_required_denied_duplicate_deny_warnings_incomplete(
+    "inspection-1181"
+)]
+#[case::custom_sidecar_archive_archive_required_denied_duplicate_warning_incomplete(
+    "inspection-1182"
+)]
+#[case::custom_sidecar_archive_archive_required_denied_duplicate_warning_deny_warnings_incomplete(
+    "inspection-1183"
+)]
+#[case::custom_sidecar_archive_archive_required_denied_foreign_incomplete("inspection-1184")]
+#[case::custom_sidecar_archive_archive_required_denied_foreign_deny_warnings_incomplete(
+    "inspection-1185"
+)]
+#[case::custom_sidecar_archive_archive_required_denied_foreign_warning_incomplete(
+    "inspection-1186"
+)]
+#[case::custom_sidecar_archive_archive_required_denied_foreign_warning_deny_warnings_incomplete(
+    "inspection-1187"
+)]
+#[case::custom_sidecar_archive_archive_required_allowed_incomplete("inspection-1188")]
+#[case::custom_sidecar_archive_archive_required_allowed_deny_warnings_incomplete("inspection-1189")]
+#[case::custom_sidecar_archive_archive_required_allowed_warning_incomplete("inspection-1190")]
+#[case::custom_sidecar_archive_archive_required_allowed_warning_deny_warnings_incomplete(
+    "inspection-1191"
+)]
+#[case::custom_sidecar_archive_archive_required_allowed_duplicate_incomplete("inspection-1192")]
+#[case::custom_sidecar_archive_archive_required_allowed_duplicate_deny_warnings_incomplete(
+    "inspection-1193"
+)]
+#[case::custom_sidecar_archive_archive_required_allowed_duplicate_warning_incomplete(
+    "inspection-1194"
+)]
+#[case::custom_sidecar_archive_archive_required_allowed_duplicate_warning_deny_warnings_incomplete(
+    "inspection-1195"
+)]
+#[case::custom_sidecar_archive_archive_required_allowed_foreign_incomplete("inspection-1196")]
+#[case::custom_sidecar_archive_archive_required_allowed_foreign_deny_warnings_incomplete(
+    "inspection-1197"
+)]
+#[case::custom_sidecar_archive_archive_required_allowed_foreign_warning_incomplete(
+    "inspection-1198"
+)]
+#[case::custom_sidecar_archive_archive_required_allowed_foreign_warning_deny_warnings_incomplete(
+    "inspection-1199"
+)]
+#[case::custom_archive_missing_denied_incomplete("inspection-1200")]
+#[case::custom_archive_missing_denied_deny_warnings_incomplete("inspection-1201")]
+#[case::custom_archive_missing_denied_warning_incomplete("inspection-1202")]
+#[case::custom_archive_missing_denied_warning_deny_warnings_incomplete("inspection-1203")]
+#[case::custom_archive_missing_denied_duplicate_incomplete("inspection-1204")]
+#[case::custom_archive_missing_denied_duplicate_deny_warnings_incomplete("inspection-1205")]
+#[case::custom_archive_missing_denied_duplicate_warning_incomplete("inspection-1206")]
+#[case::custom_archive_missing_denied_duplicate_warning_deny_warnings_incomplete("inspection-1207")]
+#[case::custom_archive_missing_denied_foreign_incomplete("inspection-1208")]
+#[case::custom_archive_missing_denied_foreign_deny_warnings_incomplete("inspection-1209")]
+#[case::custom_archive_missing_denied_foreign_warning_incomplete("inspection-1210")]
+#[case::custom_archive_missing_denied_foreign_warning_deny_warnings_incomplete("inspection-1211")]
+#[case::custom_archive_missing_allowed_incomplete("inspection-1212")]
+#[case::custom_archive_missing_allowed_deny_warnings_incomplete("inspection-1213")]
+#[case::custom_archive_missing_allowed_warning_incomplete("inspection-1214")]
+#[case::custom_archive_missing_allowed_warning_deny_warnings_incomplete("inspection-1215")]
+#[case::custom_archive_missing_allowed_duplicate_incomplete("inspection-1216")]
+#[case::custom_archive_missing_allowed_duplicate_deny_warnings_incomplete("inspection-1217")]
+#[case::custom_archive_missing_allowed_duplicate_warning_incomplete("inspection-1218")]
+#[case::custom_archive_missing_allowed_duplicate_warning_deny_warnings_incomplete(
+    "inspection-1219"
+)]
+#[case::custom_archive_missing_allowed_foreign_incomplete("inspection-1220")]
+#[case::custom_archive_missing_allowed_foreign_deny_warnings_incomplete("inspection-1221")]
+#[case::custom_archive_missing_allowed_foreign_warning_incomplete("inspection-1222")]
+#[case::custom_archive_missing_allowed_foreign_warning_deny_warnings_incomplete("inspection-1223")]
+#[case::custom_archive_missing_archive_required_denied_incomplete("inspection-1224")]
+#[case::custom_archive_missing_archive_required_denied_deny_warnings_incomplete("inspection-1225")]
+#[case::custom_archive_missing_archive_required_denied_warning_incomplete("inspection-1226")]
+#[case::custom_archive_missing_archive_required_denied_warning_deny_warnings_incomplete(
+    "inspection-1227"
+)]
+#[case::custom_archive_missing_archive_required_denied_duplicate_incomplete("inspection-1228")]
+#[case::custom_archive_missing_archive_required_denied_duplicate_deny_warnings_incomplete(
+    "inspection-1229"
+)]
+#[case::custom_archive_missing_archive_required_denied_duplicate_warning_incomplete(
+    "inspection-1230"
+)]
+#[case::custom_archive_missing_archive_required_denied_duplicate_warning_deny_warnings_incomplete(
+    "inspection-1231"
+)]
+#[case::custom_archive_missing_archive_required_denied_foreign_incomplete("inspection-1232")]
+#[case::custom_archive_missing_archive_required_denied_foreign_deny_warnings_incomplete(
+    "inspection-1233"
+)]
+#[case::custom_archive_missing_archive_required_denied_foreign_warning_incomplete(
+    "inspection-1234"
+)]
+#[case::custom_archive_missing_archive_required_denied_foreign_warning_deny_warnings_incomplete(
+    "inspection-1235"
+)]
+#[case::custom_archive_missing_archive_required_allowed_incomplete("inspection-1236")]
+#[case::custom_archive_missing_archive_required_allowed_deny_warnings_incomplete("inspection-1237")]
+#[case::custom_archive_missing_archive_required_allowed_warning_incomplete("inspection-1238")]
+#[case::custom_archive_missing_archive_required_allowed_warning_deny_warnings_incomplete(
+    "inspection-1239"
+)]
+#[case::custom_archive_missing_archive_required_allowed_duplicate_incomplete("inspection-1240")]
+#[case::custom_archive_missing_archive_required_allowed_duplicate_deny_warnings_incomplete(
+    "inspection-1241"
+)]
+#[case::custom_archive_missing_archive_required_allowed_duplicate_warning_incomplete(
+    "inspection-1242"
+)]
+#[case::custom_archive_missing_archive_required_allowed_duplicate_warning_deny_warnings_incomplete(
+    "inspection-1243"
+)]
+#[case::custom_archive_missing_archive_required_allowed_foreign_incomplete("inspection-1244")]
+#[case::custom_archive_missing_archive_required_allowed_foreign_deny_warnings_incomplete(
+    "inspection-1245"
+)]
+#[case::custom_archive_missing_archive_required_allowed_foreign_warning_incomplete(
+    "inspection-1246"
+)]
+#[case::custom_archive_missing_archive_required_allowed_foreign_warning_deny_warnings_incomplete(
+    "inspection-1247"
+)]
+#[case::custom_archive_sidecar_denied("inspection-1248")]
+#[case::custom_archive_sidecar_denied_deny_warnings_denied("inspection-1249")]
+#[case::custom_archive_sidecar_denied_warning_denied("inspection-1250")]
+#[case::custom_archive_sidecar_denied_warning_deny_warnings_denied("inspection-1251")]
+#[case::custom_archive_sidecar_denied_duplicate_incomplete("inspection-1252")]
+#[case::custom_archive_sidecar_denied_duplicate_deny_warnings_incomplete("inspection-1253")]
+#[case::custom_archive_sidecar_denied_duplicate_warning_incomplete("inspection-1254")]
+#[case::custom_archive_sidecar_denied_duplicate_warning_deny_warnings_incomplete("inspection-1255")]
+#[case::custom_archive_sidecar_denied_foreign_incomplete("inspection-1256")]
+#[case::custom_archive_sidecar_denied_foreign_deny_warnings_incomplete("inspection-1257")]
+#[case::custom_archive_sidecar_denied_foreign_warning_incomplete("inspection-1258")]
+#[case::custom_archive_sidecar_denied_foreign_warning_deny_warnings_incomplete("inspection-1259")]
+#[case::custom_archive_sidecar_allowed_denied("inspection-1260")]
+#[case::custom_archive_sidecar_allowed_deny_warnings_denied("inspection-1261")]
+#[case::custom_archive_sidecar_allowed_warning_denied("inspection-1262")]
+#[case::custom_archive_sidecar_allowed_warning_deny_warnings_denied("inspection-1263")]
+#[case::custom_archive_sidecar_allowed_duplicate_incomplete("inspection-1264")]
+#[case::custom_archive_sidecar_allowed_duplicate_deny_warnings_incomplete("inspection-1265")]
+#[case::custom_archive_sidecar_allowed_duplicate_warning_incomplete("inspection-1266")]
+#[case::custom_archive_sidecar_allowed_duplicate_warning_deny_warnings_incomplete(
+    "inspection-1267"
+)]
+#[case::custom_archive_sidecar_allowed_foreign_incomplete("inspection-1268")]
+#[case::custom_archive_sidecar_allowed_foreign_deny_warnings_incomplete("inspection-1269")]
+#[case::custom_archive_sidecar_allowed_foreign_warning_incomplete("inspection-1270")]
+#[case::custom_archive_sidecar_allowed_foreign_warning_deny_warnings_incomplete("inspection-1271")]
+#[case::custom_archive_sidecar_archive_required_denied_incomplete("inspection-1272")]
+#[case::custom_archive_sidecar_archive_required_denied_deny_warnings_incomplete("inspection-1273")]
+#[case::custom_archive_sidecar_archive_required_denied_warning_incomplete("inspection-1274")]
+#[case::custom_archive_sidecar_archive_required_denied_warning_deny_warnings_incomplete(
+    "inspection-1275"
+)]
+#[case::custom_archive_sidecar_archive_required_denied_duplicate_incomplete("inspection-1276")]
+#[case::custom_archive_sidecar_archive_required_denied_duplicate_deny_warnings_incomplete(
+    "inspection-1277"
+)]
+#[case::custom_archive_sidecar_archive_required_denied_duplicate_warning_incomplete(
+    "inspection-1278"
+)]
+#[case::custom_archive_sidecar_archive_required_denied_duplicate_warning_deny_warnings_incomplete(
+    "inspection-1279"
+)]
+#[case::custom_archive_sidecar_archive_required_denied_foreign_incomplete("inspection-1280")]
+#[case::custom_archive_sidecar_archive_required_denied_foreign_deny_warnings_incomplete(
+    "inspection-1281"
+)]
+#[case::custom_archive_sidecar_archive_required_denied_foreign_warning_incomplete(
+    "inspection-1282"
+)]
+#[case::custom_archive_sidecar_archive_required_denied_foreign_warning_deny_warnings_incomplete(
+    "inspection-1283"
+)]
+#[case::custom_archive_sidecar_archive_required_allowed_incomplete("inspection-1284")]
+#[case::custom_archive_sidecar_archive_required_allowed_deny_warnings_incomplete("inspection-1285")]
+#[case::custom_archive_sidecar_archive_required_allowed_warning_incomplete("inspection-1286")]
+#[case::custom_archive_sidecar_archive_required_allowed_warning_deny_warnings_incomplete(
+    "inspection-1287"
+)]
+#[case::custom_archive_sidecar_archive_required_allowed_duplicate_incomplete("inspection-1288")]
+#[case::custom_archive_sidecar_archive_required_allowed_duplicate_deny_warnings_incomplete(
+    "inspection-1289"
+)]
+#[case::custom_archive_sidecar_archive_required_allowed_duplicate_warning_incomplete(
+    "inspection-1290"
+)]
+#[case::custom_archive_sidecar_archive_required_allowed_duplicate_warning_deny_warnings_incomplete(
+    "inspection-1291"
+)]
+#[case::custom_archive_sidecar_archive_required_allowed_foreign_incomplete("inspection-1292")]
+#[case::custom_archive_sidecar_archive_required_allowed_foreign_deny_warnings_incomplete(
+    "inspection-1293"
+)]
+#[case::custom_archive_sidecar_archive_required_allowed_foreign_warning_incomplete(
+    "inspection-1294"
+)]
+#[case::custom_archive_sidecar_archive_required_allowed_foreign_warning_deny_warnings_incomplete(
+    "inspection-1295"
+)]
+#[case::custom_archive_archive_denied("inspection-1296")]
+#[case::custom_archive_archive_denied_deny_warnings_denied("inspection-1297")]
+#[case::custom_archive_archive_denied_warning_denied("inspection-1298")]
+#[case::custom_archive_archive_denied_warning_deny_warnings_denied("inspection-1299")]
+#[case::custom_archive_archive_denied_duplicate_incomplete("inspection-1300")]
+#[case::custom_archive_archive_denied_duplicate_deny_warnings_incomplete("inspection-1301")]
+#[case::custom_archive_archive_denied_duplicate_warning_incomplete("inspection-1302")]
+#[case::custom_archive_archive_denied_duplicate_warning_deny_warnings_incomplete("inspection-1303")]
+#[case::custom_archive_archive_denied_foreign_incomplete("inspection-1304")]
+#[case::custom_archive_archive_denied_foreign_deny_warnings_incomplete("inspection-1305")]
+#[case::custom_archive_archive_denied_foreign_warning_incomplete("inspection-1306")]
+#[case::custom_archive_archive_denied_foreign_warning_deny_warnings_incomplete("inspection-1307")]
+#[case::custom_archive_archive_allowed_denied("inspection-1308")]
+#[case::custom_archive_archive_allowed_deny_warnings_denied("inspection-1309")]
+#[case::custom_archive_archive_allowed_warning_denied("inspection-1310")]
+#[case::custom_archive_archive_allowed_warning_deny_warnings_denied("inspection-1311")]
+#[case::custom_archive_archive_allowed_duplicate_incomplete("inspection-1312")]
+#[case::custom_archive_archive_allowed_duplicate_deny_warnings_incomplete("inspection-1313")]
+#[case::custom_archive_archive_allowed_duplicate_warning_incomplete("inspection-1314")]
+#[case::custom_archive_archive_allowed_duplicate_warning_deny_warnings_incomplete(
+    "inspection-1315"
+)]
+#[case::custom_archive_archive_allowed_foreign_incomplete("inspection-1316")]
+#[case::custom_archive_archive_allowed_foreign_deny_warnings_incomplete("inspection-1317")]
+#[case::custom_archive_archive_allowed_foreign_warning_incomplete("inspection-1318")]
+#[case::custom_archive_archive_allowed_foreign_warning_deny_warnings_incomplete("inspection-1319")]
+#[case::custom_archive_archive_archive_required_denied("inspection-1320")]
+#[case::custom_archive_archive_archive_required_denied_deny_warnings_denied("inspection-1321")]
+#[case::custom_archive_archive_archive_required_denied_warning_denied("inspection-1322")]
+#[case::custom_archive_archive_archive_required_denied_warning_deny_warnings_denied(
+    "inspection-1323"
+)]
+#[case::custom_archive_archive_archive_required_denied_duplicate_incomplete("inspection-1324")]
+#[case::custom_archive_archive_archive_required_denied_duplicate_deny_warnings_incomplete(
+    "inspection-1325"
+)]
+#[case::custom_archive_archive_archive_required_denied_duplicate_warning_incomplete(
+    "inspection-1326"
+)]
+#[case::custom_archive_archive_archive_required_denied_duplicate_warning_deny_warnings_incomplete(
+    "inspection-1327"
+)]
+#[case::custom_archive_archive_archive_required_denied_foreign_incomplete("inspection-1328")]
+#[case::custom_archive_archive_archive_required_denied_foreign_deny_warnings_incomplete(
+    "inspection-1329"
+)]
+#[case::custom_archive_archive_archive_required_denied_foreign_warning_incomplete(
+    "inspection-1330"
+)]
+#[case::custom_archive_archive_archive_required_denied_foreign_warning_deny_warnings_incomplete(
+    "inspection-1331"
+)]
+#[case::custom_archive_archive_archive_required_allowed_denied("inspection-1332")]
+#[case::custom_archive_archive_archive_required_allowed_deny_warnings_denied("inspection-1333")]
+#[case::custom_archive_archive_archive_required_allowed_warning_denied("inspection-1334")]
+#[case::custom_archive_archive_archive_required_allowed_warning_deny_warnings_denied(
+    "inspection-1335"
+)]
+#[case::custom_archive_archive_archive_required_allowed_duplicate_incomplete("inspection-1336")]
+#[case::custom_archive_archive_archive_required_allowed_duplicate_deny_warnings_incomplete(
+    "inspection-1337"
+)]
+#[case::custom_archive_archive_archive_required_allowed_duplicate_warning_incomplete(
+    "inspection-1338"
+)]
+#[case::custom_archive_archive_archive_required_allowed_duplicate_warning_deny_warnings_incomplete(
+    "inspection-1339"
+)]
+#[case::custom_archive_archive_archive_required_allowed_foreign_incomplete("inspection-1340")]
+#[case::custom_archive_archive_archive_required_allowed_foreign_deny_warnings_incomplete(
+    "inspection-1341"
+)]
+#[case::custom_archive_archive_archive_required_allowed_foreign_warning_incomplete(
+    "inspection-1342"
+)]
+#[case::custom_archive_archive_archive_required_allowed_foreign_warning_deny_warnings_incomplete(
+    "inspection-1343"
+)]
+fn rust_policy_matches_lean_generated_case(#[case] case_id: &str) {
+    // Arrange: stable corpus IDs survive row reordering; case names describe inputs and outcome.
+    let case = include_str!("fixtures/oracle/policy.jsonl")
+        .lines()
+        .find_map(|line| {
+            let case: Case = serde_json::from_str(line)
+                .expect("oracle infrastructure error: malformed generated case");
+            let id = match &case {
+                Case::Permission { id, .. } | Case::Expiry { id, .. } => id,
+                Case::Inspection(inspection) => &inspection.id,
+            };
+            (id == case_id).then_some(case)
+        })
+        .expect("named oracle case must exist in the frozen corpus");
+    // Act and Assert: typed adapters compare the public operation with the corpus expectation.
+    check_case(case);
+}
+
 #[test]
-fn rust_policy_matches_lean_generated_cases() {
-    let corpus = include_str!("fixtures/oracle/policy.jsonl");
-    let mut count = 0;
-    for line in corpus.lines().filter(|s| !s.is_empty()) {
-        let case: Case = serde_json::from_str(line)
-            .expect("oracle infrastructure error: malformed generated case");
-        match case {
-            Case::Inspection(case) => check_inspection(case),
-            Case::Permission {
-                schema,
-                id,
-                mode,
-                expression,
-                allow,
-                expected,
-            } => {
-                assert_eq!(schema, 1);
-                assert_eq!(mode, "strict");
-                let date = EvaluationDate::parse("2026-10-30").unwrap();
-                let text = format!(
-                    "[tool.taloon]\nschema-version=1\nallow={}",
-                    serde_json::to_string(&allow).unwrap()
-                );
-                let policy = Policy::from_pyproject(&text, date).expect("oracle setup failed");
-                let hash = ContentHash::digest(b"oracle");
-                let request = ArtifactRequest::new(
-                    PackageId::parse(
-                        "oracle",
-                        "1.0",
-                        SourceId::parse("registry", "https://pypi.org/simple").unwrap(),
-                    )
-                    .unwrap(),
-                    ArtifactLocator::url("https://example.test/oracle.whl").unwrap(),
-                    ArtifactFormat::Wheel,
-                    Some(hash),
+fn policy_corpus_rows_all_have_named_adapters() {
+    assert_eq!(
+        include_str!("fixtures/oracle/policy.jsonl").lines().count(),
+        1347
+    );
+}
+
+fn check_case(case: Case) {
+    match case {
+        Case::Inspection(case) => check_inspection(case),
+        Case::Permission {
+            schema,
+            id,
+            mode,
+            expression,
+            allow,
+            expected,
+        } => {
+            assert_eq!(schema, 1);
+            assert_eq!(mode, "strict");
+            let date = EvaluationDate::parse("2026-10-30").unwrap();
+            let text = format!(
+                "[tool.taloon]\nschema-version=1\nallow={}",
+                serde_json::to_string(&allow).unwrap()
+            );
+            let policy = Policy::from_pyproject(&text, date).expect("oracle setup failed");
+            let hash = ContentHash::digest(b"oracle");
+            let request = ArtifactRequest::new(
+                PackageId::parse(
+                    "oracle",
+                    "1.0",
+                    SourceId::parse("registry", "https://pypi.org/simple").unwrap(),
                 )
-                .unwrap();
-                let expr = LicenseExpression::parse(&expression)
-                    .expect("oracle expression adapter failed");
-                assert_eq!(
-                    policy.evaluate(&request, hash, &expr).is_permitted(),
-                    expected,
-                    "semantic mismatch: {id}"
-                );
-            }
-            Case::Expiry {
-                schema,
-                id,
-                mode,
-                date,
-                expires,
+                .unwrap(),
+                ArtifactLocator::url("https://example.test/oracle.whl").unwrap(),
+                ArtifactFormat::Wheel,
+                Some(hash),
+            )
+            .unwrap();
+            let expr =
+                LicenseExpression::parse(&expression).expect("oracle expression adapter failed");
+            assert_eq!(
+                policy.evaluate(&request, hash, &expr).is_permitted(),
                 expected,
-            } => {
-                assert_eq!(schema, 1);
-                assert_eq!(mode, "strict");
-                let text = format!(
-                    "[tool.taloon]\nschema-version=1\nallow=[]\n[[tool.taloon.exceptions]]\nname='unused'\nversion='1.0'\nsource={{kind='registry',location='https://pypi.org/simple'}}\nallow=['MIT']\nreason='oracle'\nexpires='{expires}'"
-                );
-                assert_eq!(
-                    Policy::from_pyproject(&text, EvaluationDate::parse(&date).unwrap()).is_ok(),
-                    expected,
-                    "semantic mismatch: {id}"
-                );
-            }
+                "semantic mismatch: {id}"
+            );
         }
-        count += 1;
+        Case::Expiry {
+            schema,
+            id,
+            mode,
+            date,
+            expires,
+            expected,
+        } => {
+            assert_eq!(schema, 1);
+            assert_eq!(mode, "strict");
+            let text = format!(
+                "[tool.taloon]\nschema-version=1\nallow=[]\n[[tool.taloon.exceptions]]\nname='unused'\nversion='1.0'\nsource={{kind='registry',location='https://pypi.org/simple'}}\nallow=['MIT']\nreason='oracle'\nexpires='{expires}'"
+            );
+            assert_eq!(
+                Policy::from_pyproject(&text, EvaluationDate::parse(&date).unwrap()).is_ok(),
+                expected,
+                "semantic mismatch: {id}"
+            );
+        }
     }
-    assert!(count > 0, "oracle infrastructure error: empty corpus");
 }
 
 fn check_inspection(case: InspectionCase) {

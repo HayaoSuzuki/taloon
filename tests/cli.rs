@@ -12,6 +12,12 @@ fn invoke(root: &Path, cache: &Path, args: &[&str]) -> Output {
         .output()
         .unwrap()
 }
+fn command_arguments(command: &str) -> Vec<&str> {
+    match command {
+        "describe" => vec!["describe", "example"],
+        _ => vec![command],
+    }
+}
 fn json(output: &Output) -> serde_json::Value {
     let mut objects =
         serde_json::Deserializer::from_slice(&output.stdout).into_iter::<serde_json::Value>();
@@ -36,59 +42,124 @@ fn project(root: &Path, fields: &str) {
     std::fs::write(root.join("uv.lock"),"version=1\nrevision=5\n[[package]]\nname='example'\nversion='1.0'\nsource={path='example.whl'}").unwrap();
     policy(root, "'MIT'");
 }
-#[test]
-fn cli_finds_nearest_lock_and_requires_sibling_policy() {
+#[rstest::rstest]
+#[case::nearest(vec!["check", "--offline", "--format=json"], 0, 1)]
+#[case::explicit_member(vec!["check", "--project", ".", "--format=json"], 2, 0)]
+fn cli_project_discovery(#[case] args: Vec<&str>, #[case] expected: i32, #[case] packages: usize) {
+    // Arrange
     let temp = tempfile::tempdir().unwrap();
-    let root = temp.path();
-    project(root, "License-Expression: MIT");
-    let member = root.join("members/a");
+    project(temp.path(), "License-Expression: MIT");
+    let member = temp.path().join("members/a");
     std::fs::create_dir_all(&member).unwrap();
-    let cache = root.join("cache");
-    let output = invoke(&member, &cache, &["check", "--offline", "--format", "json"]);
-    assert_eq!(output.status.code(), Some(0));
-    assert_eq!(json(&output)["packages"].as_array().unwrap().len(), 1);
-    let explicit = invoke(
-        &member,
-        &cache,
-        &["check", "--project", ".", "--format", "json"],
+    // Act
+    let output = invoke(&member, &temp.path().join("cache"), &args);
+    // Assert
+    assert_eq!(output.status.code(), Some(expected));
+    assert_eq!(
+        json(&output)["packages"].as_array().unwrap().len(),
+        packages
     );
-    assert_eq!(explicit.status.code(), Some(2));
-    json(&explicit);
-    std::fs::write(member.join("uv.lock"), "version=1\nrevision=5").unwrap();
-    let missing = invoke(&member, &cache, &["check", "--offline", "--format=json"]);
-    assert_eq!(missing.status.code(), Some(2));
-    json(&missing);
-    policy(&member, "");
-    let empty = invoke(&member, &cache, &["check", "--offline", "--format", "json"]);
-    assert_eq!(empty.status.code(), Some(0));
-    assert_eq!(json(&empty)["packages"], serde_json::json!([]));
 }
+
 #[test]
-fn cli_json_reports_complete_and_incomplete_runs() {
+fn nearest_lock_requires_its_own_sibling_policy() {
+    // Arrange
     let temp = tempfile::tempdir().unwrap();
-    let root = temp.path();
-    project(root, "License-Expression: MIT");
-    let cache = root.join("cache");
-    for (allow, expected) in [("'MIT'", 0), ("", 1)] {
-        policy(root, allow);
-        let output = invoke(root, &cache, &["check", "--offline", "--format", "json"]);
-        assert_eq!(output.status.code(), Some(expected));
-        json(&output);
-        assert!(
-            output.stderr.is_empty(),
-            "piped reports must not emit terminal progress"
-        );
-    }
-    std::fs::remove_file(root.join("example.whl")).unwrap();
-    let output = invoke(root, &cache, &["check", "--offline", "--format", "json"]);
+    project(temp.path(), "License-Expression: MIT");
+    let member = temp.path().join("members/a");
+    std::fs::create_dir_all(&member).unwrap();
+    std::fs::write(member.join("uv.lock"), "version=1\nrevision=5").unwrap();
+    // Act
+    let output = invoke(
+        &member,
+        &temp.path().join("cache"),
+        &["check", "--offline", "--format=json"],
+    );
+    // Assert
+    assert_eq!(output.status.code(), Some(2));
+    json(&output);
+}
+
+#[test]
+fn empty_inventory_with_sibling_policy_succeeds() {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    std::fs::write(temp.path().join("uv.lock"), "version=1\nrevision=5").unwrap();
+    policy(temp.path(), "");
+    // Act
+    let output = invoke(
+        temp.path(),
+        &temp.path().join("cache"),
+        &["check", "--offline", "--format=json"],
+    );
+    // Assert
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(json(&output)["packages"], serde_json::json!([]));
+}
+
+#[rstest::rstest]
+#[case::allowed("'MIT'", 0)]
+#[case::denied("", 1)]
+fn cli_complete_json_report(#[case] allow: &str, #[case] expected: i32) {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    project(temp.path(), "License-Expression: MIT");
+    policy(temp.path(), allow);
+    // Act
+    let output = invoke(
+        temp.path(),
+        &temp.path().join("cache"),
+        &["check", "--offline", "--format=json"],
+    );
+    // Assert
+    assert_eq!(output.status.code(), Some(expected));
+    assert_eq!(json(&output)["packages"].as_array().unwrap().len(), 1);
+    assert!(
+        output.stderr.is_empty(),
+        "piped reports must not emit terminal progress"
+    );
+}
+
+#[test]
+fn cli_missing_archive_is_incomplete() {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    project(temp.path(), "License-Expression: MIT");
+    std::fs::remove_file(temp.path().join("example.whl")).unwrap();
+    // Act
+    let output = invoke(
+        temp.path(),
+        &temp.path().join("cache"),
+        &["check", "--offline", "--format=json"],
+    );
+    // Assert
     assert_eq!(output.status.code(), Some(2));
     assert_eq!(json(&output)["status"], "incomplete");
-    let bad = invoke(root, &cache, &["check", "--format", "json", "--unknown"]);
-    assert_eq!(bad.status.code(), Some(2));
-    json(&bad);
 }
+
 #[test]
-fn cli_offline_policy_change_rechecks_cached_evidence() {
+fn cli_unknown_argument_preserves_json_output() {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    project(temp.path(), "License-Expression: MIT");
+    // Act
+    let output = invoke(
+        temp.path(),
+        &temp.path().join("cache"),
+        &["check", "--format=json", "--unknown"],
+    );
+    // Assert
+    assert_eq!(output.status.code(), Some(2));
+    json(&output);
+}
+
+#[rstest::rstest]
+#[case::revoked("", vec!["check", "--offline", "--format=json"])]
+#[case::unused_permission("'MIT','ISC'", vec!["check", "--offline", "--format=json", "--deny-warnings"])]
+fn cli_offline_policy_change_rechecks_cached_evidence(
+    #[case] allow: &str,
+    #[case] args: Vec<&str>,
+) {
     let temp = tempfile::tempdir().unwrap();
     let root = temp.path();
     project(root, "License-Expression: MIT");
@@ -96,21 +167,15 @@ fn cli_offline_policy_change_rechecks_cached_evidence() {
     let allowed = invoke(root, &cache, &["check", "--format", "json"]);
     assert_eq!(allowed.status.code(), Some(0));
     assert_eq!(json(&allowed)["acquisition"]["archive_extractions"], 1);
-    policy(root, "");
-    let denied = invoke(root, &cache, &["check", "--offline", "--format", "json"]);
+    policy(root, allow);
+    // Act
+    let denied = invoke(root, &cache, &args);
+    // Assert
     assert_eq!(denied.status.code(), Some(1));
     let report = json(&denied);
     assert_eq!(report["acquisition"]["archive_extractions"], 0);
     assert_eq!(report["acquisition"]["network_requests"], 0);
     assert_eq!(report["acquisition"]["cache_hits"], 1);
-    policy(root, "'MIT','ISC'");
-    let warning = invoke(
-        root,
-        &cache,
-        &["check", "--offline", "--format", "json", "--deny-warnings"],
-    );
-    assert_eq!(warning.status.code(), Some(1));
-    json(&warning);
 }
 
 #[cfg(unix)]
@@ -180,7 +245,7 @@ fn cli_never_resolves_builds_or_mutates_inputs() {
     );
 }
 #[test]
-fn cli_redacts_locator_secrets_and_escapes_terminal_controls() {
+fn cli_redacts_locator_secrets() {
     let temp = tempfile::tempdir().unwrap();
     let root = temp.path();
     policy(root, "'MIT'");
@@ -199,33 +264,36 @@ fn cli_redacts_locator_secrets_and_escapes_terminal_controls() {
     let text = String::from_utf8(output.stdout).unwrap();
     assert!(!text.contains("password"));
     assert!(!text.contains("signed-secret"));
+}
+
+#[test]
+fn cli_escapes_terminal_controls() {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path();
+    policy(root, "'MIT'");
     std::fs::write(root.join("uv.lock"),"version=1\nrevision=5\n[[package]]\nname='example'\nversion='1.0'\nsource={path=\"evil\\u001b[31m.whl\"}").unwrap();
     let output = invoke(root, &root.join("cache"), &["check", "--offline"]);
     assert_eq!(output.status.code(), Some(2));
     assert!(!output.stdout.contains(&27));
 }
-#[test]
-fn cli_netrc_override_is_explicit_and_offline_does_not_need_credentials() {
+#[rstest::rstest]
+#[case::online(vec!["check", "--format=json"], 2)]
+#[case::offline(vec!["check", "--offline", "--format=json"], 0)]
+fn cli_missing_netrc(#[case] args: Vec<&str>, #[case] expected: i32) {
+    // Arrange
     let temp = tempfile::tempdir().unwrap();
-    let root = temp.path();
-    project(root, "License-Expression: MIT");
+    project(temp.path(), "License-Expression: MIT");
+    // Act
     let output = Command::new(env!("CARGO_BIN_EXE_taloon"))
-        .current_dir(root)
-        .env("NETRC", root.join("missing-netrc"))
-        .env("TALOON_CACHE_DIR", root.join("cache"))
-        .args(["check", "--format", "json"])
+        .current_dir(temp.path())
+        .env("NETRC", temp.path().join("missing-netrc"))
+        .env("TALOON_CACHE_DIR", temp.path().join("cache"))
+        .args(args)
         .output()
         .unwrap();
-    assert_eq!(output.status.code(), Some(2));
-    json(&output);
-    let output = Command::new(env!("CARGO_BIN_EXE_taloon"))
-        .current_dir(root)
-        .env("NETRC", root.join("missing-netrc"))
-        .env("TALOON_CACHE_DIR", root.join("cache"))
-        .args(["check", "--offline", "--format", "json"])
-        .output()
-        .unwrap();
-    assert_eq!(output.status.code(), Some(0));
+    // Assert
+    assert_eq!(output.status.code(), Some(expected));
     json(&output);
 }
 proptest::proptest! {
@@ -306,32 +374,81 @@ fn cache_clear_removes_only_taloon_records_without_project_discovery() {
     assert_eq!(output.stderr, b"");
     assert!(cache.is_dir());
     assert!(!cache.join(damaged).exists());
-    for name in [
+    let retained: Vec<_> = [
         "notes.json",
         "v1-archive-wheel-sha256-invalid.json",
         ".evidence-unfinished",
         "v2-archive-wheel-sha256-unknown.json",
-    ] {
-        assert_eq!(std::fs::read(cache.join(name)).unwrap(), b"keep");
-    }
+    ]
+    .map(|name| std::fs::read(cache.join(name)).unwrap())
+    .into_iter()
+    .collect();
+    assert_eq!(retained, vec![b"keep".to_vec(); 4]);
     assert_eq!(std::fs::read(directory.join("keep")).unwrap(), b"keep");
-    let second = invoke(outside.path(), &cache, &["cache", "clear"]);
-    assert_eq!(second.status.code(), Some(0));
-    assert_eq!(second.stdout, b"Removed 0 taloon cache entries.\n");
-    let check = invoke(root, &cache, &["check", "--format", "json"]);
-    assert_eq!(check.status.code(), Some(0));
-    assert_eq!(json(&check)["acquisition"]["archive_extractions"], 1);
-    assert_eq!(json(&check)["acquisition"]["cache_hits"], 0);
 }
 
 #[test]
-fn cache_clear_handles_missing_cache_and_invalid_root() {
+fn cache_clear_is_idempotent() {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    project(temp.path(), "License-Expression: MIT");
+    let cache = temp.path().join("cache");
+    assert_eq!(
+        invoke(temp.path(), &cache, &["check"]).status.code(),
+        Some(0)
+    );
+    assert_eq!(
+        invoke(temp.path(), &cache, &["cache", "clear"])
+            .status
+            .code(),
+        Some(0)
+    );
+    // Act
+    let output = invoke(temp.path(), &cache, &["cache", "clear"]);
+    // Assert
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(output.stdout, b"Removed 0 taloon cache entries.\n");
+}
+
+#[test]
+fn cache_clear_forces_archive_reextraction() {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    project(temp.path(), "License-Expression: MIT");
+    let cache = temp.path().join("cache");
+    assert_eq!(
+        invoke(temp.path(), &cache, &["check"]).status.code(),
+        Some(0)
+    );
+    assert_eq!(
+        invoke(temp.path(), &cache, &["cache", "clear"])
+            .status
+            .code(),
+        Some(0)
+    );
+    // Act
+    let output = invoke(temp.path(), &cache, &["check", "--format=json"]);
+    // Assert
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(json(&output)["acquisition"]["archive_extractions"], 1);
+    assert_eq!(json(&output)["acquisition"]["cache_hits"], 0);
+}
+
+#[test]
+fn cache_clear_preserves_missing_cache() {
     let temp = tempfile::tempdir().unwrap();
     let cache = temp.path().join("missing");
     let output = invoke(temp.path(), &cache, &["cache", "clear"]);
     assert_eq!(output.status.code(), Some(0), "{output:?}");
     assert_eq!(output.stdout, b"Removed 0 taloon cache entries.\n");
     assert!(!cache.exists());
+}
+
+#[test]
+fn cache_clear_rejects_file_root() {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let cache = temp.path().join("cache-file");
     std::fs::write(&cache, b"keep").unwrap();
     let output = invoke(temp.path(), &cache, &["cache", "clear"]);
     assert_eq!(output.status.code(), Some(2));
@@ -342,7 +459,7 @@ fn cache_clear_handles_missing_cache_and_invalid_root() {
 
 #[cfg(unix)]
 #[test]
-fn cache_clear_preserves_symlinks_and_rejects_symlink_root() {
+fn cache_clear_preserves_symlink_entries() {
     use std::os::unix::fs::symlink;
     let temp = tempfile::tempdir().unwrap();
     let cache = temp.path().join("cache");
@@ -356,6 +473,18 @@ fn cache_clear_preserves_symlinks_and_rejects_symlink_root() {
     assert_eq!(output.stdout, b"Removed 0 taloon cache entries.\n");
     assert!(cache.join(&name).is_symlink());
     assert_eq!(std::fs::read(&target).unwrap(), b"keep");
+}
+
+#[cfg(unix)]
+#[test]
+fn cache_clear_rejects_symlink_root() {
+    use std::os::unix::fs::symlink;
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let cache = temp.path().join("cache");
+    std::fs::create_dir(&cache).unwrap();
+    let target = cache.join("keep");
+    std::fs::write(&target, b"keep").unwrap();
     let root_link = temp.path().join("linked-cache");
     symlink(&cache, &root_link).unwrap();
     let output = invoke(temp.path(), &root_link, &["cache", "clear"]);
@@ -406,8 +535,12 @@ fn cache_clear_empty_override_matches_existing_cache_writes() {
 }
 
 #[cfg(unix)]
-#[test]
-fn cache_clear_rejects_root_symlink_with_redundant_components() {
+#[rstest::rstest]
+#[case::slash("/")]
+#[case::dot("/.")]
+#[case::dot_slash("/./")]
+#[case::double_slash("//")]
+fn cache_clear_rejects_root_symlink_with_redundant_components(#[case] suffix: &str) {
     use std::os::unix::fs::symlink;
     let temp = tempfile::tempdir().unwrap();
     let cache = temp.path().join("cache");
@@ -416,14 +549,12 @@ fn cache_clear_rejects_root_symlink_with_redundant_components() {
     std::fs::write(&record, b"keep").unwrap();
     let root_link = temp.path().join("linked-cache");
     symlink(&cache, &root_link).unwrap();
-    for suffix in ["/", "/.", "/./", "//"] {
-        let spelling = std::path::PathBuf::from(format!("{}{suffix}", root_link.display()));
-        let output = invoke(temp.path(), &spelling, &["cache", "clear"]);
-        assert_eq!(output.status.code(), Some(2), "suffix {suffix}: {output:?}");
-        assert_eq!(output.stderr, b"cannot clear taloon cache\n");
-        assert!(root_link.is_symlink());
-        assert_eq!(std::fs::read(&record).unwrap(), b"keep");
-    }
+    let spelling = std::path::PathBuf::from(format!("{}{suffix}", root_link.display()));
+    let output = invoke(temp.path(), &spelling, &["cache", "clear"]);
+    assert_eq!(output.status.code(), Some(2), "suffix {suffix}: {output:?}");
+    assert_eq!(output.stderr, b"cannot clear taloon cache\n");
+    assert!(root_link.is_symlink());
+    assert_eq!(std::fs::read(&record).unwrap(), b"keep");
 }
 
 fn describe_project(root: &Path) {
@@ -433,13 +564,27 @@ fn describe_project(root: &Path) {
     std::fs::write(root.join("bsd.whl"), bsd).unwrap();
     std::fs::write(root.join("uv.lock"),"version=1\nrevision=5\n[[package]]\nname='app'\nversion='1.0'\nsource={virtual='.'}\ndependencies=[{name='example'}]\n[[package]]\nname='example'\nversion='1.0'\nsource={path='mit.whl'}\nwheels=[{path='mit.whl'},{path='bsd.whl'}]\n[[package]]\nname='unrelated'\nversion='1.0'\nsource={path='does-not-exist.whl'}").unwrap();
 }
+fn cached_description(root: &Path) -> std::path::PathBuf {
+    describe_project(root);
+    let cache = root.join("cache");
+    let output = invoke(root, &cache, &["describe", "example", "--format=json"]);
+    assert_eq!(output.status.code(), Some(0), "cache fixture: {output:?}");
+    cache
+}
+
 #[test]
-fn describe_cli_is_policy_free_selected_and_shares_check_cache() {
+fn describe_cli_selects_all_artifacts_without_a_policy() {
+    // Arrange
     let temp = tempfile::tempdir().unwrap();
     let root = temp.path();
-    let cache = root.join("cache");
     describe_project(root);
-    let output = invoke(root, &cache, &["describe", "EXAMPLE", "--format", "json"]);
+    // Act
+    let output = invoke(
+        root,
+        &root.join("cache"),
+        &["describe", "EXAMPLE", "--format=json"],
+    );
+    // Assert
     assert_eq!(output.status.code(), Some(0), "{output:?}");
     let report = json(&output);
     assert_eq!(report["command"], "describe");
@@ -451,34 +596,73 @@ fn describe_cli_is_policy_free_selected_and_shares_check_cache() {
     );
     assert_eq!(report["acquisition"]["archive_extractions"], 2);
     assert_eq!(output.stderr, b"");
-    // An existing policy can be malformed/expired: describe does not read it.
+}
+
+#[test]
+fn describe_cli_ignores_malformed_policy_with_cached_evidence() {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path();
+    let cache = cached_description(root);
     std::fs::write(root.join("pyproject.toml"), "not valid toml").unwrap();
+    // Act
     let output = invoke(
         root,
         &cache,
         &["describe", "example", "--offline", "--format=json"],
     );
+    // Assert
     assert_eq!(output.status.code(), Some(0));
     assert_eq!(json(&output)["acquisition"]["cache_hits"], 2);
     assert_eq!(json(&output)["acquisition"]["network_requests"], 0);
-    let text = invoke(root, &cache, &["describe", "example", "--offline"]);
-    assert_eq!(text.status.code(), Some(0));
-    let text = String::from_utf8(text.stdout).unwrap();
+}
+
+#[test]
+fn describe_cli_text_lists_licenses_without_a_verdict() {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let cache = cached_description(temp.path());
+    // Act
+    let output = invoke(temp.path(), &cache, &["describe", "example", "--offline"]);
+    // Assert
+    assert_eq!(output.status.code(), Some(0));
+    let text = String::from_utf8(output.stdout).unwrap();
     assert!(text.contains("MIT"));
     assert!(text.contains("BSD-3-Clause"));
     assert!(!text.contains("Compliant"));
-    // Check can consume the same original evidence even after a describe run.
-    policy(root, "'MIT','BSD-3-Clause'");
-    let check = invoke(root, &cache, &["check", "--offline", "--format", "json"]);
-    assert_eq!(check.status.code(), Some(2)); // unrelated missing artifact remains in check scope
-    assert_eq!(json(&check)["acquisition"]["cache_hits"], 2);
-    let project = invoke(
-        root,
+}
+
+#[test]
+fn check_reuses_description_cache_with_full_inventory() {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let cache = cached_description(temp.path());
+    policy(temp.path(), "'MIT','BSD-3-Clause'");
+    // Act
+    let output = invoke(
+        temp.path(),
         &cache,
-        &["describe", "app", "--offline", "--format", "json"],
+        &["check", "--offline", "--format=json"],
     );
-    assert_eq!(project.status.code(), Some(2));
-    let report = json(&project);
+    // Assert: unrelated missing artifact remains in check scope.
+    assert_eq!(output.status.code(), Some(2));
+    assert_eq!(json(&output)["acquisition"]["cache_hits"], 2);
+}
+
+#[test]
+fn describe_workspace_selects_whole_external_inventory() {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let cache = cached_description(temp.path());
+    // Act
+    let output = invoke(
+        temp.path(),
+        &cache,
+        &["describe", "app", "--offline", "--format=json"],
+    );
+    // Assert
+    assert_eq!(output.status.code(), Some(2));
+    let report = json(&output);
     assert_eq!(report["selection_mode"], "all_external");
     assert_eq!(report["packages"].as_array().unwrap().len(), 2);
     assert!(
@@ -489,51 +673,43 @@ fn describe_cli_is_policy_free_selected_and_shares_check_cache() {
             .all(|p| p["name"] != "app")
     );
 }
-#[test]
-fn describe_cli_reports_its_own_json_errors_and_exact_project_selection() {
+
+#[rstest::rstest]
+#[case::missing_query(vec!["describe", "--format=json"])]
+#[case::unknown_query(vec!["describe", "missing", "--format=json"])]
+#[case::unknown_argument(vec!["describe", "example", "--unknown", "--format=json"])]
+#[case::missing_project(vec!["describe", "example", "--project", "missing", "--format=json"])]
+fn describe_cli_reports_its_own_json_errors(#[case] args: Vec<&str>) {
+    // Arrange
     let temp = tempfile::tempdir().unwrap();
-    let root = temp.path();
-    let cache = root.join("cache");
-    describe_project(root);
-    for args in [
-        vec!["describe", "missing", "--format", "json"],
-        vec!["describe", "--format=json"],
-        vec!["describe", "example", "--unknown", "--format", "json"],
-        vec![
-            "describe",
-            "example",
-            "--project",
-            "missing",
-            "--format",
-            "json",
-        ],
-    ] {
-        let output = invoke(root, &cache, &args);
-        assert_eq!(output.status.code(), Some(2));
-        let report = json(&output);
-        assert_eq!(report["command"], "describe");
-        assert_eq!(report["status"], "incomplete");
-        assert_eq!(report["acquisition"]["network_requests"], 0);
-    }
-    let member = root.join("subdir");
-    std::fs::create_dir(&member).unwrap();
-    let output = invoke(
-        &member,
-        &cache,
-        &["describe", "example", "--format", "json"],
-    );
-    assert_eq!(output.status.code(), Some(0));
-    let output = invoke(
-        &member,
-        &cache,
-        &["describe", "example", "--project", ".", "--format", "json"],
-    );
+    describe_project(temp.path());
+    // Act
+    let output = invoke(temp.path(), &temp.path().join("cache"), &args);
+    // Assert
     assert_eq!(output.status.code(), Some(2));
+    let report = json(&output);
+    assert_eq!(report["command"], "describe");
+    assert_eq!(report["status"], "incomplete");
+    assert_eq!(report["acquisition"]["network_requests"], 0);
+}
+
+#[rstest::rstest]
+#[case::nearest(vec!["describe", "example", "--format=json"], 0)]
+#[case::explicit_member(vec!["describe", "example", "--project", ".", "--format=json"], 2)]
+fn describe_cli_project_discovery(#[case] args: Vec<&str>, #[case] expected: i32) {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    describe_project(temp.path());
+    let member = temp.path().join("subdir");
+    std::fs::create_dir(&member).unwrap();
+    // Act
+    let output = invoke(&member, &temp.path().join("cache"), &args);
+    // Assert
+    assert_eq!(output.status.code(), Some(expected));
     assert_eq!(json(&output)["command"], "describe");
 }
 
-#[test]
-fn describe_cli_redacts_sources_and_escapes_conditions() {
+fn redacted_description_output(format: &str) -> Output {
     let temp = tempfile::tempdir().unwrap();
     let root = temp.path();
     let hash = taloon::model::ContentHash::digest(b"archive");
@@ -541,24 +717,59 @@ fn describe_cli_redacts_sources_and_escapes_conditions() {
         "version=1\nrevision=5\n[[package]]\nname='example'\nversion='1.0'\nsource={{registry='https://alice:password@index.test/simple?token=secret'}}\nresolution-markers=[\"\\u001b[31m\"]\nwheels=[{{url='https://alice:password@files.test/example.whl?token=secret',hash='{hash}'}}]\ndependencies=[{{name='example',marker=\"\\u001b[31m\"}}]"
     );
     std::fs::write(root.join("uv.lock"), lock).unwrap();
-    for format in ["text", "json"] {
-        let output = invoke(
-            root,
-            &root.join("cache"),
-            &["describe", "example", "--offline", "--format", format],
-        );
-        assert_eq!(output.status.code(), Some(2));
-        let stdout = String::from_utf8(output.stdout.clone()).unwrap();
-        for secret in ["alice", "password", "secret", "\u{1b}"] {
-            assert!(!stdout.contains(secret), "{stdout}");
-        }
-        if format == "json" {
-            assert_eq!(json(&output)["command"], "describe");
-        } else {
-            assert!(stdout.contains("marker:"));
-            assert!(stdout.contains("resolution markers"));
-        }
-    }
+    invoke(
+        root,
+        &root.join("cache"),
+        &["describe", "example", "--offline", "--format", format],
+    )
+}
+
+#[test]
+fn describe_text_redacts_sources_and_escapes_conditions() {
+    // Arrange
+    let format = "text";
+    // Act
+    let output = redacted_description_output(format);
+    // Assert
+    assert_eq!(output.status.code(), Some(2));
+    let stdout = String::from_utf8(output.stdout.clone()).unwrap();
+    assert!(!stdout.contains("alice"), "{stdout}");
+    assert!(!stdout.contains("password"), "{stdout}");
+    assert!(!stdout.contains("secret"), "{stdout}");
+    assert!(!stdout.contains('\u{1b}'), "{stdout}");
+}
+
+#[test]
+fn describe_json_redacts_sources_and_escapes_conditions() {
+    // Arrange
+    let format = "json";
+    // Act
+    let output = redacted_description_output(format);
+    // Assert
+    assert_eq!(output.status.code(), Some(2));
+    let stdout = String::from_utf8(output.stdout.clone()).unwrap();
+    assert!(!stdout.contains("alice"), "{stdout}");
+    assert!(!stdout.contains("password"), "{stdout}");
+    assert!(!stdout.contains("secret"), "{stdout}");
+    assert!(!stdout.contains('\u{1b}'), "{stdout}");
+    assert_eq!(json(&output)["command"], "describe");
+}
+
+#[test]
+fn describe_text_keeps_marker_annotations() {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    std::fs::write(temp.path().join("uv.lock"), "version=1\nrevision=5\n[[package]]\nname='example'\nversion='1.0'\nsource={path='missing.whl'}\nresolution-markers=['python_version > 3']\ndependencies=[{name='example',marker='python_version > 3'}]").unwrap();
+    // Act
+    let output = invoke(
+        temp.path(),
+        &temp.path().join("cache"),
+        &["describe", "example", "--offline"],
+    );
+    // Assert
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("marker:"));
+    assert!(stdout.contains("resolution markers"));
 }
 
 #[test]
@@ -575,7 +786,7 @@ fn describe_cli_error_query_uses_python_name_normalization() {
 }
 
 #[test]
-fn describe_cli_empty_project_and_multiple_source_versions_are_explicit() {
+fn describe_cli_empty_project_is_explicit() {
     let temp = tempfile::tempdir().unwrap();
     let root = temp.path();
     let cache = root.join("cache");
@@ -593,6 +804,14 @@ fn describe_cli_empty_project_and_multiple_source_versions_are_explicit() {
     let report = json(&output);
     assert_eq!(report["packages"], serde_json::json!([]));
     assert_eq!(report["selection_mode"], "all_external");
+}
+
+#[test]
+fn describe_cli_multiple_source_versions_are_explicit() {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path();
+    let cache = root.join("cache");
     let hash = taloon::model::ContentHash::digest(b"archive");
     let lock = format!(
         "version=1\nrevision=5\n[[package]]\nname='example'\nversion='1.0'\nsource={{registry='https://one.test/simple'}}\nwheels=[{{url='https://one.test/a.whl',hash='{hash}'}}]\n[[package]]\nname='example'\nversion='2.0'\nsource={{registry='https://two.test/simple'}}\nwheels=[{{url='https://two.test/a.whl',hash='{hash}'}}]"
@@ -634,10 +853,7 @@ fn declaration_json_preserves_prose_and_protects_terminal(
     let temp = tempfile::tempdir().unwrap();
     let declaration = "Copyright <author@example.org> \u{1b}[31m\u{202e} see https://alice:password@licenses.test/license?token=hidden#private";
     project(temp.path(), &format!("{header}: {declaration}"));
-    let mut args = vec![command];
-    if command == "describe" {
-        args.push("example");
-    }
+    let mut args = command_arguments(command);
     args.extend(["--offline", "--format=json"]);
     // Act
     let output = invoke(temp.path(), &temp.path().join("cache"), &args);
@@ -682,10 +898,7 @@ fn legacy_supplement_json_preserves_declaration_and_source(
     // Arrange
     let temp = tempfile::tempdir().unwrap();
     project_with_bsd_file(temp.path(), "License: BSD");
-    let mut args = vec![command];
-    if command == "describe" {
-        args.push("example");
-    }
+    let mut args = command_arguments(command);
     args.extend(["--offline", "--format=json"]);
 
     // Act
@@ -711,10 +924,7 @@ fn legacy_supplement_text_identifies_successful_evidence(#[case] command: &str) 
     // Arrange
     let temp = tempfile::tempdir().unwrap();
     project_with_bsd_file(temp.path(), "License: BSD");
-    let mut args = vec![command];
-    if command == "describe" {
-        args.push("example");
-    }
+    let mut args = command_arguments(command);
     args.extend(["--offline", "--format=text"]);
 
     // Act
@@ -731,10 +941,8 @@ fn legacy_supplement_text_identifies_successful_evidence(#[case] command: &str) 
     assert_eq!(output.status.code(), Some(0));
 }
 
-#[rstest::rstest]
-#[case::json("json")]
-#[case::text("text")]
-fn legacy_supplement_clarification_keeps_evidence_source(#[case] format: &str) {
+#[test]
+fn legacy_supplement_clarification_keeps_json_evidence_source() {
     // Arrange
     let temp = tempfile::tempdir().unwrap();
     let bytes = project_with_bsd_file(temp.path(), "License: BSD");
@@ -748,29 +956,46 @@ fn legacy_supplement_clarification_keeps_evidence_source(#[case] format: &str) {
     let output = invoke(
         temp.path(),
         &temp.path().join("cache"),
-        &["check", "--offline", "--format", format],
+        &["check", "--offline", "--format=json"],
     );
-
     // Assert
-    if format == "json" {
-        let report = json(&output);
-        let artifact = &report["packages"][0]["artifacts"][0];
-        assert_eq!(artifact["evidence"]["license_origin"], "legacy_supplement");
-        assert_eq!(
-            artifact["evidence"]["original_license"],
-            serde_json::json!(["BSD"])
-        );
-        assert_eq!(artifact["interpreted_expression"], "MIT");
-    } else {
-        let text = String::from_utf8(output.stdout).unwrap();
-        assert!(
-            text.contains("license source: legacy declaration supplemented by bundled files"),
-            "{text}"
-        );
-        assert!(text.contains("license: MIT"), "{text}");
-        assert!(text.contains("Reviewed synthetic artifact"), "{text}");
-    }
     assert_eq!(output.status.code(), Some(0));
+    let report = json(&output);
+    let artifact = &report["packages"][0]["artifacts"][0];
+    assert_eq!(artifact["evidence"]["license_origin"], "legacy_supplement");
+    assert_eq!(
+        artifact["evidence"]["original_license"],
+        serde_json::json!(["BSD"])
+    );
+    assert_eq!(artifact["interpreted_expression"], "MIT");
+}
+
+#[test]
+fn legacy_supplement_clarification_keeps_text_evidence_source() {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let bytes = project_with_bsd_file(temp.path(), "License: BSD");
+    let hash = taloon::model::ContentHash::digest(&bytes);
+    std::fs::write(
+        temp.path().join("pyproject.toml"),
+        format!("[tool.taloon]\nschema-version=1\nallow=['MIT']\n[[tool.taloon.clarifications]]\nartifact-hash='{hash}'\nexpression='MIT'\nreason='Reviewed synthetic artifact'\n"),
+    ).unwrap();
+
+    // Act
+    let output = invoke(
+        temp.path(),
+        &temp.path().join("cache"),
+        &["check", "--offline", "--format=text"],
+    );
+    // Assert
+    assert_eq!(output.status.code(), Some(0));
+    let text = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        text.contains("license source: legacy declaration supplemented by bundled files"),
+        "{text}"
+    );
+    assert!(text.contains("license: MIT"), "{text}");
+    assert!(text.contains("Reviewed synthetic artifact"), "{text}");
 }
 
 #[rstest::rstest]
@@ -790,10 +1015,7 @@ fn other_license_sources_do_not_claim_legacy_supplement(
     // Arrange
     let temp = tempfile::tempdir().unwrap();
     project_with_bsd_file(temp.path(), fields);
-    let mut args = vec![command];
-    if command == "describe" {
-        args.push("example");
-    }
+    let mut args = command_arguments(command);
     args.extend(["--offline", "--format=text"]);
 
     // Act
@@ -809,15 +1031,22 @@ fn other_license_sources_do_not_claim_legacy_supplement(
 }
 
 #[rstest::rstest]
-#[case::allow("allow=['MIT']", "allow", "License-Expression: MIT", 0)]
-#[case::deny("deny=['Apache-2.0']", "deny", "License-Expression: MIT", 0)]
-#[case::violation("deny=['MIT']", "deny", "License-Expression: MIT", 1)]
-#[case::incomplete("deny=[]", "deny", "License-Expression: MIT OR", 2)]
+#[case::allow("allow=['MIT']", "allow", "License-Expression: MIT", 0, serde_json::json!("allow"))]
+#[case::deny("deny=['Apache-2.0']", "deny", "License-Expression: MIT", 0, serde_json::json!("deny"))]
+#[case::violation("deny=['MIT']", "deny", "License-Expression: MIT", 1, serde_json::json!("deny"))]
+#[case::incomplete(
+    "deny=[]",
+    "deny",
+    "License-Expression: MIT OR",
+    2,
+    serde_json::Value::Null
+)]
 fn cli_json_identifies_selected_policy_mode(
     #[case] settings: &str,
     #[case] mode: &str,
     #[case] fields: &str,
     #[case] exit: i32,
+    #[case] decision_mode: serde_json::Value,
 ) {
     // Arrange
     let temp = tempfile::tempdir().unwrap();
@@ -838,12 +1067,11 @@ fn cli_json_identifies_selected_policy_mode(
     let report = json(&output);
     assert_eq!(output.status.code(), Some(exit));
     assert_eq!(report["policy_mode"], mode);
-    if exit != 2 {
-        assert_eq!(
-            report["packages"][0]["artifacts"][0]["decision"]["mode"],
-            mode
-        );
-    }
+    assert_eq!(
+        report["packages"][0]["artifacts"][0]["decision"]["mode"],
+        decision_mode
+    );
+
     assert!(report.get("allow").is_none());
     assert!(report.get("deny").is_none());
 }

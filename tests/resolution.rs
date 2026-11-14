@@ -137,24 +137,18 @@ fn explicit_members_do_not_exclude_registry_packages_sharing_a_name() {
     ));
 }
 
-#[test]
-fn invalid_or_ambiguous_edges_cannot_invent_associations() {
-    assert!(
-        Resolution::from_uv_lock(&fixture().replacen(
-            "dependencies=[{name='leaf'}]",
-            "dependencies=[{name='missing'}]",
-            1
-        ))
-        .is_err()
-    );
-    assert!(
-        Resolution::from_uv_lock(
-            &fixture().replace("name='branch',version='1.0'", "name='branch'")
-        )
-        .is_err()
-    );
-    assert!(Resolution::from_uv_lock(&fixture().replace("revision=5", "revision=6")).is_err());
-    assert!(Resolution::from_uv_lock(&fixture().replace("version=1\n", "version=2\n")).is_err());
+#[rstest::rstest]
+#[case::missing_dependency("dependencies=[{name='leaf'}]", "dependencies=[{name='missing'}]")]
+#[case::ambiguous_dependency("name='branch',version='1.0'", "name='branch'")]
+#[case::unsupported_revision("revision=5", "revision=6")]
+#[case::unsupported_version("version=1\n", "version=2\n")]
+fn invalid_lock_cannot_invent_associations(#[case] original: &str, #[case] replacement: &str) {
+    // Arrange
+    let lock = fixture().replacen(original, replacement, 1);
+    // Act
+    let result = Resolution::from_uv_lock(&lock);
+    // Assert
+    assert!(result.is_err());
 }
 
 #[test]

@@ -447,30 +447,42 @@ proptest! {
     }
 }
 
+fn notice_evidence(meta: &[u8], archive: bool) -> Evidence {
+    let bytes = wheel(meta);
+    let request = request(&bytes, ArtifactFormat::Wheel);
+    if archive {
+        Evidence::from_archive(&request, &bytes).unwrap()
+    } else {
+        let hash = request.hash().unwrap();
+        Evidence::from_sidecar(
+            &request,
+            SidecarAssociation::new(hash, hash, ContentHash::digest(meta)).unwrap(),
+            meta,
+        )
+        .unwrap()
+    }
+}
+
 #[rstest]
-#[case::sidecar_lf_restriction(false, "\n", false)]
-#[case::sidecar_crlf_restriction(false, "\r\n", false)]
-#[case::archive_lf_restriction(true, "\n", false)]
-#[case::archive_crlf_restriction(true, "\r\n", false)]
-#[case::sidecar_lf_notices(false, "\n", true)]
-#[case::sidecar_crlf_notices(false, "\r\n", true)]
-#[case::archive_lf_notices(true, "\n", true)]
-#[case::archive_crlf_notices(true, "\r\n", true)]
+#[case::sidecar_lf_restriction(false, "\n", "Redistribution Requires Consent.", None)]
+#[case::sidecar_crlf_restriction(false, "\r\n", "Redistribution Requires Consent.", None)]
+#[case::archive_lf_restriction(true, "\n", "Redistribution Requires Consent.", None)]
+#[case::archive_crlf_restriction(true, "\r\n", "Redistribution Requires Consent.", None)]
+#[case::sidecar_lf_notices(false, "\n", "Copyright (c) 2025 Sample", Some("MIT"))]
+#[case::sidecar_crlf_notices(false, "\r\n", "Copyright (c) 2025 Sample", Some("MIT"))]
+#[case::archive_lf_notices(true, "\n", "Copyright (c) 2025 Sample", Some("MIT"))]
+#[case::archive_crlf_notices(true, "\r\n", "Copyright (c) 2025 Sample", Some("MIT"))]
 fn legacy_text_keeps_original_notice_boundaries(
     #[case] archive: bool,
     #[case] newline: &str,
-    #[case] valid: bool,
+    #[case] second: &str,
+    #[case] expected: Option<&str>,
 ) {
     // Arrange
     let canonical = spdx::license_id("MIT").unwrap().text();
     let (_, body) = canonical
         .split_once("Permission is hereby granted")
         .unwrap();
-    let second = if valid {
-        "Copyright (c) 2025 Sample"
-    } else {
-        "Redistribution Requires Consent."
-    };
     let text =
         format!("Copyright (c) 2026 Example\n{second}\n\nPermission is hereby granted{body}");
     let meta = metadata(&format!("License: {}", text.replace('\n', "\n ")));
@@ -478,19 +490,7 @@ fn legacy_text_keeps_original_notice_boundaries(
         .unwrap()
         .replace('\n', newline)
         .into_bytes();
-    let bytes = wheel(&meta);
-    let request = request(&bytes, ArtifactFormat::Wheel);
-    let evidence = if archive {
-        Evidence::from_archive(&request, &bytes).unwrap()
-    } else {
-        let hash = request.hash().unwrap();
-        Evidence::from_sidecar(
-            &request,
-            SidecarAssociation::new(hash, hash, ContentHash::digest(&meta)).unwrap(),
-            &meta,
-        )
-        .unwrap()
-    };
+    let evidence = notice_evidence(&meta, archive);
     // Act
     let interpreted = evidence.license();
     // Assert
@@ -499,7 +499,7 @@ fn legacy_text_keeps_original_notice_boundaries(
             .ok()
             .as_ref()
             .map(taloon::policy::LicenseExpression::text),
-        if valid { Some("MIT") } else { None }
+        expected
     );
 }
 

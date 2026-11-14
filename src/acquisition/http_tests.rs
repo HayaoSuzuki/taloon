@@ -157,7 +157,7 @@ fn acquisition_progress_starts_and_ticks_while_transport_is_blocked() {
 }
 
 #[test]
-fn acquisition_progress_accounts_for_panicked_workers_and_empty_scope() {
+fn acquisition_progress_accounts_for_panicked_workers() {
     struct Panicking;
     impl Transport for Panicking {
         fn send(
@@ -193,8 +193,21 @@ fn acquisition_progress_accounts_for_panicked_workers_and_empty_scope() {
         inspection.requests().len()
     );
     assert_eq!(inspection.evaluate(batch.results).exit_code(false), 2);
-    progress.clear();
+}
+
+#[test]
+fn acquisition_progress_reports_empty_scope() {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let acquirer = Acquirer::with_transport(
+        AcquisitionOptions::testing(temp.path(), false),
+        Fixture::default(),
+    )
+    .unwrap();
+    let mut progress = Vec::new();
+    // Act
     let batch = acquirer.acquire_with_progress(&[], |p| progress.push(p));
+    // Assert
     assert!(batch.results.is_empty());
     assert_eq!(
         progress,
@@ -390,7 +403,8 @@ fn mutate_fixture_index(fixture: &Fixture, change: impl FnOnce(&mut serde_json::
 }
 
 #[test]
-fn index_snapshot_is_fresh_per_call_and_warm_offline_bypasses_it() {
+fn warm_index_evidence_bypasses_snapshot() {
+    // Arrange
     let temp = tempfile::tempdir().unwrap();
     let (fixture, inspection, _) = many_artifact_fixture(8);
     let acquirer = Acquirer::with_transport(
@@ -398,9 +412,8 @@ fn index_snapshot_is_fresh_per_call_and_warm_offline_bypasses_it() {
         fixture.clone(),
     )
     .unwrap();
-    let first = acquirer.acquire(inspection.requests());
-    assert_eq!(first.summary.http.index.requests, 1);
-    assert_eq!(inspection.evaluate(first.results).exit_code(false), 0);
+    let _first = acquirer.acquire(inspection.requests());
+    // Act / Assert: acquisition in the selected cache context.
     let warm = acquirer.acquire(inspection.requests());
     assert_eq!(
         (
@@ -409,6 +422,20 @@ fn index_snapshot_is_fresh_per_call_and_warm_offline_bypasses_it() {
         ),
         (0, 0)
     );
+}
+
+#[test]
+fn offline_index_evidence_bypasses_snapshot() {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let (fixture, inspection, _) = many_artifact_fixture(8);
+    let acquirer = Acquirer::with_transport(
+        AcquisitionOptions::testing(temp.path(), false),
+        fixture.clone(),
+    )
+    .unwrap();
+    let _first = acquirer.acquire(inspection.requests());
+    // Act / Assert: acquisition in the selected cache context.
     let offline = Acquirer::with_transport(
         AcquisitionOptions::testing(temp.path(), true),
         fixture.clone(),
@@ -423,6 +450,20 @@ fn index_snapshot_is_fresh_per_call_and_warm_offline_bypasses_it() {
         (0, 0)
     );
     assert_eq!(cached.summary.cache_hits, 8);
+}
+
+#[test]
+fn index_snapshot_is_fresh_after_cache_removal() {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let (fixture, inspection, _) = many_artifact_fixture(8);
+    let acquirer = Acquirer::with_transport(
+        AcquisitionOptions::testing(temp.path(), false),
+        fixture.clone(),
+    )
+    .unwrap();
+    let _first = acquirer.acquire(inspection.requests());
+    // Act / Assert: acquisition in the selected cache context.
     std::fs::remove_dir_all(temp.path().join("cache")).unwrap();
     mutate_fixture_index(&fixture, |document| {
         document["files"][0]
@@ -643,7 +684,8 @@ fn cold_index_acquisition_benchmark() {
     }
 }
 #[test]
-fn sidecar_fallback_and_offline_keep_scope() {
+fn sidecar_and_archive_fallback_keep_scope() {
+    // Arrange
     let temp = tempfile::tempdir().unwrap();
     let meta = crate::testfixtures::metadata("License-Expression: MIT");
     let bytes = crate::testfixtures::wheel(&meta);
@@ -674,6 +716,33 @@ fn sidecar_fallback_and_offline_keep_scope() {
     let batch = acquirer.acquire(i.requests());
     assert_eq!(i.evaluate(batch.results).exit_code(false), 0);
     assert!(transport.count() > 0);
+}
+
+#[test]
+fn offline_strong_policy_rejects_weak_only_cache() {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let meta = crate::testfixtures::metadata("License-Expression: MIT");
+    let bytes = crate::testfixtures::wheel(&meta);
+    let hash = ContentHash::digest(&bytes);
+    let mh = ContentHash::digest(&meta)
+        .to_string()
+        .replace("sha256:", "");
+    let transport = Fixture::default();
+    let index = format!(
+        "{{\"meta\":{{\"api-version\":\"1.0\"}},\"files\":[{{\"url\":\"https://files.test/a.whl\",\"hashes\":{{\"sha256\":\"{}\"}},\"core-metadata\":{{\"sha256\":\"{mh}\"}}}},{{\"url\":\"https://files.test/b.whl\",\"hashes\":{{\"sha256\":\"{}\"}}}}]}}",
+        hash.to_string().replace("sha256:", ""),
+        hash.to_string().replace("sha256:", "")
+    );
+    transport.add(
+        "https://example.test/simple/example/",
+        200,
+        index.as_bytes(),
+    );
+    transport.add("https://files.test/a.whl.metadata", 200, &meta);
+    transport.add("https://files.test/a.whl", 200, &bytes);
+    transport.add("https://files.test/b.whl", 200, &bytes);
+    let i = fixture_inspection(&bytes, false);
     // Separate cache containing only sidecar evidence: a stronger policy cannot promote it.
     let cache = EvidenceCache::new(temp.path().join("weak"));
     let r = &i.requests()[0];
@@ -684,6 +753,7 @@ fn sidecar_fallback_and_offline_keep_scope() {
     )
     .unwrap();
     cache.put(r, &e).unwrap();
+    // Act / Assert: strong policy over cached sidecar.
     let mut options = AcquisitionOptions::testing(temp.path(), true);
     options.cache_dir = temp.path().join("weak");
     let before = transport.count();
@@ -692,17 +762,55 @@ fn sidecar_fallback_and_offline_keep_scope() {
     let batch = offline.acquire(strong.requests());
     assert_eq!(strong.evaluate(batch.results).exit_code(false), 2);
     assert_eq!(transport.count(), before);
+}
+
+#[test]
+fn online_strong_policy_upgrades_weak_only_cache() {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let meta = crate::testfixtures::metadata("License-Expression: MIT");
+    let bytes = crate::testfixtures::wheel(&meta);
+    let hash = ContentHash::digest(&bytes);
+    let mh = ContentHash::digest(&meta)
+        .to_string()
+        .replace("sha256:", "");
+    let transport = Fixture::default();
+    let index = format!(
+        "{{\"meta\":{{\"api-version\":\"1.0\"}},\"files\":[{{\"url\":\"https://files.test/a.whl\",\"hashes\":{{\"sha256\":\"{}\"}},\"core-metadata\":{{\"sha256\":\"{mh}\"}}}},{{\"url\":\"https://files.test/b.whl\",\"hashes\":{{\"sha256\":\"{}\"}}}}]}}",
+        hash.to_string().replace("sha256:", ""),
+        hash.to_string().replace("sha256:", "")
+    );
+    transport.add(
+        "https://example.test/simple/example/",
+        200,
+        index.as_bytes(),
+    );
+    transport.add("https://files.test/a.whl.metadata", 200, &meta);
+    transport.add("https://files.test/a.whl", 200, &bytes);
+    transport.add("https://files.test/b.whl", 200, &bytes);
+    let i = fixture_inspection(&bytes, false);
+    // Separate cache containing only sidecar evidence: a stronger policy cannot promote it.
+    let cache = EvidenceCache::new(temp.path().join("weak"));
+    let r = &i.requests()[0];
+    let e = Evidence::from_sidecar(
+        r,
+        taloon::evidence::SidecarAssociation::new(hash, hash, ContentHash::digest(&meta)).unwrap(),
+        &meta,
+    )
+    .unwrap();
+    cache.put(r, &e).unwrap();
+    // Act / Assert: strong policy over cached sidecar.
     let mut online_options = AcquisitionOptions::testing(temp.path(), false);
     online_options.cache_dir = temp.path().join("weak");
     let online = Acquirer::with_transport(online_options, transport).unwrap();
+    let strong = fixture_inspection(&bytes, true);
     let batch = online.acquire(strong.requests());
     assert_eq!(batch.summary.archive_extractions, 1);
     assert_eq!(batch.summary.cache_hits, 1);
     assert_eq!(strong.evaluate(batch.results).exit_code(false), 0);
 }
 
-#[test]
-fn redirects_and_errors_do_not_leak_or_skip() {
+fn authenticated_http_fixture() -> (Fixture, http::Http) {
     let temp = tempfile::tempdir().unwrap();
     let auth_path = temp.path().join("netrc");
     std::fs::write(&auth_path,"# fixture\nmachine example.test login 'test user' password '秘密 token'\nmachine other.test login other password other-token\ndefault login default password must-not-send").unwrap();
@@ -728,7 +836,15 @@ fn redirects_and_errors_do_not_leak_or_skip() {
         fixture.clone(),
         http::Authentication::from_file(Some(&auth_path)).unwrap(),
     );
+    (fixture, http)
+}
+
+#[test]
+fn cross_host_redirect_drops_authentication() {
+    // Arrange
+    let (fixture, http) = authenticated_http_fixture();
     let mut stats = AcquisitionSummary::default();
+    // Act / Assert: one request chain and its recorded calls.
     let response = http
         .get(
             RequestPurpose::Archive,
@@ -746,7 +862,14 @@ fn redirects_and_errors_do_not_leak_or_skip() {
     assert_eq!(calls[1].auth.as_deref(), Some("test user:秘密 token"));
     assert!(calls[2].auth.is_none());
     assert!(!calls[0].url.contains("inline"));
-    drop(calls);
+}
+
+#[test]
+fn https_redirect_refuses_downgrade() {
+    // Arrange
+    let (fixture, http) = authenticated_http_fixture();
+    let mut stats = AcquisitionSummary::default();
+    // Act / Assert: one request chain and its recorded calls.
     fixture.add("https://example.test/downgrade", 302, b"");
     fixture
         .routes
@@ -767,6 +890,14 @@ fn redirects_and_errors_do_not_leak_or_skip() {
         .is_err()
     );
     assert_eq!(fixture.count(), before + 1);
+}
+
+#[test]
+fn unavailable_response_retries_without_disclosing_query() {
+    // Arrange
+    let (fixture, http) = authenticated_http_fixture();
+    let mut stats = AcquisitionSummary::default();
+    // Act / Assert: one request chain and its recorded calls.
     fixture.add(
         "https://example.test/unavailable?secret=token",
         503,
@@ -786,6 +917,14 @@ fn redirects_and_errors_do_not_leak_or_skip() {
     assert_eq!(fixture.count(), before + 3);
     assert!(!error.to_string().contains("secret"));
     assert!(!error.to_string().contains("token"));
+}
+
+#[test]
+fn missing_host_does_not_receive_default_credentials() {
+    // Arrange
+    let (fixture, http) = authenticated_http_fixture();
+    let mut stats = AcquisitionSummary::default();
+    // Act / Assert: one request chain and its recorded calls.
     let before = fixture.count();
     assert!(
         http.get(
@@ -800,75 +939,104 @@ fn redirects_and_errors_do_not_leak_or_skip() {
     assert_eq!(fixture.count(), before + 1);
     assert!(fixture.calls.lock().unwrap().last().unwrap().auth.is_none());
 }
-#[test]
-fn index_variants_require_exact_url_and_hash_associations() {
+
+fn association_response(
+    attribute: &str,
+    json: bool,
+    script: bool,
+) -> (Response, url::Url, ContentHash) {
     let archive = ContentHash::digest(b"archive");
     let meta = ContentHash::digest(b"metadata");
     let archive_hex = archive.to_string().replace("sha256:", "");
     let meta_hex = meta.to_string().replace("sha256:", "");
     let artifact = url::Url::parse("https://files.test/a%2Bb.whl?signature=secret").unwrap();
-    for attribute in ["data-core-metadata", "data-dist-info-metadata"] {
-        let text = format!(
-            "<base href='https://files.test/'><a href='a%2Bb.whl?signature=secret#sha256={archive_hex}' {attribute}='sha256={meta_hex}'>wheel</a>"
+    let (body, content_type) = if json {
+        (serde_json::to_vec(&serde_json::json!({"files":[{"url":artifact.as_str(),"hashes":{"sha256":archive_hex},attribute:{"sha256":meta_hex}}]})).unwrap(), "application/json")
+    } else {
+        let link = format!(
+            "<a href='a%2Bb.whl?signature=secret#sha256={archive_hex}' {attribute}='sha256={meta_hex}'>wheel</a>"
         );
-        let response = Response {
-            status: 200,
-            location: None,
-            content_type: "text/html".into(),
-            body: text.into_bytes(),
-            url: url::Url::parse("https://index.test/simple/example/").unwrap(),
+        let text = if script {
+            format!("<base href='https://files.test/'><script>{link}</script>")
+        } else {
+            format!("<base href='https://files.test/'>{link}")
         };
-        let sidecar = index::sidecar(&response, &artifact, archive)
-            .unwrap()
-            .unwrap()
-            .0;
-        assert_eq!(
-            sidecar.as_str(),
-            "https://files.test/a%2Bb.whl.metadata?signature=secret"
-        );
-        let different = url::Url::parse("https://files.test/a%2Bb.whl?signature=other").unwrap();
-        assert!(
-            index::sidecar(&response, &different, archive)
-                .unwrap()
-                .is_none()
-        );
-        assert!(index::sidecar(&response, &artifact, ContentHash::digest(b"wrong")).is_err());
-    }
-    for attribute in ["core-metadata", "dist-info-metadata"] {
-        let text = format!(
-            "{{\"meta\":{{\"api-version\":\"1.0\"}},\"files\":[{{\"url\":\"https://files.test/a%2Bb.whl?signature=secret\",\"hashes\":{{\"sha256\":\"{archive_hex}\"}},\"{attribute}\":{{\"sha256\":\"{meta_hex}\"}}}}]}}"
-        );
-        let response = Response {
-            status: 200,
-            location: None,
-            content_type: "application/json".into(),
-            body: text.into_bytes(),
-            url: artifact.clone(),
-        };
-        assert!(
-            index::sidecar(&response, &artifact, archive)
-                .unwrap()
-                .is_some()
-        );
-    }
-    let text = format!(
-        "<script>const example=\"<a href='{artifact}#sha256={archive_hex}' data-core-metadata='sha256={meta_hex}'>\";</script>"
-    );
-    let response = Response {
-        status: 200,
-        location: None,
-        content_type: "text/html".into(),
-        body: text.into_bytes(),
-        url: artifact.clone(),
+        (text.into_bytes(), "text/html")
     };
-    assert!(
-        index::sidecar(&response, &artifact, archive)
-            .unwrap()
-            .is_none()
+    (
+        Response {
+            status: 200,
+            location: None,
+            content_type: content_type.into(),
+            body,
+            url: url::Url::parse("https://index.test/simple/example/").unwrap(),
+        },
+        artifact,
+        archive,
+    )
+}
+
+#[rstest::rstest]
+#[case::html_modern("data-core-metadata", false)]
+#[case::html_legacy("data-dist-info-metadata", false)]
+#[case::json_modern("core-metadata", true)]
+#[case::json_legacy("dist-info-metadata", true)]
+fn index_advertisement_associates_exact_url(#[case] attribute: &str, #[case] json: bool) {
+    // Arrange
+    let (response, artifact, archive) = association_response(attribute, json, false);
+    // Act
+    let sidecar = index::sidecar(&response, &artifact, archive)
+        .unwrap()
+        .unwrap()
+        .0;
+    // Assert
+    assert_eq!(
+        sidecar.as_str(),
+        "https://files.test/a%2Bb.whl.metadata?signature=secret"
     );
 }
+
+#[rstest::rstest]
+#[case::html_modern("data-core-metadata", false)]
+#[case::html_legacy("data-dist-info-metadata", false)]
+#[case::json_modern("core-metadata", true)]
+#[case::json_legacy("dist-info-metadata", true)]
+fn index_advertisement_rejects_different_query(#[case] attribute: &str, #[case] json: bool) {
+    // Arrange
+    let (response, _, archive) = association_response(attribute, json, false);
+    let different = url::Url::parse("https://files.test/a%2Bb.whl?signature=other").unwrap();
+    // Act
+    let result = index::sidecar(&response, &different, archive).unwrap();
+    // Assert
+    assert!(result.is_none());
+}
+
+#[rstest::rstest]
+#[case::html_modern("data-core-metadata", false)]
+#[case::html_legacy("data-dist-info-metadata", false)]
+#[case::json_modern("core-metadata", true)]
+#[case::json_legacy("dist-info-metadata", true)]
+fn index_advertisement_rejects_different_hash(#[case] attribute: &str, #[case] json: bool) {
+    // Arrange
+    let (response, artifact, _) = association_response(attribute, json, false);
+    // Act
+    let result = index::sidecar(&response, &artifact, ContentHash::digest(b"wrong"));
+    // Assert
+    assert_eq!(result.err().unwrap().code, Code::HashMismatch);
+}
+
 #[test]
-fn fallback_preserves_failures_and_counts_every_request() {
+fn script_contents_cannot_advertise_sidecars() {
+    // Arrange
+    let (response, artifact, archive) = association_response("data-core-metadata", false, true);
+    // Act
+    let result = index::sidecar(&response, &artifact, archive).unwrap();
+    // Assert
+    assert!(result.is_none());
+}
+
+#[test]
+fn fallback_reuses_identical_locked_archive() {
     let temp = tempfile::tempdir().unwrap();
     let meta = crate::testfixtures::metadata("License-Expression: MIT");
     let bytes = crate::testfixtures::wheel(&meta);
@@ -884,6 +1052,14 @@ fn fallback_preserves_failures_and_counts_every_request() {
     assert_eq!(batch.summary.archive_extractions, 1);
     assert_eq!(batch.summary.cache_hits, 1);
     assert_eq!(i.evaluate(batch.results).exit_code(false), 0);
+}
+
+#[test]
+fn fallback_preserves_all_failed_results() {
+    // Arrange
+    let meta = crate::testfixtures::metadata("License-Expression: MIT");
+    let bytes = crate::testfixtures::wheel(&meta);
+    let i = fixture_inspection(&bytes, false);
     let temp = tempfile::tempdir().unwrap();
     let fixture = Fixture::default();
     fixture.add("https://files.test/a.whl", 200, b"corrupt");
@@ -905,79 +1081,119 @@ fn real_client_offline_never_reaches_network() {
     assert_eq!(batch.summary.network_requests, 0);
     assert_eq!(i.evaluate(batch.results).exit_code(false), 2);
 }
-proptest::proptest! {
- #![proptest_config(proptest::test_runner::Config::with_cases(256))]
- #[test]
- fn signed_query_association_is_exact(token in "[A-Za-z0-9]{1,32}"){
- let hash=ContentHash::digest(b"archive");let hex=hash.to_string().replace("sha256:","");let url=url::Url::parse(&format!("https://files.test/a.whl?token={token}")).unwrap();let response=Response{status:200,location:None,content_type:"text/html".into(),body:format!("<a href='{url}#sha256={hex}' data-core-metadata='sha256={hex}'>a</a>").into_bytes(),url:url.clone()};
- proptest::prop_assert!(index::sidecar(&response,&url,hash).unwrap().is_some());let wrong=url::Url::parse(&format!("https://files.test/a.whl?token={token}x")).unwrap();proptest::prop_assert!(index::sidecar(&response,&wrong,hash).unwrap().is_none());let secret=format!("token={token}");proptest::prop_assert!(!taloon::model::safe_locator(url.as_str()).contains(&secret));
- }
+fn signed_association(token: &str) -> (Response, url::Url, ContentHash) {
+    let hash = ContentHash::digest(b"archive");
+    let hex = hash.to_string().replace("sha256:", "");
+    let url = url::Url::parse(&format!("https://files.test/a.whl?token={token}")).unwrap();
+    let response = Response {
+        status: 200,
+        location: None,
+        content_type: "text/html".into(),
+        body: format!("<a href='{url}#sha256={hex}' data-core-metadata='sha256={hex}'>a</a>")
+            .into_bytes(),
+        url: url.clone(),
+    };
+    (response, url, hash)
 }
 
-#[test]
+proptest::proptest! {
+    #![proptest_config(proptest::test_runner::Config::with_cases(256))]
+    #[test]
+    fn signed_query_association_accepts_exact_query(token in "[A-Za-z0-9]{1,32}") {
+        // Arrange
+        let (response, url, hash) = signed_association(&token);
+        // Act
+        let result = index::sidecar(&response, &url, hash).unwrap();
+        // Assert
+        proptest::prop_assert!(result.is_some());
+    }
+
+    #[test]
+    fn signed_query_association_rejects_different_query(token in "[A-Za-z0-9]{1,32}") {
+        // Arrange
+        let (response, _, hash) = signed_association(&token);
+        let wrong = url::Url::parse(&format!("https://files.test/a.whl?token={token}x")).unwrap();
+        // Act
+        let result = index::sidecar(&response, &wrong, hash).unwrap();
+        // Assert
+        proptest::prop_assert!(result.is_none());
+    }
+
+    #[test]
+    fn signed_query_is_redacted_from_display(token in "[A-Za-z0-9]{1,32}") {
+        // Arrange
+        let (_, url, _) = signed_association(&token);
+        // Act
+        let display = taloon::model::safe_locator(url.as_str());
+        // Assert: exact display is independently specified, including redaction.
+        proptest::prop_assert_eq!(display, "https://files.test/a.whl?redacted");
+    }
+}
+
+#[rstest::rstest]
+#[case::invalid_tls(false)]
+#[case::timeout(true)]
 #[ignore = "requires loopback sockets"]
-fn real_https_transport_rejects_bad_tls_and_times_out() {
+fn real_https_transport_rejects_invalid_connection(#[case] stall: bool) {
     use std::{
         io::{Read, Write},
         net::TcpListener,
         time::{Duration, Instant},
     };
-    for stall in [false, true] {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let address = listener.local_addr().unwrap();
-        listener.set_nonblocking(true).unwrap();
-        let server = std::thread::spawn(move || {
-            let deadline = Instant::now() + Duration::from_secs(3);
-            let mut count = 0;
-            while count < 3 && Instant::now() < deadline {
-                match listener.accept() {
-                    Ok((mut stream, _)) => {
-                        count += 1;
-                        stream
-                            .set_read_timeout(Some(Duration::from_millis(200)))
-                            .unwrap();
-                        let mut hello = [0; 1024];
-                        let _ = stream.read(&mut hello);
-                        if stall {
-                            std::thread::sleep(Duration::from_millis(200));
-                        } else {
-                            let _ =
-                                stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n");
-                        }
-                    }
-                    Err(e) => {
-                        assert_eq!(
-                            e.kind(),
-                            std::io::ErrorKind::WouldBlock,
-                            "fixture listener: {e}"
-                        );
-                        std::thread::sleep(Duration::from_millis(5));
+    // Arrange
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let server = std::thread::spawn(move || {
+        let deadline = Instant::now() + Duration::from_secs(3);
+        let mut count = 0;
+        while count < 3 && Instant::now() < deadline {
+            match listener.accept() {
+                Ok((mut stream, _)) => {
+                    count += 1;
+                    stream
+                        .set_read_timeout(Some(Duration::from_millis(200)))
+                        .unwrap();
+                    let mut hello = [0; 1024];
+                    let _ = stream.read(&mut hello);
+                    if stall {
+                        std::thread::sleep(Duration::from_millis(200));
+                    } else {
+                        let _ = stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n");
                     }
                 }
+                Err(e) => {
+                    assert_eq!(
+                        e.kind(),
+                        std::io::ErrorKind::WouldBlock,
+                        "fixture listener: {e}"
+                    );
+                    std::thread::sleep(Duration::from_millis(5));
+                }
             }
-            count
-        });
-        let transport = http::HttpsTransport::with_timeout(Duration::from_millis(100)).unwrap();
-        let client = http::Http::new(transport, http::Authentication::default());
-        let mut counters = AcquisitionSummary::default();
-        let error = client
-            .get(
-                RequestPurpose::Archive,
-                url::Url::parse(&format!("https://{address}/?signed=secret")).unwrap(),
-                "test",
-                64,
-                &mut counters,
-            )
-            .err()
-            .unwrap();
-        assert_eq!(counters.network_requests, 3);
-        assert!(!error.to_string().contains("secret"));
-        assert_eq!(server.join().unwrap(), 3);
-    }
+        }
+        count
+    });
+    let transport = http::HttpsTransport::with_timeout(Duration::from_millis(100)).unwrap();
+    let client = http::Http::new(transport, http::Authentication::default());
+    let mut counters = AcquisitionSummary::default();
+    let error = client
+        .get(
+            RequestPurpose::Archive,
+            url::Url::parse(&format!("https://{address}/?signed=secret")).unwrap(),
+            "test",
+            64,
+            &mut counters,
+        )
+        .err()
+        .unwrap();
+    assert_eq!(counters.network_requests, 3);
+    assert!(!error.to_string().contains("secret"));
+    assert_eq!(server.join().unwrap(), 3);
 }
 
 #[test]
-fn oversized_and_malformed_index_responses_fall_back_to_archives() {
+fn malformed_index_response_falls_back_to_archive() {
     let temp = tempfile::tempdir().unwrap();
     let meta = crate::testfixtures::metadata("License-Expression: MIT");
     let bytes = crate::testfixtures::wheel(&meta);
@@ -993,6 +1209,12 @@ fn oversized_and_malformed_index_responses_fall_back_to_archives() {
     let batch = acquirer.acquire(i.requests());
     assert!(!batch.warnings.is_empty());
     assert_eq!(i.evaluate(batch.results).exit_code(false), 0);
+}
+
+#[test]
+fn oversized_http_response_is_rejected() {
+    // Arrange
+    let fixture = Fixture::default();
     fixture.add("https://example.test/oversized", 200, b"too much");
     let http = http::Http::new(fixture, http::Authentication::default());
     let mut stats = AcquisitionSummary::default();
@@ -1046,37 +1268,39 @@ fn one_failure_does_not_remove_another_artifacts_success() {
     );
 }
 
-#[test]
-fn unhashed_unavailable_or_corrupt_sidecars_fall_back_without_permission_shortcuts() {
-    for advertisement in [
-        serde_json::Value::Bool(true),
-        serde_json::json!({"sha256":ContentHash::digest(b"missing").to_string().replace("sha256:","")}),
-    ] {
-        let temp = tempfile::tempdir().unwrap();
-        let meta = crate::testfixtures::metadata("License-Expression: MIT");
-        let bytes = crate::testfixtures::wheel(&meta);
-        let hash = ContentHash::digest(&bytes);
-        let i = fixture_inspection(&bytes, false);
-        let fixture = Fixture::default();
-        let doc = serde_json::json!({"meta":{"api-version":"1.0"},"files":[{"url":"https://files.test/a.whl","hashes":{"sha256":hash.to_string().replace("sha256:","")},"core-metadata":advertisement}]});
-        fixture.add(
-            "https://example.test/simple/example/",
-            200,
-            &serde_json::to_vec(&doc).unwrap(),
-        );
-        fixture.add("https://files.test/a.whl.metadata", 200, b"corrupt");
-        fixture.add("https://files.test/a.whl", 200, &bytes);
-        let acquirer =
-            Acquirer::with_transport(AcquisitionOptions::testing(temp.path(), false), fixture)
-                .unwrap();
-        let batch = acquirer.acquire(i.requests());
-        assert_eq!(batch.summary.archive_extractions, 1);
-        assert_eq!(i.evaluate(batch.results).exit_code(false), 0);
-    }
+#[rstest::rstest]
+#[case::unhashed(serde_json::Value::Bool(true))]
+#[case::corrupt(serde_json::json!({"sha256":ContentHash::digest(b"missing").to_string().replace("sha256:","")}))]
+fn unusable_sidecar_falls_back_without_permission_shortcuts(
+    #[case] advertisement: serde_json::Value,
+) {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let meta = crate::testfixtures::metadata("License-Expression: MIT");
+    let bytes = crate::testfixtures::wheel(&meta);
+    let hash = ContentHash::digest(&bytes);
+    let i = fixture_inspection(&bytes, false);
+    let fixture = Fixture::default();
+    let doc = serde_json::json!({"meta":{"api-version":"1.0"},"files":[{"url":"https://files.test/a.whl","hashes":{"sha256":hash.to_string().replace("sha256:","")},"core-metadata":advertisement}]});
+    fixture.add(
+        "https://example.test/simple/example/",
+        200,
+        &serde_json::to_vec(&doc).unwrap(),
+    );
+    fixture.add("https://files.test/a.whl.metadata", 200, b"corrupt");
+    fixture.add("https://files.test/a.whl", 200, &bytes);
+    let acquirer =
+        Acquirer::with_transport(AcquisitionOptions::testing(temp.path(), false), fixture).unwrap();
+    // Act
+    let batch = acquirer.acquire(i.requests());
+    // Assert
+    assert_eq!(batch.summary.archive_extractions, 1);
+    assert_eq!(i.evaluate(batch.results).exit_code(false), 0);
 }
 
 #[test]
-fn two_distinct_sidecar_associations_survive_offline_warmup() {
+fn distinct_sidecar_associations_acquire_without_archives() {
+    // Arrange
     let temp = tempfile::tempdir().unwrap();
     let meta = crate::testfixtures::metadata("License-Expression: MIT");
     let bytes = crate::testfixtures::wheel(&meta);
@@ -1107,9 +1331,47 @@ fn two_distinct_sidecar_associations_survive_offline_warmup() {
         fixture.clone(),
     )
     .unwrap();
+    // Act / Assert: cold acquisition.
     let batch = online.acquire(i.requests());
     assert_eq!(batch.summary.archive_extractions, 0);
     assert_eq!(i.evaluate(batch.results).exit_code(false), 0);
+}
+
+#[test]
+fn distinct_sidecar_associations_survive_offline_warmup() {
+    // Arrange
+    let temp = tempfile::tempdir().unwrap();
+    let meta = crate::testfixtures::metadata("License-Expression: MIT");
+    let bytes = crate::testfixtures::wheel(&meta);
+    let i = fixture_inspection(&bytes, false);
+    let fixture = Fixture::default();
+    let hash = ContentHash::digest(&bytes)
+        .to_string()
+        .replace("sha256:", "");
+    let mh = ContentHash::digest(&meta)
+        .to_string()
+        .replace("sha256:", "");
+    let files:Vec<_>=["a","b"].iter().map(|name|serde_json::json!({"url":format!("https://files.test/{name}.whl"),"hashes":{"sha256":hash},"core-metadata":{"sha256":mh}})).collect();
+    let doc = serde_json::json!({"meta":{"api-version":"1.0"},"files":files});
+    fixture.add(
+        "https://example.test/simple/example/",
+        200,
+        &serde_json::to_vec(&doc).unwrap(),
+    );
+    for name in ["a", "b"] {
+        fixture.add(
+            &format!("https://files.test/{name}.whl.metadata"),
+            200,
+            &meta,
+        );
+    }
+    let online = Acquirer::with_transport(
+        AcquisitionOptions::testing(temp.path(), false),
+        fixture.clone(),
+    )
+    .unwrap();
+    let _warmup = online.acquire(i.requests());
+    // Act / Assert: offline replay after acquisition.
     let before = fixture.count();
     let offline = Acquirer::with_transport(
         AcquisitionOptions::testing(temp.path(), true),
@@ -1124,7 +1386,8 @@ fn two_distinct_sidecar_associations_survive_offline_warmup() {
 }
 
 #[test]
-fn description_acquires_only_selected_remote_artifacts_and_reuses_evidence() {
+fn description_acquires_only_selected_remote_artifacts() {
+    // Arrange
     use taloon::description::Description;
     let temp = tempfile::tempdir().unwrap();
     let fixture = Fixture::default();
@@ -1146,6 +1409,7 @@ fn description_acquires_only_selected_remote_artifacts_and_reuses_evidence() {
         fixture.clone(),
     )
     .unwrap();
+    // Act / Assert: cold acquisition.
     let batch = acquirer.acquire(description.requests());
     assert_eq!(batch.summary.network_requests, 2);
     assert_eq!(description.evaluate(batch.results).exit_code(), 0);
@@ -1163,6 +1427,34 @@ fn description_acquires_only_selected_remote_artifacts_and_reuses_evidence() {
             "https://files.test/selected.whl.metadata"
         ]
     );
+}
+
+#[test]
+fn description_reuses_selected_evidence_offline() {
+    // Arrange
+    use taloon::description::Description;
+    let temp = tempfile::tempdir().unwrap();
+    let fixture = Fixture::default();
+    let meta = crate::testfixtures::metadata("License-Expression: MIT");
+    let bytes = crate::testfixtures::wheel(&meta);
+    let hash = ContentHash::digest(&bytes);
+    let mh = ContentHash::digest(&meta)
+        .to_string()
+        .replace("sha256:", "");
+    let digest = hash.to_string().replace("sha256:", "");
+    let lock = format!(
+        "version=1\nrevision=5\n[[package]]\nname='example'\nversion='1.0'\nsource={{registry='https://index.test/simple'}}\nwheels=[{{url='https://files.test/selected.whl',hash='{hash}'}}]\n[[package]]\nname='unrelated'\nversion='1.0'\nsource={{registry='https://other.test/simple'}}\nwheels=[{{url='https://other.test/unrelated.whl',hash='{hash}'}}]"
+    );
+    fixture.add("https://index.test/simple/example/",200,format!("{{\"files\":[{{\"url\":\"https://files.test/selected.whl\",\"hashes\":{{\"sha256\":\"{digest}\"}},\"core-metadata\":{{\"sha256\":\"{mh}\"}}}}]}}").as_bytes());
+    fixture.add("https://files.test/selected.whl.metadata", 200, &meta);
+    let description = Description::from_uv_lock(&lock, "example").unwrap();
+    let acquirer = Acquirer::with_transport(
+        AcquisitionOptions::testing(temp.path(), false),
+        fixture.clone(),
+    )
+    .unwrap();
+    let _warmup = acquirer.acquire(description.requests());
+    // Act / Assert: offline replay after acquisition.
     let offline = Acquirer::with_transport(
         AcquisitionOptions::testing(temp.path(), true),
         fixture.clone(),
@@ -1405,30 +1697,102 @@ fn completed_bundled_scan_uses_no_network_on_next_run(
 }
 
 #[rstest::rstest]
-#[case::apache_terms(crate::testfixtures::license_text::Variant::ApacheTerms, "Apache-2.0")]
-#[case::apache_appendix(
-    crate::testfixtures::license_text::Variant::ApacheAppendix,
-    "Apache-2.0"
+#[case::apache_terms_false(
+    crate::testfixtures::license_text::Variant::ApacheTerms,
+    "Apache-2.0",
+    false
 )]
-#[case::mit_names(crate::testfixtures::license_text::Variant::MitNames, "MIT")]
-#[case::mit_contact(crate::testfixtures::license_text::Variant::MitContact, "MIT")]
-#[case::mpl_locator(crate::testfixtures::license_text::Variant::MplLocator, "MPL-2.0")]
-#[case::bsd_plural(crate::testfixtures::license_text::Variant::BsdPlural, "BSD-3-Clause")]
-#[case::bsd_authors(crate::testfixtures::license_text::Variant::BsdAuthors, "BSD-3-Clause")]
-#[case::bsd_dash(crate::testfixtures::license_text::Variant::BsdDash, "BSD-2-Clause")]
-#[case::isc_symbol(crate::testfixtures::license_text::Variant::IscSymbol, "ISC")]
-#[case::mit_bare(crate::testfixtures::license_text::Variant::MitBare, "MIT")]
-#[case::mit_markdown(crate::testfixtures::license_text::Variant::MitMarkdown, "MIT")]
-#[case::mit_yearless(crate::testfixtures::license_text::Variant::MitYearless, "MIT")]
-#[case::mit_dated_owners(crate::testfixtures::license_text::Variant::MitDatedOwners, "MIT")]
-#[case::mit_attribution_contacts(
+#[case::apache_terms_true(
+    crate::testfixtures::license_text::Variant::ApacheTerms,
+    "Apache-2.0",
+    true
+)]
+#[case::apache_appendix_false(
+    crate::testfixtures::license_text::Variant::ApacheAppendix,
+    "Apache-2.0",
+    false
+)]
+#[case::apache_appendix_true(
+    crate::testfixtures::license_text::Variant::ApacheAppendix,
+    "Apache-2.0",
+    true
+)]
+#[case::mit_names_false(crate::testfixtures::license_text::Variant::MitNames, "MIT", false)]
+#[case::mit_names_true(crate::testfixtures::license_text::Variant::MitNames, "MIT", true)]
+#[case::mit_contact_false(crate::testfixtures::license_text::Variant::MitContact, "MIT", false)]
+#[case::mit_contact_true(crate::testfixtures::license_text::Variant::MitContact, "MIT", true)]
+#[case::mpl_locator_false(
+    crate::testfixtures::license_text::Variant::MplLocator,
+    "MPL-2.0",
+    false
+)]
+#[case::mpl_locator_true(
+    crate::testfixtures::license_text::Variant::MplLocator,
+    "MPL-2.0",
+    true
+)]
+#[case::bsd_plural_false(
+    crate::testfixtures::license_text::Variant::BsdPlural,
+    "BSD-3-Clause",
+    false
+)]
+#[case::bsd_plural_true(
+    crate::testfixtures::license_text::Variant::BsdPlural,
+    "BSD-3-Clause",
+    true
+)]
+#[case::bsd_authors_false(
+    crate::testfixtures::license_text::Variant::BsdAuthors,
+    "BSD-3-Clause",
+    false
+)]
+#[case::bsd_authors_true(
+    crate::testfixtures::license_text::Variant::BsdAuthors,
+    "BSD-3-Clause",
+    true
+)]
+#[case::bsd_dash_false(
+    crate::testfixtures::license_text::Variant::BsdDash,
+    "BSD-2-Clause",
+    false
+)]
+#[case::bsd_dash_true(
+    crate::testfixtures::license_text::Variant::BsdDash,
+    "BSD-2-Clause",
+    true
+)]
+#[case::isc_symbol_false(crate::testfixtures::license_text::Variant::IscSymbol, "ISC", false)]
+#[case::isc_symbol_true(crate::testfixtures::license_text::Variant::IscSymbol, "ISC", true)]
+#[case::mit_bare_false(crate::testfixtures::license_text::Variant::MitBare, "MIT", false)]
+#[case::mit_bare_true(crate::testfixtures::license_text::Variant::MitBare, "MIT", true)]
+#[case::mit_markdown_false(crate::testfixtures::license_text::Variant::MitMarkdown, "MIT", false)]
+#[case::mit_markdown_true(crate::testfixtures::license_text::Variant::MitMarkdown, "MIT", true)]
+#[case::mit_yearless_false(crate::testfixtures::license_text::Variant::MitYearless, "MIT", false)]
+#[case::mit_yearless_true(crate::testfixtures::license_text::Variant::MitYearless, "MIT", true)]
+#[case::mit_dated_owners_false(
+    crate::testfixtures::license_text::Variant::MitDatedOwners,
+    "MIT",
+    false
+)]
+#[case::mit_dated_owners_true(
+    crate::testfixtures::license_text::Variant::MitDatedOwners,
+    "MIT",
+    true
+)]
+#[case::mit_attribution_contacts_false(
     crate::testfixtures::license_text::Variant::MitAttributionContacts,
-    "MIT"
+    "MIT",
+    false
+)]
+#[case::mit_attribution_contacts_true(
+    crate::testfixtures::license_text::Variant::MitAttributionContacts,
+    "MIT",
+    true
 )]
 fn complete_legacy_text_cache_needs_no_new_acquisition(
     #[case] variant: crate::testfixtures::license_text::Variant,
     #[case] expected: &str,
-    #[values(false, true)] offline: bool,
+    #[case] offline: bool,
 ) {
     // Arrange
     let temp = tempfile::tempdir().unwrap();
@@ -1508,35 +1872,64 @@ fn cached_sidecar_upgrade_does_not_refetch_metadata(
 }
 
 #[rstest::rstest]
-#[case::mit("MIT License", "MIT")]
-#[case::mpl11("MPL 1.1", "MPL-1.1")]
-#[case::mpl11_title("Mozilla Public License Version 1.1", "MPL-1.1")]
-#[case::mpl20("MPL 2.0", "MPL-2.0")]
-#[case::mpl20_title("Mozilla Public License, Version 2.0", "MPL-2.0")]
-#[case::apache("Apache License (v2.0)", "Apache-2.0")]
-#[case::bsd2("BSD 2 Clause", "BSD-2-Clause")]
-#[case::bsd3("The BSD 3-Clause License", "BSD-3-Clause")]
-#[case::cddl("CDDL 1.1", "CDDL-1.1")]
-#[case::epl("EPL 2.0", "EPL-2.0")]
-#[case::cc0("CC0 1.0 Universal", "CC0-1.0")]
-#[case::gpl_later("GNU General Public License v2 or later", "GPL-2.0-or-later")]
-#[case::lgpl_later("LGPL, v2.1 or later", "LGPL-2.1-or-later")]
-#[case::zpl_versioned("ZPL 2.1", "ZPL-2.1")]
-#[case::bsl_versioned("BSL 1.0", "BSL-1.0")]
-#[case::mpl_v_prefix("Mozilla Public License v1.0", "MPL-1.0")]
-#[case::compound_or("The MIT License OR Apache 2.0", "MIT OR Apache-2.0")]
-#[case::compound_group(
+#[case::mit_false("MIT License", "MIT", false)]
+#[case::mit_true("MIT License", "MIT", true)]
+#[case::mpl11_false("MPL 1.1", "MPL-1.1", false)]
+#[case::mpl11_true("MPL 1.1", "MPL-1.1", true)]
+#[case::mpl11_title_false("Mozilla Public License Version 1.1", "MPL-1.1", false)]
+#[case::mpl11_title_true("Mozilla Public License Version 1.1", "MPL-1.1", true)]
+#[case::mpl20_false("MPL 2.0", "MPL-2.0", false)]
+#[case::mpl20_true("MPL 2.0", "MPL-2.0", true)]
+#[case::mpl20_title_false("Mozilla Public License, Version 2.0", "MPL-2.0", false)]
+#[case::mpl20_title_true("Mozilla Public License, Version 2.0", "MPL-2.0", true)]
+#[case::apache_false("Apache License (v2.0)", "Apache-2.0", false)]
+#[case::apache_true("Apache License (v2.0)", "Apache-2.0", true)]
+#[case::bsd2_false("BSD 2 Clause", "BSD-2-Clause", false)]
+#[case::bsd2_true("BSD 2 Clause", "BSD-2-Clause", true)]
+#[case::bsd3_false("The BSD 3-Clause License", "BSD-3-Clause", false)]
+#[case::bsd3_true("The BSD 3-Clause License", "BSD-3-Clause", true)]
+#[case::cddl_false("CDDL 1.1", "CDDL-1.1", false)]
+#[case::cddl_true("CDDL 1.1", "CDDL-1.1", true)]
+#[case::epl_false("EPL 2.0", "EPL-2.0", false)]
+#[case::epl_true("EPL 2.0", "EPL-2.0", true)]
+#[case::cc0_false("CC0 1.0 Universal", "CC0-1.0", false)]
+#[case::cc0_true("CC0 1.0 Universal", "CC0-1.0", true)]
+#[case::gpl_later_false("GNU General Public License v2 or later", "GPL-2.0-or-later", false)]
+#[case::gpl_later_true("GNU General Public License v2 or later", "GPL-2.0-or-later", true)]
+#[case::lgpl_later_false("LGPL, v2.1 or later", "LGPL-2.1-or-later", false)]
+#[case::lgpl_later_true("LGPL, v2.1 or later", "LGPL-2.1-or-later", true)]
+#[case::zpl_versioned_false("ZPL 2.1", "ZPL-2.1", false)]
+#[case::zpl_versioned_true("ZPL 2.1", "ZPL-2.1", true)]
+#[case::bsl_versioned_false("BSL 1.0", "BSL-1.0", false)]
+#[case::bsl_versioned_true("BSL 1.0", "BSL-1.0", true)]
+#[case::mpl_v_prefix_false("Mozilla Public License v1.0", "MPL-1.0", false)]
+#[case::mpl_v_prefix_true("Mozilla Public License v1.0", "MPL-1.0", true)]
+#[case::compound_or_false("The MIT License OR Apache 2.0", "MIT OR Apache-2.0", false)]
+#[case::compound_or_true("The MIT License OR Apache 2.0", "MIT OR Apache-2.0", true)]
+#[case::compound_group_false(
     "(The MIT License OR ISC) AND Apache 2.0",
-    "(MIT OR ISC) AND Apache-2.0"
+    "(MIT OR ISC) AND Apache-2.0",
+    false
 )]
-#[case::compound_with(
+#[case::compound_group_true(
+    "(The MIT License OR ISC) AND Apache 2.0",
+    "(MIT OR ISC) AND Apache-2.0",
+    true
+)]
+#[case::compound_with_false(
     "Apache 2.0 WITH LLVM-exception OR The MIT License",
-    "Apache-2.0 WITH LLVM-exception OR MIT"
+    "Apache-2.0 WITH LLVM-exception OR MIT",
+    false
+)]
+#[case::compound_with_true(
+    "Apache 2.0 WITH LLVM-exception OR The MIT License",
+    "Apache-2.0 WITH LLVM-exception OR MIT",
+    true
 )]
 fn cached_legacy_names_need_no_new_evidence(
     #[case] value: &str,
     #[case] expected: &str,
-    #[values(false, true)] offline: bool,
+    #[case] offline: bool,
 ) {
     // Arrange
     let temp = tempfile::tempdir().unwrap();

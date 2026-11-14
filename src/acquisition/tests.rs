@@ -4,51 +4,60 @@ use taloon::{
     evidence::{Evidence, SidecarAssociation},
     model::{ArtifactFormat, ContentHash, EvidenceRequirement},
 };
-#[test]
-fn cache_requires_matching_identity_strength_and_format() {
+#[rstest::rstest]
+#[case::matching(true, true)]
+#[case::different_content(false, false)]
+fn archive_cache_requires_matching_content(#[case] matching: bool, #[case] expected: bool) {
+    // Arrange
     let temp = tempfile::tempdir().unwrap();
     let cache = EvidenceCache::new(temp.path().to_owned());
     let bytes = wheel(&metadata("License-Expression: MIT"));
     let req = request(&bytes, ArtifactFormat::Wheel);
-    let hash = ContentHash::digest(&bytes);
-    let e = Evidence::from_archive(&req, &bytes).unwrap();
-    cache.put(&req, &e).unwrap();
-    assert!(cache.get(&req, hash).unwrap().is_some());
-    assert!(
-        cache
-            .get(&req, ContentHash::digest(b"wrong"))
-            .unwrap()
-            .is_none()
-    );
+    let evidence = Evidence::from_archive(&req, &bytes).unwrap();
+    cache.put(&req, &evidence).unwrap();
+    let hash = ContentHash::digest(if matching { &bytes } else { b"wrong" });
+    // Act
+    let replay = cache.get(&req, hash).unwrap();
+    // Assert
+    assert_eq!(replay.is_some(), expected);
+}
+
+#[rstest::rstest]
+#[case::associated(EvidenceRequirement::IndexAssociated, true)]
+#[case::archive_required(EvidenceRequirement::ArchiveVerified, false)]
+fn sidecar_cache_requires_sufficient_strength(
+    #[case] requirement: EvidenceRequirement,
+    #[case] expected: bool,
+) {
+    // Arrange
     let temp = tempfile::tempdir().unwrap();
     let cache = EvidenceCache::new(temp.path().to_owned());
+    let bytes = wheel(&metadata("License-Expression: MIT"));
+    let req = request(&bytes, ArtifactFormat::Wheel).requiring(requirement);
+    let hash = ContentHash::digest(&bytes);
     let meta = metadata("License-Expression: MIT");
-    let sidecar = Evidence::from_sidecar(
+    let evidence = Evidence::from_sidecar(
         &req,
         SidecarAssociation::new(hash, hash, ContentHash::digest(&meta)).unwrap(),
         &meta,
     )
     .unwrap();
-    cache.put(&req, &sidecar).unwrap();
-    assert!(
-        cache
-            .get(
-                &req.clone().requiring(EvidenceRequirement::ArchiveVerified),
-                hash
-            )
-            .unwrap()
-            .is_none()
-    );
-    assert!(cache.get(&req, hash).unwrap().is_some());
+    cache.put(&req, &evidence).unwrap();
+    // Act
+    let replay = cache.get(&req, hash).unwrap();
+    // Assert
+    assert_eq!(replay.is_some(), expected);
 }
 
-#[test]
-fn local_archive_without_lock_digest_is_rehashed() {
-    use taloon::model::{ArtifactLocator, ArtifactRequest, Code, PackageId, SourceId};
+fn local_fixture() -> (
+    tempfile::TempDir,
+    taloon::model::ArtifactRequest,
+    EvidenceCache,
+) {
+    use taloon::model::{ArtifactLocator, ArtifactRequest, PackageId, SourceId};
     let temp = tempfile::tempdir().unwrap();
-    let path = temp.path().join("example.whl");
     let bytes = wheel(&metadata("License-Expression: MIT"));
-    std::fs::write(&path, &bytes).unwrap();
+    std::fs::write(temp.path().join("example.whl"), &bytes).unwrap();
     let req = ArtifactRequest::new(
         PackageId::parse(
             "example",
@@ -62,33 +71,95 @@ fn local_archive_without_lock_digest_is_rehashed() {
     )
     .unwrap();
     let cache = EvidenceCache::new(temp.path().join("cache"));
+    (temp, req, cache)
+}
+
+#[test]
+fn local_archive_without_lock_digest_is_extracted() {
+    // Arrange
+    let (temp, req, cache) = local_fixture();
+    let mut stats = taloon::report::AcquisitionSummary::default();
+    let mut warnings = Vec::new();
+    // Act
+    let evidence =
+        super::acquire_local(&req, temp.path(), &cache, &mut stats, &mut warnings).unwrap();
+    // Assert
+    assert_eq!(stats.archive_extractions, 1);
+    assert_eq!(evidence.license().unwrap().text(), "MIT");
+}
+
+#[test]
+fn unchanged_unpinned_local_archive_reuses_cached_evidence() {
+    // Arrange
+    let (temp, req, cache) = local_fixture();
     let mut stats = taloon::report::AcquisitionSummary::default();
     let mut warnings = Vec::new();
     let first = super::acquire_local(&req, temp.path(), &cache, &mut stats, &mut warnings).unwrap();
-    assert_eq!(stats.archive_extractions, 1);
+    stats = taloon::report::AcquisitionSummary::default();
+    // Act
     let again = super::acquire_local(&req, temp.path(), &cache, &mut stats, &mut warnings).unwrap();
+    // Assert
     assert_eq!(first.content_hash(), again.content_hash());
     assert_eq!(stats.cache_hits, 1);
+    assert_eq!(stats.archive_extractions, 0);
+}
+
+#[test]
+fn changed_unpinned_local_archive_is_rehashed() {
+    // Arrange
+    let (temp, req, cache) = local_fixture();
+    let mut stats = taloon::report::AcquisitionSummary::default();
+    let mut warnings = Vec::new();
+    let first = super::acquire_local(&req, temp.path(), &cache, &mut stats, &mut warnings).unwrap();
     let changed = wheel(&metadata("License-Expression: ISC"));
-    std::fs::write(&path, &changed).unwrap();
+    std::fs::write(temp.path().join("example.whl"), &changed).unwrap();
+    // Act
     let last = super::acquire_local(&req, temp.path(), &cache, &mut stats, &mut warnings).unwrap();
+    // Assert
     assert_ne!(first.content_hash(), last.content_hash());
     assert_eq!(last.license().unwrap().text(), "ISC");
-    let pinned = ArtifactRequest::new(
+}
+
+#[test]
+fn changed_pinned_local_archive_is_rejected() {
+    // Arrange
+    let (temp, req, cache) = local_fixture();
+    let mut stats = taloon::report::AcquisitionSummary::default();
+    let mut warnings = Vec::new();
+    // Warm evidence must not bypass re-reading and validating the changed archive.
+    super::acquire_local(&req, temp.path(), &cache, &mut stats, &mut warnings).unwrap();
+    let bytes = std::fs::read(temp.path().join("example.whl")).unwrap();
+    let pinned = taloon::model::ArtifactRequest::new(
         req.package().clone(),
         req.locator().clone(),
         req.format(),
         Some(ContentHash::digest(&bytes)),
     )
     .unwrap();
-    assert_eq!(
-        super::acquire_local(&pinned, temp.path(), &cache, &mut stats, &mut warnings)
-            .unwrap_err()
-            .code,
-        Code::HashMismatch
-    );
-    std::fs::remove_file(path).unwrap();
-    assert!(super::acquire_local(&req, temp.path(), &cache, &mut stats, &mut warnings).is_err());
+    std::fs::write(
+        temp.path().join("example.whl"),
+        wheel(&metadata("License-Expression: ISC")),
+    )
+    .unwrap();
+    // Act
+    let error =
+        super::acquire_local(&pinned, temp.path(), &cache, &mut stats, &mut warnings).unwrap_err();
+    // Assert
+    assert_eq!(error.code, taloon::model::Code::HashMismatch);
+}
+
+#[test]
+fn removed_local_archive_cannot_reuse_cached_evidence() {
+    // Arrange
+    let (temp, req, cache) = local_fixture();
+    let mut stats = taloon::report::AcquisitionSummary::default();
+    let mut warnings = Vec::new();
+    super::acquire_local(&req, temp.path(), &cache, &mut stats, &mut warnings).unwrap();
+    std::fs::remove_file(temp.path().join("example.whl")).unwrap();
+    // Act
+    let result = super::acquire_local(&req, temp.path(), &cache, &mut stats, &mut warnings);
+    // Assert
+    assert!(result.is_err());
 }
 
 fn cache_files(root: &std::path::Path) -> Vec<std::path::PathBuf> {
@@ -120,27 +191,51 @@ fn obsolete_payload_is_a_disk_cache_miss() {
     // Assert
     assert!(restored.is_none());
 }
-#[test]
-fn corrupt_incompatible_and_interrupted_records_are_misses() {
+enum CacheDamage {
+    Interrupted,
+    Truncated,
+    Incompatible,
+}
+
+fn damage_cache_record(
+    path: &std::path::Path,
+    root: &std::path::Path,
+    original: &[u8],
+    damage: &CacheDamage,
+) {
+    match damage {
+        CacheDamage::Interrupted => {
+            std::fs::rename(path, root.join(".evidence-interrupted")).unwrap();
+        }
+        CacheDamage::Truncated => std::fs::write(path, &original[..original.len() / 2]).unwrap(),
+        CacheDamage::Incompatible => {
+            let mut value: serde_json::Value = serde_json::from_slice(original).unwrap();
+            value["schema"] = 99.into();
+            std::fs::write(path, serde_json::to_vec(&value).unwrap()).unwrap();
+        }
+    }
+}
+
+#[rstest::rstest]
+#[case::interrupted(&CacheDamage::Interrupted)]
+#[case::truncated(&CacheDamage::Truncated)]
+#[case::incompatible(&CacheDamage::Incompatible)]
+fn invalid_cache_record_is_a_miss(#[case] damage: &CacheDamage) {
+    // Arrange
     let temp = tempfile::tempdir().unwrap();
     let cache = EvidenceCache::new(temp.path().to_owned());
     let bytes = wheel(&metadata("License-Expression: MIT"));
     let req = request(&bytes, ArtifactFormat::Wheel);
     let hash = ContentHash::digest(&bytes);
-    let e = Evidence::from_archive(&req, &bytes).unwrap();
-    std::fs::write(temp.path().join(".evidence-interrupted"), b"partial").unwrap();
-    assert!(cache.get(&req, hash).unwrap().is_none());
-    cache.put(&req, &e).unwrap();
+    let evidence = Evidence::from_archive(&req, &bytes).unwrap();
+    cache.put(&req, &evidence).unwrap();
     let path = cache_files(temp.path()).pop().unwrap();
     let original = std::fs::read(&path).unwrap();
-    std::fs::write(&path, &original[..original.len() / 2]).unwrap();
-    assert!(cache.get(&req, hash).unwrap().is_none());
-    let mut incompatible: serde_json::Value = serde_json::from_slice(&original).unwrap();
-    incompatible["schema"] = 99.into();
-    std::fs::write(&path, serde_json::to_vec(&incompatible).unwrap()).unwrap();
-    assert!(cache.get(&req, hash).unwrap().is_none());
-    cache.put(&req, &e).unwrap();
-    assert!(cache.get(&req, hash).unwrap().is_some());
+    damage_cache_record(&path, temp.path(), &original, damage);
+    // Act
+    let replay = cache.get(&req, hash).unwrap();
+    // Assert
+    assert!(replay.is_none());
 }
 #[test]
 fn concurrent_publication_never_exposes_partial_records() {
@@ -209,51 +304,74 @@ fn unavailable_cache_does_not_discard_in_memory_success() {
     assert!(!warnings.is_empty());
     assert_eq!(stats.archive_extractions, 1);
 }
-#[test]
-fn global_archive_cache_still_validates_identity_and_format() {
+#[rstest::rstest]
+#[case::other_source("example", "https://other.test/simple", ArtifactFormat::Wheel, true)]
+#[case::wrong_identity("wrong", "https://example.test/simple", ArtifactFormat::Wheel, false)]
+#[case::wrong_format("example", "https://example.test/simple", ArtifactFormat::Sdist, false)]
+fn global_archive_cache_validates_request(
+    #[case] name: &str,
+    #[case] source: &str,
+    #[case] format: ArtifactFormat,
+    #[case] expected: bool,
+) {
     use taloon::model::{ArtifactRequest, PackageId, SourceId};
+    // Arrange
     let temp = tempfile::tempdir().unwrap();
     let cache = EvidenceCache::new(temp.path().to_owned());
     let bytes = wheel(&metadata("License-Expression: MIT"));
     let req = request(&bytes, ArtifactFormat::Wheel);
     let hash = ContentHash::digest(&bytes);
-    let e = Evidence::from_archive(&req, &bytes).unwrap();
-    cache.put(&req, &e).unwrap();
-    let other_source = ArtifactRequest::new(
-        PackageId::parse(
-            "example",
-            "1.0",
-            SourceId::parse("registry", "https://other.test/simple").unwrap(),
-        )
-        .unwrap(),
+    cache
+        .put(&req, &Evidence::from_archive(&req, &bytes).unwrap())
+        .unwrap();
+    let next = ArtifactRequest::new(
+        PackageId::parse(name, "1.0", SourceId::parse("registry", source).unwrap()).unwrap(),
         req.locator().clone(),
-        req.format(),
+        format,
         Some(hash),
     )
     .unwrap();
-    assert!(cache.get(&other_source, hash).unwrap().is_some());
-    let wrong = ArtifactRequest::new(
-        PackageId::parse("wrong", "1.0", req.package().source().clone()).unwrap(),
-        req.locator().clone(),
-        req.format(),
-        Some(hash),
-    )
-    .unwrap();
-    assert!(cache.get(&wrong, hash).unwrap().is_none());
-    assert!(
-        cache
-            .get(&request(&bytes, ArtifactFormat::Sdist), hash)
-            .unwrap()
-            .is_none()
-    );
+    // Act
+    let replay = cache.get(&next, hash).unwrap();
+    // Assert
+    assert_eq!(replay.is_some(), expected);
 }
 proptest::proptest! {
- #![proptest_config(proptest::test_runner::Config::with_cases(256))]
- #[test]
- fn persisted_observations_roundtrip_and_header_mutations_miss(license in proptest::sample::select(vec!["MIT","MIT OR ISC","Apache-2.0"]),bit in 0_u8..7){
- let temp=tempfile::tempdir().unwrap();let cache=EvidenceCache::new(temp.path().to_owned());let bytes=wheel(&metadata(&format!("License-Expression: {license}")));let req=request(&bytes,ArtifactFormat::Wheel);let hash=ContentHash::digest(&bytes);let e=Evidence::from_archive(&req,&bytes).unwrap();cache.put(&req,&e).unwrap();let replay=cache.get(&req,hash).unwrap().unwrap();proptest::prop_assert_eq!(replay.license().unwrap().text().to_owned(),license);
- let path=cache_files(temp.path()).pop().unwrap();let mut encoded=std::fs::read(&path).unwrap();let at=encoded.windows(license.len()).position(|s|s==license.as_bytes()).unwrap();encoded[at]^=1<<bit;std::fs::write(path,encoded).unwrap();proptest::prop_assert!(cache.get(&req,hash).unwrap().is_none());
- }
+    #![proptest_config(proptest::test_runner::Config::with_cases(256))]
+    #[test]
+    fn persisted_observations_roundtrip(license in proptest::sample::select(vec!["MIT", "MIT OR ISC", "Apache-2.0"])) {
+        // Arrange
+        let temp = tempfile::tempdir().unwrap();
+        let cache = EvidenceCache::new(temp.path().to_owned());
+        let bytes = wheel(&metadata(&format!("License-Expression: {license}")));
+        let req = request(&bytes, ArtifactFormat::Wheel);
+        let hash = ContentHash::digest(&bytes);
+        cache.put(&req, &Evidence::from_archive(&req, &bytes).unwrap()).unwrap();
+        // Act
+        let replay = cache.get(&req, hash).unwrap().unwrap();
+        // Assert: expected declaration comes from the generated metadata, not replay.
+        proptest::prop_assert_eq!(replay.license().unwrap().text().to_owned(), license);
+    }
+
+    #[test]
+    fn persisted_header_mutations_miss(license in proptest::sample::select(vec!["MIT", "MIT OR ISC", "Apache-2.0"]), bit in 0_u8..8) {
+        // Arrange
+        let temp = tempfile::tempdir().unwrap();
+        let cache = EvidenceCache::new(temp.path().to_owned());
+        let bytes = wheel(&metadata(&format!("License-Expression: {license}")));
+        let req = request(&bytes, ArtifactFormat::Wheel);
+        let hash = ContentHash::digest(&bytes);
+        cache.put(&req, &Evidence::from_archive(&req, &bytes).unwrap()).unwrap();
+        let path = cache_files(temp.path()).pop().unwrap();
+        let mut encoded = std::fs::read(&path).unwrap();
+        let at = encoded.windows(license.len()).position(|s| s == license.as_bytes()).unwrap();
+        encoded[at] ^= 1 << bit;
+        std::fs::write(path, encoded).unwrap();
+        // Act
+        let replay = cache.get(&req, hash).unwrap();
+        // Assert: modified raw evidence cannot retain its original digest binding.
+        proptest::prop_assert!(replay.is_none());
+    }
 }
 
 #[test]

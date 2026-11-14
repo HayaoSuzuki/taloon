@@ -132,7 +132,11 @@ def test_draft_release_cannot_be_recovered(
     assert recovery
 
 
-@pytest.mark.parametrize("commit", ["", "a" * 39, "g" * 40, "A" * 40])
+@pytest.mark.parametrize(
+    "commit",
+    ["", "a" * 39, "g" * 40, "A" * 40],
+    ids=["empty", "short", "nonhex", "uppercase"],
+)
 def test_invalid_event_identity_never_emits_output(
     event: Path, monkeypatch: pytest.MonkeyPatch, commit: str
 ) -> None:
@@ -162,6 +166,7 @@ def test_missing_github_cli_prevents_recovery_output(
         ("workflow_dispatch", "release not found"),
         ("push", "authentication failed"),
     ],
+    ids=["workflow_dispatch", "push"],
 )
 def test_release_lookup_failure_never_authorizes_publication(
     event: Path,
@@ -201,7 +206,9 @@ def test_unreserved_main_push_cannot_publish(
     assert observed["commit"] == "a" * 40
 
 
-@pytest.mark.parametrize("tag", ["0.1.0", "release-0.1.0"])
+@pytest.mark.parametrize(
+    "tag", ["0.1.0", "release-0.1.0"], ids=["no-prefix", "wrong-prefix"]
+)
 def test_non_version_tag_never_emits_output(
     event: Path, monkeypatch: pytest.MonkeyPatch, tag: str
 ) -> None:

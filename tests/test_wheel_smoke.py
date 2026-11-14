@@ -48,12 +48,18 @@ def test_wheel_probe_checks_remain_active_with_optimization() -> None:
     assert "AssertionError: probe rejected" in observed.stderr
 
 
-@pytest.mark.parametrize("detail", [None, "invalid report"])
-def test_require_rejects_failed_verification(detail: object) -> None:
+@pytest.mark.parametrize(
+    ("detail", "expected"),
+    [(None, ()), ("invalid report", ("invalid report",))],
+    ids=["no-detail", "with-detail"],
+)
+def test_require_rejects_failed_verification(
+    detail: object, expected: tuple[object, ...]
+) -> None:
     # Arrange / Act / Assert
     with pytest.raises(AssertionError) as error:
         wheel_smoke.require(condition=False, detail=detail)
-    assert error.value.args == (() if detail is None else (detail,))
+    assert error.value.args == expected
 
 
 def test_smoke_requires_installer(
@@ -89,8 +95,12 @@ def installed_binary(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 def test_smoke_checks_real_binary_cache_and_policy_transitions(
     installed_binary: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    # Arrange / Act
-    wheel_smoke.smoke(installed_binary, "3.14")
+    # Arrange
+    python_version = "3.14"
+
+    # Act
+    wheel_smoke.smoke(installed_binary, python_version)
+
     # Assert
     assert capsys.readouterr().out == (
         "Wheel smoke passed: taloon-0.1.0-py3-none-any.whl, Python 3.14\n"

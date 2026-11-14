@@ -43,11 +43,33 @@ def statement(
 
 def test_both_exact_subject_predicates_are_required() -> None:
     # Arrange
-    values = [statement(provenance.SLSA), statement(provenance.PUBLISH)]
+    values: list[dict[str, object]] = [
+        statement(provenance.SLSA),
+        statement(provenance.PUBLISH),
+    ]
     # Act
     observed = provenance.statement_types(values, "example.whl", "a" * 64)
     # Assert
     assert observed == provenance.PREDICATES
+
+
+def wrong_predicates_or_subjects_rejected_case(
+    mutation: str,
+) -> list[dict[str, object]]:
+    # Arrange
+    values: list[dict[str, object]] = [
+        statement(provenance.SLSA),
+        statement(provenance.PUBLISH),
+    ]
+    if mutation == "missing":
+        values.pop()
+    elif mutation == "duplicate":
+        values[1] = values[0]
+    elif mutation == "subject":
+        values[1] = statement(provenance.PUBLISH, name="other.whl")
+    else:
+        values[1] = statement(provenance.PUBLISH, digest="b" * 64)
+    return values
 
 
 @pytest.mark.parametrize(
@@ -58,18 +80,11 @@ def test_both_exact_subject_predicates_are_required() -> None:
         ("subject", "Expected exactly one matching"),
         ("digest", "Expected exactly one matching"),
     ],
+    ids=["missing", "duplicate", "subject", "digest"],
 )
 def test_wrong_predicates_or_subjects_rejected(mutation: str, message: str) -> None:
     # Arrange
-    values = [statement(provenance.SLSA), statement(provenance.PUBLISH)]
-    if mutation == "missing":
-        values.pop()
-    elif mutation == "duplicate":
-        values[1] = values[0]
-    elif mutation == "subject":
-        values[1] = statement(provenance.PUBLISH, name="other.whl")
-    else:
-        values[1] = statement(provenance.PUBLISH, digest="b" * 64)
+    values = wrong_predicates_or_subjects_rejected_case(mutation)
     # Act / Assert
     with pytest.raises(ValueError, match=message):
         provenance.statement_types(values, "example.whl", "a" * 64)
@@ -86,13 +101,12 @@ def inventory_record(tmp_path: Path) -> tuple[Path, dict[str, object]]:
     }
 
 
-@pytest.mark.parametrize("mutation", ["missing", "duplicate", "yanked", "digest"])
-def test_index_inventory_rejects_one_mutation(
+def index_inventory_rejects_one_mutation_case(
     inventory_record: tuple[Path, dict[str, object]], mutation: str
-) -> None:
+) -> tuple[Path, list[dict[str, object]], str]:
     # Arrange
     wheel, record = inventory_record
-    records = [record]
+    records: list[dict[str, object]] = [record]
     if mutation == "missing":
         records = []
     elif mutation == "duplicate":
@@ -106,46 +120,81 @@ def test_index_inventory_rejects_one_mutation(
         if mutation in {"duplicate", "yanked"}
         else "Partial or mismatching"
     )
+    return wheel, records, message
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["missing", "duplicate", "yanked", "digest"],
+    ids=["missing", "duplicate", "yanked", "digest"],
+)
+def test_index_inventory_rejects_one_mutation(
+    inventory_record: tuple[Path, dict[str, object]], mutation: str
+) -> None:
+    # Arrange
+    wheel, records, message = index_inventory_rejects_one_mutation_case(
+        inventory_record, mutation
+    )
     # Act / Assert
     with pytest.raises(ValueError, match=message):
         provenance.check_inventory({"urls": records}, [wheel])
 
 
+def generated_inventory_record(wheel: Path, payload: bytes) -> dict[str, object]:
+    return {
+        "filename": wheel.name,
+        "yanked": False,
+        "digests": {"sha256": hashlib.sha256(payload).hexdigest()},
+    }
+
+
 @settings(max_examples=128)
-@given(
-    payload=st.binary(max_size=256),
-    mutation=st.sampled_from(["none", "missing", "duplicate", "yanked", "digest"]),
-)
-def test_generated_inventory_mutations_preserve_integrity(
-    payload: bytes, mutation: str
-) -> None:
-    # Arrange: generalize the fixed inventory mutations over arbitrary wheel bytes.
+@given(payload=st.binary(max_size=256))
+def test_generated_inventory_accepts_exact_original_bytes(payload: bytes) -> None:
+    # Arrange: hashlib supplies the independent digest for arbitrary wheel bytes.
     with tempfile.TemporaryDirectory() as directory:
         wheel = Path(directory) / "example.whl"
         wheel.write_bytes(payload)
-        digest = hashlib.sha256(payload).hexdigest()
-        record: dict[str, object] = {
-            "filename": wheel.name,
-            "yanked": mutation == "yanked",
-            "digests": {"sha256": digest if mutation != "digest" else "invalid"},
-        }
-        records = (
-            []
-            if mutation == "missing"
-            else [record] * (2 if mutation == "duplicate" else 1)
-        )
+        record = generated_inventory_record(wheel, payload)
         # Act
-        try:
-            provenance.check_inventory({"urls": records}, [wheel])
-        except ValueError:
-            accepted = False
-        else:
-            accepted = True
+        observed = provenance.check_inventory({"urls": [record]}, [wheel])
         # Assert
-        assert accepted == (mutation == "none")
+        assert observed is None
 
 
-@pytest.mark.parametrize("failures", range(12))
+@settings(max_examples=128)
+@given(payload=st.binary(max_size=256), appended=st.binary(min_size=1, max_size=64))
+def test_generated_inventory_rejects_appended_wheel_bytes(
+    payload: bytes, appended: bytes
+) -> None:
+    # Arrange: nonempty appends always change the content and retain the old proof.
+    with tempfile.TemporaryDirectory() as directory:
+        wheel = Path(directory) / "example.whl"
+        record = generated_inventory_record(wheel, payload)
+        wheel.write_bytes(payload + appended)
+        # Act / Assert
+        with pytest.raises(ValueError, match="Partial or mismatching"):
+            provenance.check_inventory({"urls": [record]}, [wheel])
+
+
+@pytest.mark.parametrize(
+    "failures",
+    range(12),
+    ids=[
+        "0-transient-failures",
+        "1-transient-failures",
+        "2-transient-failures",
+        "3-transient-failures",
+        "4-transient-failures",
+        "5-transient-failures",
+        "6-transient-failures",
+        "7-transient-failures",
+        "8-transient-failures",
+        "9-transient-failures",
+        "10-transient-failures",
+        "11-transient-failures",
+    ],
+)
 def test_bounded_propagation_wait(failures: int) -> None:
     # Arrange
     error = urllib.error.HTTPError(
@@ -269,7 +318,11 @@ def test_real_single_subject_signature_is_valid() -> None:
     assert observed[0] == provenance.SLSA
 
 
-@pytest.mark.parametrize("mutation", ["publisher", "source", "digest", "signature"])
+@pytest.mark.parametrize(
+    "mutation",
+    ["publisher", "source", "digest", "signature"],
+    ids=["publisher", "source", "digest", "signature"],
+)
 def test_real_single_subject_signature_rejects_one_mutation(mutation: str) -> None:
     # Arrange
     value, distribution, publisher = signature_case(mutation)
@@ -278,7 +331,7 @@ def test_real_single_subject_signature_rejects_one_mutation(mutation: str) -> No
         value.verify(publisher, distribution, offline=True)
 
 
-@pytest.mark.parametrize("value", [None, 1, []])
+@pytest.mark.parametrize("value", [None, 1, []], ids=["null", "integer", "array"])
 def test_statement_requires_encoded_text(value: object) -> None:
     # Arrange
     envelope = {"envelope": {"statement": value}}
@@ -298,7 +351,9 @@ def test_predicate_must_be_text() -> None:
         provenance.statement_types([value], "example.whl", "a" * 64)
 
 
-@pytest.mark.parametrize("records", [None, {}, "invalid"])
+@pytest.mark.parametrize(
+    "records", [None, {}, "invalid"], ids=["null", "object", "text"]
+)
 def test_inventory_requires_list(records: object) -> None:
     # Arrange / Act / Assert
     with pytest.raises(TypeError, match="Missing index file inventory"):
@@ -313,7 +368,9 @@ def test_missing_gh_is_reported(monkeypatch: pytest.MonkeyPatch) -> None:
         provenance.run_gh(["attestation", "verify"])
 
 
-@pytest.mark.parametrize("commit", ["", "a" * 39, "g" * 40])
+@pytest.mark.parametrize(
+    "commit", ["", "a" * 39, "g" * 40], ids=["empty", "short", "nonhex"]
+)
 def test_build_refuses_invalid_commit(tmp_path: Path, commit: str) -> None:
     # Arrange / Act / Assert
     with pytest.raises(ValueError, match="Expected full release commit SHA"):
@@ -331,29 +388,35 @@ def test_stage_preserves_existing_output(tmp_path: Path) -> None:
     assert (output / "keep").read_text() == "original"
 
 
-@pytest.mark.parametrize("tag", ["0.1.0", "v0.1.0rc1"])
+@pytest.mark.parametrize("tag", ["0.1.0", "v0.1.0rc1"], ids=["no-prefix", "prerelease"])
 def test_index_refuses_unstable_tag(tmp_path: Path, tag: str) -> None:
     # Arrange / Act / Assert
     with pytest.raises(ValueError, match="Expected stable release tag"):
         provenance.verify_index("pypi", tag, "a" * 40, tmp_path)
 
 
-@pytest.mark.parametrize("allow_missing", [True, False])
-def test_missing_index_is_allowed_only_during_inspection(
-    tmp_path: Path, *, allow_missing: bool
-) -> None:
+def test_missing_index_is_allowed_during_inspection(tmp_path: Path) -> None:
     # Arrange
     error = urllib.error.HTTPError("https://pypi.org/", 404, "missing", Message(), None)
     with patch.object(provenance, "fetch_json", side_effect=error):
+        # Act
+        observed = provenance.verify_index(
+            "pypi", "v0.1.0", "a" * 40, tmp_path, allow_missing=True
+        )
+    # Assert
+    assert not observed
+
+
+def test_missing_index_is_rejected_during_verification(tmp_path: Path) -> None:
+    # Arrange
+    error = urllib.error.HTTPError("https://pypi.org/", 404, "missing", Message(), None)
+    with (
+        patch.object(provenance, "fetch_json", side_effect=error),
+        pytest.raises(urllib.error.HTTPError) as observed,
+    ):
         # Act / Assert
-        if allow_missing:
-            assert not provenance.verify_index(
-                "pypi", "v0.1.0", "a" * 40, tmp_path, allow_missing=True
-            )
-        else:
-            with pytest.raises(urllib.error.HTTPError) as observed:
-                provenance.verify_index("pypi", "v0.1.0", "a" * 40, tmp_path)
-            assert observed.value is error
+        provenance.verify_index("pypi", "v0.1.0", "a" * 40, tmp_path)
+    assert observed.value is error
 
 
 def test_index_requires_complete_platform_set(tmp_path: Path) -> None:
@@ -366,12 +429,9 @@ def test_index_requires_complete_platform_set(tmp_path: Path) -> None:
         provenance.verify_index("pypi", "v0.1.0", "a" * 40, tmp_path)
 
 
-@pytest.mark.parametrize(
-    "mutation", ["inventory", "host", "bytes", "bundles", "publisher", "attestations"]
-)
-def test_index_wheel_rejects_untrusted_evidence(
+def index_wheel_rejects_untrusted_evidence_case(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mutation: str
-) -> None:
+) -> tuple[Path, dict[str, object], Path, dict[str, str]]:
     # Arrange
     import io  # noqa: PLC0415 -- in-memory HTTP boundary.
 
@@ -420,6 +480,21 @@ def test_index_wheel_rejects_untrusted_evidence(
         provenance.urllib.request, "urlopen", lambda *_a, **_k: io.BytesIO(payload)
     )
     monkeypatch.setattr(provenance, "fetch_json", lambda _url: response)
+    return wheel, data, root, errors
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["inventory", "host", "bytes", "bundles", "publisher", "attestations"],
+    ids=["inventory", "host", "bytes", "bundles", "publisher", "attestations"],
+)
+def test_index_wheel_rejects_untrusted_evidence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mutation: str
+) -> None:
+    # Arrange
+    wheel, data, root, errors = index_wheel_rejects_untrusted_evidence_case(
+        tmp_path, monkeypatch, mutation
+    )
     # Act / Assert
     with pytest.raises((TypeError, ValueError), match=errors[mutation]):
         provenance.verify_index_wheel(
@@ -443,10 +518,7 @@ def test_fetch_json_decodes_response_object(monkeypatch: pytest.MonkeyPatch) -> 
     assert observed == {"urls": []}
 
 
-@pytest.mark.parametrize("mode", ["inspect", "verify"])
-def test_index_cli_reports_inspection_only(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str
-) -> None:
+def index_cli_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str) -> Path:
     # Arrange
     output = tmp_path / "output"
     monkeypatch.setenv("GITHUB_OUTPUT", str(output))
@@ -466,16 +538,32 @@ def test_index_cli_reports_inspection_only(
         ],
     )
     monkeypatch.setattr(provenance, "verify_with_propagation", lambda *_a, **_k: True)
+    return output
+
+
+def test_inspection_cli_reports_published_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    output = index_cli_case(tmp_path, monkeypatch, "inspect")
     # Act
     provenance.main()
     # Assert
-    if mode == "inspect":
-        assert output.read_text() == "published=true\n"
-    else:
-        assert not output.exists()
+    assert output.read_text() == "published=true\n"
 
 
-@pytest.mark.parametrize("mode", ["stage", "inspect"])
+def test_verification_cli_does_not_publish_inspection_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    output = index_cli_case(tmp_path, monkeypatch, "verify")
+    # Act
+    provenance.main()
+    # Assert
+    assert not output.exists()
+
+
+@pytest.mark.parametrize("mode", ["stage", "inspect"], ids=["stage", "inspect"])
 def test_cli_requires_mode_specific_arguments(
     monkeypatch: pytest.MonkeyPatch, mode: str
 ) -> None:
@@ -541,7 +629,7 @@ def test_stage_cli_selects_requested_destination(
     assert output.is_dir()
 
 
-@pytest.mark.parametrize("error_code", [403, 404])
+@pytest.mark.parametrize("error_code", [403, 404], ids=["403", "404"])
 def test_inspection_never_waits_for_errors(error_code: int) -> None:
     # Arrange
     error = urllib.error.HTTPError(
@@ -576,21 +664,9 @@ def test_deadline_after_sleep_stops_retry() -> None:
     assert observed.value is error
 
 
-@pytest.mark.parametrize(
-    "evidence",
-    [
-        "matching",
-        "matching-after-other",
-        "multiple-wheels",
-        "later-invalid-signature",
-        "missing-file",
-        "wrong-subject",
-        "invalid-signature",
-    ],
-)
-def test_stage_publishes_only_verified_matching_build(
+def staged_evidence_case(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, evidence: str
-) -> None:
+) -> tuple[Path, Attestation, list[str], list[str]]:
     # Arrange: use the real checked-in signature envelope, substituting only its
     # cryptographic verification boundary because the fixture belongs to hoimin.
     value, _, _ = signature_case("none")
@@ -600,7 +676,7 @@ def test_stage_publishes_only_verified_matching_build(
     def prepare(_tag: str, _state: Path, _assets: Path, destination: Path) -> None:
         destination.mkdir()
         (destination / "taloon-0.1.0-py3-none-any.whl").write_bytes(b"original")
-        if evidence == "multiple-wheels":
+        if evidence in {"multiple-wheels", "second-wheel-invalid-signature"}:
             (destination / "taloon-0.1.0-py3-none-other.whl").write_bytes(b"original")
 
     def gh(_args: list[str], *, cwd: Path | None = None) -> None:
@@ -616,13 +692,24 @@ def test_stage_publishes_only_verified_matching_build(
             )
 
     verification_calls: list[str] = []
+    build_calls: list[str] = []
+
+    def verify_build(wheel: Path, bundle: Path, commit: str) -> None:
+        assert commit == "a" * 40
+        Bundle.from_json(bundle.read_text())
+        build_calls.append(wheel.name)
 
     def verify(
         _self: Attestation, _publisher: GitHubPublisher, _distribution: Distribution
     ) -> tuple[str, dict[str, object]]:
         verification_calls.append(_distribution.name)
-        if evidence == "invalid-signature" or (
-            evidence == "later-invalid-signature" and len(verification_calls) == 2
+        if (
+            evidence == "invalid-signature"
+            or (evidence == "later-invalid-signature" and len(verification_calls) == 2)
+            or (
+                evidence == "second-wheel-invalid-signature"
+                and _distribution.name == "taloon-0.1.0-py3-none-other.whl"
+            )
         ):
             message = "signature rejected"
             raise ValueError(message)
@@ -630,18 +717,18 @@ def test_stage_publishes_only_verified_matching_build(
 
     monkeypatch.setattr(provenance, "prepare_wheels", prepare)
     monkeypatch.setattr(provenance, "run_gh", gh)
-    monkeypatch.setattr(provenance, "verify_build", lambda *_a: None)
+    monkeypatch.setattr(provenance, "verify_build", verify_build)
     monkeypatch.setattr(Attestation, "verify", verify)
     monkeypatch.setattr(
         Distribution,
         "from_file",
-        lambda _path: Distribution(
-            name="taloon-0.1.0-py3-none-any.whl", digest="a" * 64
+        lambda path: Distribution(
+            name=path.name, digest=hashlib.sha256(path.read_bytes()).hexdigest()
         ),
     )
     subjects = iter(
         ["taloon-0.1.0-py3-none-any.whl", "taloon-0.1.0-py3-none-other.whl"]
-        if evidence == "multiple-wheels"
+        if evidence in {"multiple-wheels", "second-wheel-invalid-signature"}
         else ["taloon-0.1.0-py3-none-any.whl"] * 2
         if evidence == "later-invalid-signature"
         else ["other.whl", "taloon-0.1.0-py3-none-any.whl"]
@@ -664,25 +751,100 @@ def test_stage_publishes_only_verified_matching_build(
             ]
         },
     )
+    return output, value, verification_calls, build_calls
+
+
+@pytest.mark.parametrize(
+    "evidence",
+    ["matching", "matching-after-other"],
+    ids=["matching", "matching-after-other"],
+)
+def test_stage_publishes_verified_matching_build(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, evidence: str
+) -> None:
+    # Arrange
+    output, value, _verification_calls, _build_calls = staged_evidence_case(
+        tmp_path, monkeypatch, evidence
+    )
+    # Act
+    provenance.stage("v0.1.0", "a" * 40, tmp_path, tmp_path / "release", output)
+    # Assert
+    assert (output / "taloon-0.1.0-py3-none-any.whl").read_bytes() == b"original"
+    staged = Attestation.model_validate_json(
+        (output / "taloon-0.1.0-py3-none-any.whl.slsa.attestation").read_text()
+    )
+    assert staged.model_dump_json() == value.model_dump_json()
+
+
+def test_stage_verifies_every_wheel_before_publication(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    output, value, verification_calls, build_calls = staged_evidence_case(
+        tmp_path, monkeypatch, "multiple-wheels"
+    )
+    # Act
+    provenance.stage("v0.1.0", "a" * 40, tmp_path, tmp_path / "release", output)
+    # Assert: each original wheel passed both verification boundaries.
+    assert verification_calls == [
+        "taloon-0.1.0-py3-none-any.whl",
+        "taloon-0.1.0-py3-none-other.whl",
+    ]
+    assert build_calls == [
+        "taloon-0.1.0-py3-none-any.whl",
+        "taloon-0.1.0-py3-none-other.whl",
+    ]
+    expected_attestation = value.model_dump_json().encode()
+    assert {path.name: path.read_bytes() for path in output.iterdir()} == {
+        "taloon-0.1.0-py3-none-any.whl": b"original",
+        "taloon-0.1.0-py3-none-other.whl": b"original",
+        "taloon-0.1.0-py3-none-any.whl.slsa.attestation": expected_attestation,
+        "taloon-0.1.0-py3-none-other.whl.slsa.attestation": expected_attestation,
+    }
+
+
+def test_second_wheel_signature_failure_prevents_staging(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    output, _value, verification_calls, build_calls = staged_evidence_case(
+        tmp_path, monkeypatch, "second-wheel-invalid-signature"
+    )
     # Act / Assert
-    if evidence in {"matching", "matching-after-other", "multiple-wheels"}:
+    with pytest.raises(ValueError, match="signature rejected"):
         provenance.stage("v0.1.0", "a" * 40, tmp_path, tmp_path / "release", output)
-        assert (output / "taloon-0.1.0-py3-none-any.whl").read_bytes() == b"original"
-        staged = Attestation.model_validate_json(
-            (output / "taloon-0.1.0-py3-none-any.whl.slsa.attestation").read_text()
-        )
-        assert staged.model_dump_json() == value.model_dump_json()
-        if evidence == "multiple-wheels":
-            assert (
-                output / "taloon-0.1.0-py3-none-other.whl"
-            ).read_bytes() == b"original"
-            assert (
-                output / "taloon-0.1.0-py3-none-other.whl.slsa.attestation"
-            ).is_file()
-    else:
-        with pytest.raises(ValueError, match=r"Missing|signature rejected"):
-            provenance.stage("v0.1.0", "a" * 40, tmp_path, tmp_path / "release", output)
-        assert not output.exists()
+    assert verification_calls == [
+        "taloon-0.1.0-py3-none-any.whl",
+        "taloon-0.1.0-py3-none-other.whl",
+    ]
+    assert build_calls == [
+        "taloon-0.1.0-py3-none-any.whl",
+        "taloon-0.1.0-py3-none-other.whl",
+    ]
+    assert not output.exists()
+
+
+@pytest.mark.parametrize(
+    "evidence",
+    ["later-invalid-signature", "missing-file", "wrong-subject", "invalid-signature"],
+    ids=[
+        "later-invalid-signature",
+        "missing-file",
+        "wrong-subject",
+        "invalid-signature",
+    ],
+)
+def test_stage_refuses_unverified_build_without_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, evidence: str
+) -> None:
+    # Arrange
+    output, _value, _verification_calls, _build_calls = staged_evidence_case(
+        tmp_path, monkeypatch, evidence
+    )
+    # Act / Assert
+    with pytest.raises(ValueError, match=r"Missing|signature rejected"):
+        provenance.stage("v0.1.0", "a" * 40, tmp_path, tmp_path / "release", output)
+    assert not output.exists()
 
 
 def test_complete_index_verifies_each_platform(
@@ -807,7 +969,11 @@ def test_resolved_cli_runs_with_separate_arguments(
     assert json.loads(output.read_text()) == ["argument with spaces", "--literal"]
 
 
-@pytest.mark.parametrize("module", ["tools.pypi_provenance", "tools.pypi_release"])
+@pytest.mark.parametrize(
+    "module",
+    ["tools.pypi_provenance", "tools.pypi_release"],
+    ids=["tools.pypi_provenance", "tools.pypi_release"],
+)
 def test_module_cli_exposes_required_release_arguments(module: str) -> None:
     # Arrange
     import subprocess  # noqa: PLC0415 -- explicit CLI process boundary.
@@ -826,7 +992,11 @@ def test_module_cli_exposes_required_release_arguments(module: str) -> None:
     assert "--output" in observed.stdout
 
 
-@pytest.mark.parametrize("encoded", ["!e30=", "e3\n0=", "e30=@@"])
+@pytest.mark.parametrize(
+    "encoded",
+    ["!e30=", "e3\n0=", "e30=@@"],
+    ids=["invalid-prefix", "newline", "invalid-suffix"],
+)
 def test_statement_rejects_non_base64_characters(encoded: str) -> None:
     # Arrange
     envelope = {"envelope": {"statement": encoded}}

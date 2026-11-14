@@ -127,13 +127,10 @@ fn shared_records_preserve_exact_proof_binding(
     // Act
     let result = evidence
         .rebind(&target)
-        .map(|bound| serde_json::to_vec(&bound.to_record()).unwrap());
+        .map(|bound| serde_json::to_vec(&bound.to_record()).unwrap())
+        .map_err(|error| error.code);
     // Assert
-    if let Some(code) = expected {
-        assert_eq!(result.err().unwrap().code, code);
-    } else {
-        assert_eq!(result.unwrap(), original);
-    }
+    assert_eq!(result, expected.map_or(Ok(original), Err));
 }
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(256))]

@@ -24,15 +24,22 @@ def test_next_version_respects_floor_and_minimal_patch_freshness(
     # Arrange: numeric ordering does not call production parsing or selection.
     text_floor = render(floor)
     text_history = list(map(render, history))
+    # Admissible candidates are the floor and patch successors from history.
+    # Minimizing that set under the freshness constraint is independent of selecting
+    # the largest historical version and incrementing it in production.
+    candidates = [
+        floor,
+        *((major, minor, patch + 1) for major, minor, patch in history),
+    ]
+    expected = min(
+        candidate
+        for candidate in candidates
+        if candidate >= floor and all(candidate > previous for previous in history)
+    )
     # Act
     observed = next_version(text_floor, text_history)
-    # Assert: above the floor, one patch decrement must reach an existing version.
-    assert observed >= floor
-    assert all(observed > previous for previous in history)
-    if observed > floor:
-        assert observed[2] > 0
-        predecessor = (*observed[:2], observed[2] - 1)
-        assert predecessor in history
+    # Assert
+    assert observed == expected
 
 
 @settings(max_examples=256)
