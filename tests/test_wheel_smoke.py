@@ -23,6 +23,23 @@ class SmokeInvocation(TypedDict):
     timeout: int
 
 
+class SmokeAcquisition(TypedDict):
+    """Observable acquisition counters returned by a smoke subprocess."""
+
+    network_requests: int
+    cache_hits: int
+    archive_extractions: int
+
+
+class SmokeReport(TypedDict):
+    """Minimal valid report for testing the smoke verifier's rejection path."""
+
+    exit_code: int
+    status: str
+    packages: list[dict[str, object]]
+    acquisition: SmokeAcquisition
+
+
 def test_wheel_probe_checks_remain_active_with_optimization() -> None:
     # Arrange
     command = [
@@ -146,3 +163,61 @@ def test_missing_wheel_is_rejected_before_installer_access(tmp_path: Path) -> No
     ):
         wheel_smoke.smoke(missing, "3.14")
     installer.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("incorrect_report", "wrong_hits"),
+    [(0, 1), (1, 0), (2, 0), (3, 1)],
+    ids=["cold", "warm", "policy-violation", "missing-archive"],
+)
+def test_smoke_rejects_incorrect_cache_accounting(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    incorrect_report: int,
+    wrong_hits: int,
+) -> None:
+    # Arrange: process reports otherwise satisfy each independent smoke stage.
+    import json  # noqa: PLC0415 -- synthetic installed-process protocol.
+
+    wheel = tmp_path / "taloon-0.1.0-py3-none-any.whl"
+    wheel.touch()
+    monkeypatch.setattr(wheel_smoke.shutil, "which", lambda _name: "/fixture/uv")
+    reports: list[SmokeReport] = [
+        {
+            "exit_code": code,
+            "status": status,
+            "packages": [{}],
+            "acquisition": {
+                "network_requests": 0,
+                "cache_hits": hits,
+                "archive_extractions": extracts,
+            },
+        }
+        for code, status, hits, extracts in [
+            (0, "compliant", 0, 1),
+            (0, "compliant", 1, 0),
+            (1, "violation", 1, 0),
+            (2, "incomplete", 0, 0),
+        ]
+    ]
+    reports[incorrect_report]["acquisition"]["cache_hits"] = wrong_hits
+    pending = iter(reports)
+
+    def invoke(
+        command: list[str], **_kwargs: Unpack[SmokeInvocation]
+    ) -> subprocess.CompletedProcess[str]:
+        args = command[9:]
+        if args == ["--version"]:
+            return subprocess.CompletedProcess(command, 0, "taloon 0.1.0\n", "")
+        if args == ["--help"]:
+            return subprocess.CompletedProcess(command, 0, "usage", "")
+        report = next(pending)
+        return subprocess.CompletedProcess(
+            command, report["exit_code"], json.dumps(report), ""
+        )
+
+    monkeypatch.setattr(wheel_smoke.subprocess, "run", invoke)
+    # Act / Assert
+    with pytest.raises(AssertionError) as error:
+        wheel_smoke.smoke(wheel, "3.14")
+    assert error.value.args == (reports[incorrect_report],)

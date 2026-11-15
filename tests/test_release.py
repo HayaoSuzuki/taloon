@@ -10,6 +10,7 @@ import tomllib
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 
@@ -506,3 +507,17 @@ def test_release_module_exposes_help(
         runpy.run_path(str(release.__file__), run_name="__main__")
     assert error.value.code == 0
     assert "set-version" in capsys.readouterr().out
+
+
+def test_missing_commit_is_rejected_before_remote_reservation_lookup(
+    repository: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange: the syntactically valid object ID is absent from the local repository.
+    missing = "f" * 40
+    lookup = Mock(return_value=({}, ""))
+    monkeypatch.setattr(release, "remote_release_state", lookup)
+    # Act / Assert
+    with pytest.raises(subprocess.CalledProcessError):
+        release.reserve_tag(repository, missing)
+    lookup.assert_not_called()
+    assert git(repository, "ls-remote", "origin") == ""

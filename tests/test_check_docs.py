@@ -102,7 +102,7 @@ def test_missing_entry_point_fails_with_a_diagnostic(tmp_path: Path) -> None:
     # Act
     errors = check_repository(tmp_path)
     # Assert
-    assert any("index.md" in error for error in errors)
+    assert errors == [f"{root / 'index.md'}: missing OKF entry point"]
 
 
 def test_missing_source_is_reported(tmp_path: Path) -> None:
@@ -352,3 +352,50 @@ def test_command_prints_every_diagnostic(
     assert "first.md" in observed.err
     assert "second.md" in observed.err
     assert observed.out == ""
+
+
+@pytest.mark.parametrize(
+    "definition",
+    [
+        "evidence]: [Evidence](../evidence.md).",
+        "[evidence]: ../evidence.md",
+        "Inline [^evidence]: [Evidence](../evidence.md).",
+    ],
+    ids=["missing-opening-marker", "ordinary-reference", "inline-definition"],
+)
+def test_source_requires_a_footnote_definition_at_line_start(
+    tmp_path: Path, definition: str
+) -> None:
+    # Arrange: the claim remains cited, but its definition has no valid footnote prefix.
+    root = bundle(tmp_path)
+    page = root / "rule.md"
+    page.write_text(
+        page.read_text().replace("[^evidence]: [Evidence](../evidence.md).", definition)
+    )
+    expected = [f"{page}: source evidence requires a matching footnote"]
+    # Act
+    errors = validate_okf(root)
+    # Assert
+    assert errors == expected
+
+
+@pytest.mark.parametrize(
+    ("content", "message"),
+    [
+        ("# Rule\n", "missing frontmatter"),
+        ("---\ntype: []\n---\n# Rule\n", "type must be a nonempty string"),
+    ],
+    ids=["missing-frontmatter", "invalid-type"],
+)
+def test_metadata_diagnostic_separates_page_from_message(
+    tmp_path: Path, content: str, message: str
+) -> None:
+    # Arrange
+    root = bundle(tmp_path)
+    page = root / "rule.md"
+    page.write_text(content)
+    expected = [f"{page}: {message}"]
+    # Act
+    errors = validate_okf(root)
+    # Assert
+    assert errors == expected

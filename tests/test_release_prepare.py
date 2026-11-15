@@ -112,7 +112,16 @@ def test_recovery_uses_original_tag_commit_without_building(
     assert "commit=" + "b" * 40 in event.read_text()
     assert "recovery=true" in event.read_text()
     assert len(commands) == 1
-    assert commands[0][commands[0].index("--repo") + 1] == "HayaoSuzuki/taloon"
+    assert commands[0] == [
+        "/fixture/gh",
+        "release",
+        "view",
+        "v0.1.0",
+        "--repo",
+        "HayaoSuzuki/taloon",
+        "--json",
+        "tagName,isDraft,isPrerelease",
+    ]
     assert ("merge-base", "--is-ancestor", "b" * 40, "HEAD") in recovery
 
 
@@ -220,8 +229,16 @@ def test_non_version_tag_never_emits_output(
     assert not event.exists()
 
 
+@pytest.mark.parametrize(
+    "diagnostic",
+    ["release not found", "Release Not Found", "RELEASE NOT FOUND"],
+    ids=["lowercase", "titlecase", "uppercase"],
+)
 def test_reserved_push_without_existing_release_selects_new_publication(
-    event: Path, recovery: list[tuple[str, ...]], monkeypatch: pytest.MonkeyPatch
+    event: Path,
+    recovery: list[tuple[str, ...]],
+    monkeypatch: pytest.MonkeyPatch,
+    diagnostic: str,
 ) -> None:
     # Arrange
     monkeypatch.setenv("GITHUB_EVENT_NAME", "push")
@@ -229,7 +246,7 @@ def test_reserved_push_without_existing_release_selects_new_publication(
     monkeypatch.setattr(
         release_prepare.subprocess,
         "run",
-        lambda *_a, **_k: subprocess.CompletedProcess([], 1, "", "release not found"),
+        lambda *_a, **_k: subprocess.CompletedProcess([], 1, "", diagnostic),
     )
     # Act
     release_prepare.main()

@@ -271,3 +271,16 @@ def test_latest_workflow_results_control_authorization_independent_of_order(
     observed = checks_passed(data, "a" * 40)
     # Assert
     assert observed == expected
+
+
+@pytest.mark.parametrize(
+    "field", ["path", "head_sha", "event"], ids=["workflow", "source", "trigger"]
+)
+def test_missing_workflow_identity_cannot_authorize_publication(field: str) -> None:
+    # Arrange: a successful-looking record cannot prove the required source identity.
+    data = runs()
+    del data[0][field]
+    # Act
+    observed = checks_passed(data, "a" * 40)
+    # Assert
+    assert not observed
