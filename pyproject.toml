@@ -73,7 +73,7 @@ convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
 # Test names/fixtures document assertions; literals are expected outcomes.
-"tests/test_*.py" = ["D103", "INP001", "PLR2004", "S101"]
+"tests/test_*.py" = ["D103", "PLR2004", "S101"]
 
 [tool.ty.environment]
 python-version = "3.14"
