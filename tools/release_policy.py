@@ -27,7 +27,7 @@ RELEASE_PLATFORMS = (
         "linux-x86_64",
         "x86_64-unknown-linux-gnu",
         r"manylinux[^/]*x86_64",
-        "manylinux_2_17_x86_64.manylinux2014_x86_64",
+        "manylinux2014_x86_64.manylinux_2_17_x86_64",
     ),
     ReleasePlatform(
         "macos-aarch64",

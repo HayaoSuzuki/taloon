@@ -39,8 +39,8 @@ pub fn normalized_prefix(input: Seq<u8>, n: Int) -> Seq<u8> {
         if n == 0 { Seq::empty() }
         else if separator(input[n-1]) {
             if n > 1 && separator(input[n-2]) { normalized_prefix(input, n-1) }
-            else { normalized_prefix(input, n-1).push_back(45u8) }
-        } else { normalized_prefix(input, n-1).push_back(lowercase(input[n-1])) }
+            else { normalized_prefix(input, n-1).snoc(45u8) }
+        } else { normalized_prefix(input, n-1).snoc(lowercase(input[n-1])) }
     }
 }
 
@@ -56,7 +56,7 @@ pub fn normalized_prefix_fixed_point(input: Seq<u8>, n: Int) {
     pearlite! {
         if n > 0 {
             normalized_prefix_fixed_point(input, n-1);
-            proof_assert!(input.subsequence(0, n-1).push_back(input[n-1]).ext_eq(input.subsequence(0, n)));
+            proof_assert!(input.subsequence(0, n-1).snoc(input[n-1]).ext_eq(input.subsequence(0, n)));
         }
     }
 }

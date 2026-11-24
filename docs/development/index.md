@@ -16,7 +16,7 @@ Update the owning concept and user guidance when behavior or design decisions
 change. See [AGENTS.md](../../AGENTS.md) for repository documentation rules.
 
 The development configuration follows [hoimin](https://github.com/HayaoSuzuki/hoimin):
-Rust 1.99.1, edition 2024, strict Clippy checks, prek hooks, SHA-pinned GitHub
+Rust 1.100.0, edition 2024, strict Clippy checks, prek hooks, SHA-pinned GitHub
 Actions, and separate vulnerability and license/source checks.
 
 ## Setup
@@ -34,7 +34,7 @@ inspection/description library and the `check`, `describe` and `cache clear` com
 [user guide](../user/index.md) for installation, runtime options, and supported
 formats, or the [baseline](knowledge/project-baseline.md) for verification scope.
 
-Install [prek](https://prek.j178.dev/) 0.5.7 (also required by the workflow
+Install [prek](https://prek.j178.dev/) 0.5.11 (also required by the workflow
 integration test) and enable the repository hooks:
 
 ```sh
@@ -126,7 +126,7 @@ Measure Rust source and tests with [cargo-llvm-cov](https://github.com/taiki-e/c
 ```sh
 cargo build --release --locked --workspace --all-features
 coverage_dir=$(mktemp -d "$PWD/target/coverage.XXXXXX")
-CARGO_LLVM_COV_TARGET_DIR="$coverage_dir" CARGO_LLVM_COV_BUILD_DIR="$coverage_dir" TALOON_BENCH_BINARY="$PWD/target/release/taloon" cargo +nightly-2026-10-08 llvm-cov --locked --workspace --all-features --no-default-ignore-filename-regex --ignore-filename-regex '/rustc/|/\.cargo/|/target/' --lcov --output-path "$coverage_dir/lcov.info" --fail-under-functions 100 -- --include-ignored
+CARGO_LLVM_COV_TARGET_DIR="$coverage_dir" CARGO_LLVM_COV_BUILD_DIR="$coverage_dir" TALOON_BENCH_BINARY="$PWD/target/release/taloon" cargo +nightly-2026-11-23 llvm-cov --locked --workspace --all-features --no-default-ignore-filename-regex --ignore-filename-regex '/rustc/|/\.cargo/|/target/' --lcov --output-path "$coverage_dir/lcov.info" --fail-under-functions 100 -- --include-ignored
 awk -F '[:,]' '/^DA:/ { lines++; covered += ($3 > 0) } END { printf "Source lines: %d/%d\n", covered, lines; exit(lines == 0 || covered != lines) }' "$coverage_dir/lcov.info"
 ```
 
@@ -174,14 +174,14 @@ CI adds a separate pinned nightly job alongside the stable Rust checks, followin
 The standard harness shuffles tests within each executable and prints its seed:
 
 ```sh
-rustup toolchain install nightly-2026-10-08 --profile minimal
-cargo +nightly-2026-10-08 test --locked --workspace --all-features -- -Z unstable-options --shuffle
+rustup toolchain install nightly-2026-11-23 --profile minimal
+cargo +nightly-2026-11-23 test --locked --workspace --all-features -- -Z unstable-options --shuffle
 ```
 
 Replay a reported seed with the same nightly, revision and test selection:
 
 ```sh
-cargo +nightly-2026-10-08 test --locked --workspace --all-features -- -Z unstable-options --shuffle-seed 12345
+cargo +nightly-2026-11-23 test --locked --workspace --all-features -- -Z unstable-options --shuffle-seed 12345
 ```
 
 Different executables can report different generated seeds. Narrow a reproduction
@@ -211,14 +211,14 @@ For workflow checks, install uv and the docs environment using the
 
 ```sh
 tools/check_workflows.sh
-uvx zizmor==1.30.1 --no-online-audits --min-severity low .github/workflows
+uvx zizmor==1.33.1 --no-online-audits --min-severity low .github/workflows
 ```
 
 For dependency checks:
 
 ```sh
-cargo install cargo-audit --version 0.22.2 --locked
-cargo install cargo-deny --version 0.20.2 --locked
+cargo install cargo-audit --version 0.23.0 --locked
+cargo install cargo-deny --version 0.22.0 --locked
 cargo audit --file Cargo.lock
 cargo deny --workspace --all-features --locked --config deny.toml check --deny warnings licenses sources
 cargo fetch --locked --manifest-path fuzz/Cargo.toml
@@ -241,15 +241,15 @@ Creusot additionally checks the production decision crate; follow its
 [pinned environment and reproduction procedure](../../formal/creusot/README.md).
 The verifier and solvers are development-only tools.
 
-With cargo-fuzz 0.13.2 and nightly-2026-10-08 installed, run the initial smoke target:
+With cargo-fuzz 0.13.2 and nightly-2026-11-23 installed, run the initial smoke target:
 
 ```sh
-cargo +nightly-2026-10-08 fuzz run policy -- -runs=1000 -max_len=4096
-cargo +nightly-2026-10-08 fuzz run uv_lock -- -runs=1000 -max_len=4096
-cargo +nightly-2026-10-08 fuzz run metadata -- -runs=1000 -max_len=32768
-cargo +nightly-2026-10-08 fuzz run wheel -- -runs=1000 -max_len=4096
-cargo +nightly-2026-10-08 fuzz run sdist -- -runs=1000 -max_len=4096
-cargo +nightly-2026-10-08 fuzz run inspection -- -runs=1000 -max_len=4096
+cargo +nightly-2026-11-23 fuzz run policy -- -runs=1000 -max_len=4096
+cargo +nightly-2026-11-23 fuzz run uv_lock -- -runs=1000 -max_len=4096
+cargo +nightly-2026-11-23 fuzz run metadata -- -runs=1000 -max_len=32768
+cargo +nightly-2026-11-23 fuzz run wheel -- -runs=1000 -max_len=4096
+cargo +nightly-2026-11-23 fuzz run sdist -- -runs=1000 -max_len=4096
+cargo +nightly-2026-11-23 fuzz run inspection -- -runs=1000 -max_len=4096
 tools/check_fuzz_licenses.sh
 ```
 

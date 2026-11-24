@@ -101,9 +101,9 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.14'
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         with:
-          version: '0.13.5'
+          version: '0.13.9'
           enable-cache: false
       - name: Set build version
         env:
@@ -114,7 +114,7 @@ jobs:
       - name: Build binary wheel
         env:
           TARGET: ${{ matrix.target }}
-          MATURIN_IMAGE: ghcr.io/pyo3/maturin:v1.15.0@sha256:1c897d72a79c083cdea8829662f7b28e7657cf5b0d7f44fb4231e55998cf52ed
+          MATURIN_IMAGE: ghcr.io/pyo3/maturin:v1.16.0@sha256:50bf2ff99eeff7b09332bad9baf4a5e925e2502304ae2f88f48ce8c06fd9957c
         run: |
           if [[ "$RUNNER_OS" == Linux ]]; then
             docker run --rm --volume "$PWD:/io" --workdir /io \
@@ -123,7 +123,7 @@ jobs:
               --target "$TARGET" --out wheelhouse
             sudo chown -R "$(id -u):$(id -g)" wheelhouse
           else
-            uvx --from maturin==1.15.0 maturin build --release --locked \
+            uvx --from maturin==1.16.0 maturin build --release --locked \
               --compatibility pypi --target "$TARGET" --out wheelhouse
           fi
       - name: Test same installed wheel on Python 3.14 and 3.15
@@ -201,13 +201,13 @@ jobs:
         with:
           name: validated-wheels
           path: dist
-      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: dist/*-win_amd64.whl
-      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
-          subject-path: dist/*-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
-      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+          subject-path: dist/*-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: dist/*-macosx_11_0_arm64.whl
       - name: Verify build identity and publish recovery assets
@@ -243,9 +243,9 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.14'
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         with:
-          version: '0.13.5'
+          version: '0.13.9'
           enable-cache: false
       - run: uv sync --frozen --only-group release --no-install-project
       - name: Fetch original assets and original signed build observations
@@ -280,9 +280,9 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.14'
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         with:
-          version: '0.13.5'
+          version: '0.13.9'
           enable-cache: false
       - run: uv sync --frozen --only-group release --no-install-project
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
@@ -340,9 +340,9 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.14'
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         with:
-          version: '0.13.5'
+          version: '0.13.9'
           enable-cache: false
       - run: uv sync --frozen --only-group release --no-install-project
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
@@ -374,9 +374,9 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.14'
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         with:
-          version: '0.13.5'
+          version: '0.13.9'
           enable-cache: false
       - run: uv sync --frozen --only-group release --no-install-project
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
@@ -434,9 +434,9 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.14'
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         with:
-          version: '0.13.5'
+          version: '0.13.9'
           enable-cache: false
       - run: uv sync --frozen --only-group release --no-install-project
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8

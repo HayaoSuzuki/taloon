@@ -13,7 +13,7 @@ organization inspected in hoimin at revision
 `542ec59c002d72fdff0137aa90113ffa59d70844`. The taloon model is new code;
 hoimin's mutation-score semantics are not part of this checker.
 
-Lean v4.32.2 proves properties of the [semantic model](TaloonOracle/Model.lean).
+Lean v4.36.0 proves properties of the [semantic model](TaloonOracle/Model.lean).
 The [proofs](TaloonOracle/Proofs.lean) establish permission monotonicity for
 arbitrary expression trees and pointwise permission extensions, inclusive
 expiry, rejection of past expiry, archive/sidecar strength, missing/insufficient-target

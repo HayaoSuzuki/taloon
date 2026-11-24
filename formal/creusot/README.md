@@ -24,10 +24,10 @@ changes only the published root package and its locked entry.
 ## Pinned environment
 
 The environment reuses the public hoimin recipe at
-[`7d473e08ec5ebb871e5df541369f247c20ea6c5a`](https://github.com/HayaoSuzuki/hoimin/tree/7d473e08ec5ebb871e5df541369f247c20ea6c5a/formal/creusot).
+[`242ed683577179e641b80c82f2b2a0cd40c9bb61`](https://github.com/HayaoSuzuki/hoimin/tree/242ed683577179e641b80c82f2b2a0cd40c9bb61/formal/creusot).
 The archive checksum in `build-image.sh` pins the fetched bytes. The recipe pins
-Creusot 0.14.0 (`65349025c67e69fcd7479f1f420fa5904f69bc27`), nightly-2026-08-03,
-Why3/Why3find, Z3 5.1.0, CVC5 1.4.1 and their input hashes. Its preflight checks
+Creusot 0.15.0 (`fd4d85b2c237ef93147e99f6a0c04acfc89a6a17`), nightly-2026-08-03,
+Why3/Why3find, Z3 5.3.2, CVC5 1.4.1 and their input hashes. Its preflight checks
 installed executable versions, receipts and effective solver configuration.
 Its solver commands impose 30-second wall and 2-GiB address-space limits, with
 two concurrent provers. This is not an aggregate container memory bound.
@@ -52,8 +52,9 @@ Hosted CI selects the committed `formal/creusot/image.pin`. Its single line is
 `IMAGE SOURCE_COMMIT BUILDER_SHA256`, without shell evaluation. `IMAGE` is either
 `bootstrap` with source `-`, or exactly the taloon GHCR repository with a SHA-256
 digest. The builder hash must match the current build-image.sh bytes. Invalid,
-missing, multi-line or stale pins fail. The committed pin selects the first attested GHCR image. Its successful
-publication and exact adopted identities are recorded in the
+missing, multi-line or stale pins fail. The committed pin selects bootstrap for the Creusot 0.15.0 migration. The previous
+0.14.0 image is not compatible with this builder. Its historical publication
+and adopted identities are recorded in the
 [adoption evidence](../../docs/development/work/creusot-registry-image/adoption.md).
 
 In bootstrap mode, CI reuses the exact-key Actions image cache or runs the pinned
@@ -116,7 +117,7 @@ The image includes the upstream installation checker and its
 manifest; the application never imports those Python tools. The recipe's
 Elastic-2.0 attribution remains in the pinned source. Creusot and its standard
 contracts are LGPL-2.1-or-later; source and license are available at the pinned
-[Creusot revision](https://github.com/creusot-rs/creusot/tree/65349025c67e69fcd7479f1f420fa5904f69bc27).
+[Creusot revision](https://github.com/creusot-rs/creusot/tree/fd4d85b2c237ef93147e99f6a0c04acfc89a6a17).
 
 `why3find.json` at the workspace root selects exactly the recipe's solver
 configuration. Keep it in sync when updating the environment. Compiler/Why3/SMT

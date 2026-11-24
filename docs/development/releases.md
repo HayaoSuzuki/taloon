@@ -45,7 +45,7 @@ Use the repository's pinned Rust compiler, native C toolchain, Python 3.14 and u
 
 ```sh
 uv sync --frozen --only-group docs --only-group release --no-install-project
-uvx --from maturin==1.15.0 maturin build --release --locked --out wheelhouse
+uvx --from maturin==1.16.0 maturin build --release --locked --out wheelhouse
 python -m tools.wheel_smoke wheelhouse/taloon-VERSION-PLATFORM.whl --python 3.14
 python -m tools.wheel_smoke wheelhouse/taloon-VERSION-PLATFORM.whl --python 3.15
 uv run --frozen --no-sync pytest

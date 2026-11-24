@@ -4,7 +4,7 @@ taloon checks declared dependency licenses in `uv.lock`, using a policy in the
 sibling `pyproject.toml`. It is implemented in Rust and uses the
 [Elastic License 2.0](https://github.com/HayaoSuzuki/taloon/blob/main/LICENSE).
 
-Install from a checkout with Rust 1.99.1 and a native C build toolchain:
+Install from a checkout with Rust 1.100.0 and a native C build toolchain:
 
 ```sh
 cargo install --locked --path .
@@ -15,7 +15,7 @@ command-line build tools. Cargo downloads and compiles dependencies; an installe
 `taloon` needs neither Python nor uv. Python wheels are built and checked on PRs;
 main publication requires the PyPI/TestPyPI publisher setup. Until the first
 verified PyPI release, install from a checkout as above. Contributors can build a local
-binary wheel with `uvx --from maturin==1.15.0 maturin build --release --locked`
+binary wheel with `uvx --from maturin==1.16.0 maturin build --release --locked`
 and run `uv tool run --from /absolute/path/to/taloon-VERSION-PLATFORM.whl taloon check`.
 Python installation support is restricted to 3.14 and 3.15; the wheel contains
 the Rust executable and has no Python runtime package dependencies.

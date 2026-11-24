@@ -41,6 +41,7 @@ __pycache__/
 /verif/
 /formal/creusot/reports/
 /.why3find/
+/why3find.proofs/
 
 # Coverage measurements and rendered reports
 .coverage

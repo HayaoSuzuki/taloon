@@ -54,7 +54,7 @@ sources:
 ---
 # Current baseline
 
-taloon uses Rust edition 2024 with Rust 1.99.1 pinned for development. Workspace
+taloon uses Rust edition 2024 with Rust 1.100.0 pinned for development. Workspace
 Clippy settings deny `all` and `pedantic` lints. The workspace contains `taloon`
 and the internal `taloon-decisions` kernel, both with crates.io publishing
 disabled. The kernel keeps an independent fixed version and isolates optional
@@ -129,3 +129,9 @@ records local/hosted verification boundaries; a configured command or model
 alone is not evidence of a published wheel version.
 
 [^decision-kernel]: [Internal decision kernel package](../../../crates/taloon-decisions/Cargo.toml).
+
+## Dependency maintenance
+
+Use the newest compatible stable third-party releases, preferring upstream LTS
+where available. The [November 2026 refresh](../work/third-party-refresh/review.md)
+records upgrades, validation and the coordinated Creusot environment migration.

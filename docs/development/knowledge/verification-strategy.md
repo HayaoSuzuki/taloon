@@ -231,12 +231,12 @@ surface changes. Commands and test review rules belong in the
 
 # Resource limits and reconsideration
 
-Pin Lean to the inspected hoimin version, v4.32.2. Start suspect individual Lean
+Pin Lean to v4.36.0, with its Linux release archive checksum in CI. Start suspect individual Lean
 commands with an external 20-second deadline, one process at a time; preserve
 heartbeat limits. Record finite case counts, time and memory when available.
 Replace expensive enumeration with inductive lemmas instead of enlarging bounds
 after a sharp cost increase. Start fuzz smoke runs at 1,000 executions and
-4,096-byte parser inputs on nightly-2026-10-08. Record larger campaigns and
+4,096-byte parser inputs on nightly-2026-11-23. Record larger campaigns and
 their limits rather than implying exhaustive input coverage.[^owner]
 
 Revisit the model when permission semantics, evidence trust, completeness, or
@@ -396,7 +396,7 @@ executor or CI results.[^typed-acquisition-review]
 
 # Direct Rust decision contracts
 
-Creusot 0.14.0 verifies the production bodies in `taloon-decisions`, including
+The recorded Creusot 0.14.0 baseline verifies the production bodies in `taloon-decisions`, including
 observation-slot transitions, status precedence/exit decisions and the borrowed
 report scan. The scan proves exact aggregate precedence, input-error handling,
 empty input and early termination on incompleteness; root diagnostic/warning
@@ -600,3 +600,12 @@ exhaustive mutation score or change the formal proof scope.
 [^python-mutation-verification]
 
 [^python-mutation-verification]: [Python mutation verification](../work/coverage/python-mutations.md).
+
+## Creusot 0.15 environment refresh
+
+The [third-party refresh](../work/third-party-refresh/review.md) tracks the
+coordinated switch to Creusot 0.15.0, its standard contracts and Z3 5.3.2.
+The prior image pin cannot be reused with the new builder. The explicit bootstrap
+pin keeps trusted-main publication and subsequent digest adoption separate.
+Proof generation, the full obligation inventory and negative witnesses remain
+required; updating tool versions alone does not establish their results.

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Reuse the reviewed public tool recipe without copying its Python installer.
 set -euo pipefail
-recipe_revision=7d473e08ec5ebb871e5df541369f247c20ea6c5a
-recipe_archive_sha256=ea4d2ade34657026551c36411b64bb4e8cb3591e9a28919e448a8e456d72d1f3
+recipe_revision=242ed683577179e641b80c82f2b2a0cd40c9bb61
+recipe_archive_sha256=1d6426bb9096639f9585f8524e6b31c46bc558749adcda5ad7ba0fb66d31e928
 builder_hash=$(shasum -a 256 "${BASH_SOURCE[0]}"); builder_hash=${builder_hash%% *}
 build_dir=$(mktemp -d "${TMPDIR:-/tmp}/taloon-creusot-build.XXXXXX")
 trap 'rm -rf "$build_dir"' EXIT
