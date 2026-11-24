@@ -66,7 +66,7 @@ EOF
     if [[ -f "$CASE_DIR/count" ]]; then read -r calls < "$CASE_DIR/count"; fi
     [[ "$calls" == "$expected_calls" ]] || exit 1
     [[ $(wc -l < "$CASE_DIR/fetches") -eq 1 ]] || exit 1
-    [[ $(cat "$CASE_DIR/fetches") == 'api repos/HayaoSuzuki/hoimin/tarball/7d473e08ec5ebb871e5df541369f247c20ea6c5a' ]] || exit 1
+    [[ $(cat "$CASE_DIR/fetches") == 'api repos/HayaoSuzuki/hoimin/tarball/242ed683577179e641b80c82f2b2a0cd40c9bb61' ]] || exit 1
     [[ -z $(ls -A "$CASE_DIR/tmp") ]] || exit 1
     if ((calls > 0)); then
         printf '%s\n' build --platform "linux/$architecture" > "$CASE_DIR/expected-args"

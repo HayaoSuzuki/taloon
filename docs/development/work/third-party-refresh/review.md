@@ -60,3 +60,7 @@ Creusot 0.15.0 fresh verification passed all 21 obligation files on each of
 x86_64-unknown-linux-gnu, aarch64-apple-darwin and x86_64-pc-windows-msvc.
 The verifier script exited successfully. All inventory/goal checks and input
 fingerprint checks stayed enabled.
+
+The new pinned ARM64 recipe image build completed successfully. CI exposed a
+stale revision literal in the builder regression; it now expects the new pin.
+All four orchestration suites were rerun with independently checked exit codes.
