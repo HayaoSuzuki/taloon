@@ -22,9 +22,9 @@ Python dependency pins and tool pins were checked against PyPI and crates.io.
 
 Creusot and creusot-std now use 0.15.0, with Z3 5.3.2 and the matching hoimin
 recipe at 242ed683577179e641b80c82f2b2a0cd40c9bb61. The old 0.14.0 image cannot
-satisfy the new builder identity. The committed pin explicitly selects bootstrap.
-After merge the trusted-main environment publisher builds and attests the new
-image; its actual digest can then be adopted in a follow-up. No PR-produced
+satisfy the new builder identity. The initial migration selected bootstrap.
+After merge the trusted-main environment publisher built and attested the new
+image; the adoption record below identifies the subsequent registry pin. No PR-produced
 image is represented as trusted-main provenance.
 
 ## Validation
