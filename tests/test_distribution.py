@@ -77,7 +77,7 @@ def test_release_platform_names_match_the_workflow_matrix() -> None:
         (
             "linux-x86_64",
             "x86_64-unknown-linux-gnu",
-            "manylinux_2_17_x86_64.manylinux2014_x86_64",
+            "manylinux2014_x86_64.manylinux_2_17_x86_64",
         ),
         ("macos-aarch64", "aarch64-apple-darwin", "macosx_11_0_arm64"),
     ],
@@ -101,7 +101,7 @@ def test_release_platform_installer_identities(
     ("name", "tag"),
     [
         ("windows-x86_64", "win_amd64"),
-        ("linux-x86_64", "manylinux_2_17_x86_64.manylinux2014_x86_64"),
+        ("linux-x86_64", "manylinux2014_x86_64.manylinux_2_17_x86_64"),
         ("macos-aarch64", "macosx_11_0_arm64"),
     ],
     ids=["windows", "linux", "macos"],
