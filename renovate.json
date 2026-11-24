@@ -1,0 +1,111 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "ignorePaths": [
+    "**/node_modules/**",
+    "**/bower_components/**",
+    "**/vendor/**",
+    "**/examples/**",
+    "**/__tests__/**",
+    "**/test/**",
+    "**/tests/**",
+    "**/__fixtures__/**",
+    "docs/**"
+  ],
+  "minimumReleaseAge": "7 days",
+  "internalChecksFilter": "strict",
+  "cargo": {
+    "rangeStrategy": "update-lockfile",
+    "lockFileMaintenance": {
+      "enabled": true
+    }
+  },
+  "pep621": {
+    "rangeStrategy": "update-lockfile",
+    "lockFileMaintenance": {
+      "enabled": true
+    }
+  },
+  "packageRules": [
+    {
+      "description": "Group production dependencies after 7 days",
+      "matchManagers": [
+        "cargo"
+      ],
+      "matchDepTypes": [
+        "dependencies"
+      ],
+      "groupName": "production dependencies",
+      "minimumReleaseAge": "7 days"
+    },
+    {
+      "description": "Group Rust development dependencies after 3 days",
+      "matchManagers": [
+        "cargo"
+      ],
+      "matchDepTypes": [
+        "dev-dependencies"
+      ],
+      "groupName": "development dependencies",
+      "minimumReleaseAge": "3 days"
+    },
+    {
+      "description": "Group Python development dependencies after 3 days",
+      "matchManagers": [
+        "pep621"
+      ],
+      "matchDepTypes": [
+        "dependency-groups"
+      ],
+      "groupName": "development dependencies",
+      "minimumReleaseAge": "3 days"
+    },
+    {
+      "description": "Group GitHub Actions updates after 3 days",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "groupName": "development dependencies",
+      "minimumReleaseAge": "3 days"
+    },
+    {
+      "description": "Update workflow linters and their lockfile together",
+      "matchManagers": [
+        "pep621"
+      ],
+      "matchPackageNames": [
+        "actionlint-py",
+        "shellcheck-py",
+        "zizmor"
+      ],
+      "groupName": "workflow linters",
+      "minimumReleaseAge": "3 days"
+    },
+    {
+      "description": "Keep CI Python within the supported pyproject.toml range; review together when support changes",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchPackageNames": [
+        "actions/python-versions"
+      ],
+      "allowedVersions": ">=3.14 <3.16"
+    },
+    {
+      "description": "Preserve the Python 3.14 and 3.15 CI lanes; review minor support changes manually",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchPackageNames": [
+        "actions/python-versions"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor"
+      ],
+      "enabled": false
+    }
+  ]
+}
