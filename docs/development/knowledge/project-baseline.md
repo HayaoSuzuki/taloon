@@ -135,3 +135,32 @@ alone is not evidence of a published wheel version.
 Use the newest compatible stable third-party releases, preferring upstream LTS
 where available. The [November 2026 refresh](../work/third-party-refresh/review.md)
 records upgrades, validation and the coordinated Creusot environment migration.
+
+### Automated update proposals
+
+[Renovate configuration](../../../renovate.json) follows hoimin's configuration
+at `242ed683577179e641b80c82f2b2a0cd40c9bb61`. Use recommended presets, a
+seven-day release age for production dependencies and three days for Rust/Python
+development dependencies and GitHub Actions. Group production and development
+updates separately; require age checks strictly. Cargo and PEP 621 use
+`update-lockfile` with lockfile maintenance enabled. Exclude test fixtures and
+documentation from dependency extraction. Updates remain subject to normal PR
+review and required CI; automerge is not enabled by this configuration.
+
+Keep the Python CI lanes at 3.14 and 3.15, within the declared support range;
+changing supported minor versions requires a coordinated support change. The
+hoimin release-runner Ubuntu 22.04 restriction does not apply here: taloon's
+Linux wheel baseline is controlled by the pinned maturin container.
+
+This configuration adds proposals for supported built-in managers. It does not
+add custom extraction for shell tool versions, Lean archive checksums, the
+external Creusot recipe or image provenance pins. Rust toolchain proposals still
+require alignment with Cargo's minimum version. Creusot standard contracts,
+verifier/solvers, exact license exceptions and attested image must be upgraded
+together using the [formal procedure](../../../formal/creusot/README.md). Review
+both Cargo lockfiles and the exact license exceptions when accepting updates.
+
+The repository configuration does not install or grant access to the Renovate
+GitHub App; the app must separately have access to this repository. Dependabot
+security alerts/updates retain their existing ownership in the
+[GitHub protection decision](github-protection.md).
