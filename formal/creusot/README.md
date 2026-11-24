@@ -52,9 +52,10 @@ Hosted CI selects the committed `formal/creusot/image.pin`. Its single line is
 `IMAGE SOURCE_COMMIT BUILDER_SHA256`, without shell evaluation. `IMAGE` is either
 `bootstrap` with source `-`, or exactly the taloon GHCR repository with a SHA-256
 digest. The builder hash must match the current build-image.sh bytes. Invalid,
-missing, multi-line or stale pins fail. The committed pin selects bootstrap for the Creusot 0.15.0 migration. The previous
-0.14.0 image is not compatible with this builder. Its historical publication
+missing, multi-line or stale pins fail. The committed pin selects the attested Creusot 0.15.0 image. Its publication
 and adopted identities are recorded in the
+[refresh evidence](../../docs/development/work/third-party-refresh/image-adoption.md).
+The previous 0.14.0 image publication is historical evidence in the
 [adoption evidence](../../docs/development/work/creusot-registry-image/adoption.md).
 
 In bootstrap mode, CI reuses the exact-key Actions image cache or runs the pinned
