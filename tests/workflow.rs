@@ -59,7 +59,7 @@ fn local_hook_checks_the_full_lock() {
         .env("XDG_CACHE_HOME", root.join("xdg"))
         .args(["run", "taloon", "--files", "touched.txt"])
         .output()
-        .expect("workflow test requires prek 0.5.7 on PATH");
+        .expect("workflow test requires prek 0.5.11 on PATH");
     assert_eq!(
         hook.status.code(),
         Some(1),

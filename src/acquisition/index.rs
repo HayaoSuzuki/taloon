@@ -40,19 +40,19 @@ impl TokenSink for HtmlSink<'_> {
         if let Token::TagToken(tag) = token
             && tag.kind == TagKind::StartTag
         {
-            if tag.name.as_ref() == "script" {
+            if &*tag.name == "script" {
                 return TokenSinkResult::RawData(html5ever::tokenizer::states::RawKind::ScriptData);
             }
             if matches!(
-                tag.name.as_ref(),
+                &*tag.name,
                 "style" | "xmp" | "iframe" | "noembed" | "noframes"
             ) {
                 return TokenSinkResult::RawData(html5ever::tokenizer::states::RawKind::Rawtext);
             }
-            if matches!(tag.name.as_ref(), "textarea" | "title") {
+            if matches!(&*tag.name, "textarea" | "title") {
                 return TokenSinkResult::RawData(html5ever::tokenizer::states::RawKind::Rcdata);
             }
-            if matches!(tag.name.as_ref(), "a" | "base" | "meta") {
+            if matches!(&*tag.name, "a" | "base" | "meta") {
                 let mut state = self.state.borrow_mut();
                 if let Ok(index) = state.as_mut()
                     && let Err(error) = index.record_tag(&tag)
@@ -66,14 +66,14 @@ impl TokenSink for HtmlSink<'_> {
 }
 impl HtmlIndex<'_> {
     fn record_tag(&mut self, tag: &Tag) -> Result<(), Error> {
-        let name = tag.name.as_ref();
+        let name = &*tag.name;
         // Borrow tokenizer-owned values. Reverse lookup preserves the old map's
         // last-local-name rule without allocating another attribute map.
         let attr = |name: &str| {
             tag.attrs
                 .iter()
                 .rev()
-                .find(|a| a.name.local.as_ref() == name)
+                .find(|a| &*a.name.local == name)
                 .map(|a| a.value.as_ref())
         };
         if name == "base" && self.base.is_none() {

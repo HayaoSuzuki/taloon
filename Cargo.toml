@@ -5,7 +5,7 @@ resolver = "3"
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.99.1"
+rust-version = "1.100.0"
 license = "Elastic-2.0"
 repository = "https://github.com/HayaoSuzuki/taloon"
 
@@ -36,7 +36,7 @@ serde_json = "1.0"
 toml = "1.1.2"
 spdx = { version = "0.13.4", features = ["text"] }
 pep440_rs = "0.7.3"
-sha2 = "0.10.9"
+sha2 = "0.11.1"
 url = "2.5"
 time = { version = "0.3.47", features = ["parsing", "formatting", "serde"] }
 thiserror = "2.0"
@@ -47,12 +47,12 @@ tar = { version = "0.4.46", default-features = false }
 tempfile = "3.0"
 reqwest = { version = "0.13.5", default-features = false, features = ["blocking", "rustls"] }
 shlex = "2.0.1"
-html5ever = "0.35.0"
+html5ever = "0.40.1"
 clap = { version = "4.5", features = ["derive"] }
 
 [dev-dependencies]
 proptest = "1.12"
-rstest = { version = "0.28.0", default-features = false }
+rstest = { version = "0.29.0", default-features = false }
 
 [profile.release]
 lto = "thin"

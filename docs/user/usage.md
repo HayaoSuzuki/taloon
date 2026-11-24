@@ -209,7 +209,7 @@ repos:
 ```
 
 Run `prek install` and `prek run taloon --all-files`. The integration was tested
-with prek 0.5.7. The hook runner is an integration prerequisite; taloon
+with prek 0.5.11. The hook runner is an integration prerequisite; taloon
 itself does not need it. `pass_filenames: false` and `always_run: true` ensure an
 unchanged transitive dependency is still checked. CI invokes the same
 `taloon check` command after installing from the checked-out source. Add `--offline`
