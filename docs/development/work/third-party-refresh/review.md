@@ -68,3 +68,6 @@ All four orchestration suites were rerun with independently checked exit codes.
 maturin 1.16 emits the same two manylinux compatibility tags in reverse order.
 The exact published identity and attestation paths now match that emitted name.
 The fixed platform regression failed before the policy update and passed after.
+
+The [image adoption record](image-adoption.md) completes the trusted-main
+publication/digest transition and records the required-check context alignment.

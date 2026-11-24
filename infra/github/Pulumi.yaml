@@ -46,7 +46,7 @@ resources:
           requiredChecks:
             - context: Rust quality and tests
               integrationId: 15368
-            - context: Rust randomized order (nightly-2026-10-08)
+            - context: Rust randomized order (nightly-2026-11-23)
               integrationId: 15368
             - context: Python formatting, lint and types
               integrationId: 15368

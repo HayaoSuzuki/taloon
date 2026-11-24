@@ -605,7 +605,7 @@ exhaustive mutation score or change the formal proof scope.
 
 The [third-party refresh](../work/third-party-refresh/review.md) tracks the
 coordinated switch to Creusot 0.15.0, its standard contracts and Z3 5.3.2.
-The prior image pin cannot be reused with the new builder. The explicit bootstrap
-pin keeps trusted-main publication and subsequent digest adoption separate.
+The prior image pin cannot be reused with the new builder. The [published image adoption](../work/third-party-refresh/image-adoption.md)
+records the successful trusted-main publisher and exact adopted identity.
 Proof generation, the full obligation inventory and negative witnesses remain
 required; updating tool versions alone does not establish their results.
