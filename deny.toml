@@ -36,6 +36,12 @@ name = "creusot-std-proc"
 version = "=0.15.0"
 allow = ["LGPL-2.1-or-later"]
 
+# Terminal diagnostics for the Quint Connect test runner.
+[[licenses.exceptions]]
+name = "colored"
+version = "=3.1.1"
+allow = ["MPL-2.0"]
+
 # Reviewed TLS implementation and certificate-data declarations; exact versions only.
 [[licenses.exceptions]]
 name = "aws-lc-rs"

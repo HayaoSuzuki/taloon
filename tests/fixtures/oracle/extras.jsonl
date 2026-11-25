@@ -1,0 +1,8 @@
+{"scenario":{"returnExtra":false,"rootExtra":false,"shortcut":false},"path":[]}
+{"scenario":{"returnExtra":true,"rootExtra":false,"shortcut":false},"path":[0,1,2,3]}
+{"scenario":{"returnExtra":false,"rootExtra":true,"shortcut":false},"path":[2,3]}
+{"scenario":{"returnExtra":true,"rootExtra":true,"shortcut":false},"path":[2,3]}
+{"scenario":{"returnExtra":false,"rootExtra":false,"shortcut":true},"path":[3]}
+{"scenario":{"returnExtra":true,"rootExtra":false,"shortcut":true},"path":[3]}
+{"scenario":{"returnExtra":false,"rootExtra":true,"shortcut":true},"path":[3]}
+{"scenario":{"returnExtra":true,"rootExtra":true,"shortcut":true},"path":[3]}

@@ -4,6 +4,220 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: quint-release-promotion
+  resource: ../../../formal/quint/release_promotion.qnt
+  working_tree: untracked
+  sha256: 681420c833af9a18459fbc34ca7dd4e71b17e347ac587869659ce7b09e67cbc8
+- id: quint-release-promotion-corpus
+  resource: ../../../tests/fixtures/oracle/release-promotion.jsonl
+  working_tree: untracked
+  sha256: 0f538e3447b7eff1f7a3f682d52999e0b95d6f3378a24c18be7be9ccd69dfb4b
+- id: quint-release-promotion-replay
+  resource: ../../../tests/test_distribution.py
+  working_tree: modified
+  sha256: db6f4d7327341895ec419d1386da6af62bb5a573ce3fb1c104d9f78ea5c7799d
+- id: quint-release-promotion-workflow
+  resource: ../../../.github/workflows/release.yml
+  revision: 8237bb94120358ff024c5ebf9f1c7958bcb21d1a
+- id: quint-index-publication
+  resource: ../../../formal/quint/index_publication.qnt
+  working_tree: untracked
+  sha256: d2dfcd30feb947a7b2aa9e533db13b900745b3029a28a7399e5fbb05bb784ea5
+- id: quint-index-publication-corpus
+  resource: ../../../tests/fixtures/oracle/index-publication.jsonl
+  working_tree: untracked
+  sha256: ecf8ee014495403099c971d8c3a874dbcc69b3cb330acc5e739504a4eabe05eb
+- id: quint-index-publication-replay
+  resource: ../../../tests/test_pypi_provenance.py
+  working_tree: modified
+  sha256: 134775391188b80aba35af46e6a329c7863e04108a621c16951fb3c787f6c192
+- id: quint-release-reservation
+  resource: ../../../formal/quint/release_reservation.qnt
+  working_tree: untracked
+  sha256: 8ca8bcf46219cefd1d3902012e0562845a7815426e65d2ac28055496ff35a1e8
+- id: quint-release-reservation-corpus
+  resource: ../../../tests/fixtures/oracle/release-reservation.jsonl
+  working_tree: untracked
+  sha256: c67927134459f6cbcc4c133c625710c2ea7683680c09768e02f8e97ad4c1529a
+- id: quint-release-reservation-replay
+  resource: ../../../tests/test_release.py
+  working_tree: modified
+  sha256: 1230a1b386012ce6ab96668714e3066f77c0bf26720b5d6dba4063cbf7185341
+- id: quint-http-routing
+  resource: ../../../formal/quint/http_routing.qnt
+  working_tree: untracked
+  sha256: d4c27c22baee4185756574eee5e19d461a4ba2fb937be7563da9282da96ad8f3
+- id: quint-http-routing-corpus
+  resource: ../../../tests/fixtures/oracle/http-routing.jsonl
+  working_tree: untracked
+  sha256: c1f36893c2c716a411dc4ca3f2cae4275f0fd69bfc890b67d6601bde0aac9cea
+- id: quint-http-routing-replay
+  resource: ../../../src/acquisition/http_tests/http_routing.rs
+  working_tree: untracked
+  sha256: 441d1358ff26c140e343d2a343aeabf368c219bc7b4b0878ecb4c3a2b086a65e
+- id: quint-legacy-scan
+  resource: ../../../formal/quint/legacy_scan.qnt
+  working_tree: untracked
+  sha256: 8f95b64e8404edef85b4c1003064d9669f72e55e424c286be4d105da21cf5f1a
+- id: quint-legacy-scan-corpus
+  resource: ../../../tests/fixtures/oracle/legacy-scan.jsonl
+  working_tree: untracked
+  sha256: 9dde7dd0b1631af89d388dfff67e2091b42955a3ca511e27ec682e8e75d6d203
+- id: quint-legacy-scan-replay
+  resource: ../../../src/acquisition/http_tests/legacy_scan.rs
+  working_tree: untracked
+  sha256: d56893590bc9f815bbf4043aa08901a4b57992912669b3c15b262c659c2875c4
+- id: quint-sidecar-fallback
+  resource: ../../../formal/quint/sidecar_fallback.qnt
+  working_tree: untracked
+  sha256: ed98d1532485bb740e86a0ca6b9f04f5f4b9fd86a83aa68e737bad413ed2bb43
+- id: quint-sidecar-fallback-corpus
+  resource: ../../../tests/fixtures/oracle/sidecar-fallback.jsonl
+  working_tree: untracked
+  sha256: a8407cdf781359bf076991d8db6a4d02e7a2d4033163559c26ba95eac9c10472
+- id: quint-sidecar-fallback-replay
+  resource: ../../../src/acquisition/http_tests/sidecar_fallback.rs
+  working_tree: untracked
+  sha256: d01e3f02df72089b6ceaca3db664b768991790842c96c878f569df2f6d6945ec
+- id: quint-description-evidence
+  resource: ../../../formal/quint/description_evidence.qnt
+  working_tree: untracked
+  sha256: 28f02f676a3ef796c337e4ca5cfc1d8f1afa84da8ab72736cdb0eaa53de6c332
+- id: quint-description-evidence-corpus
+  resource: ../../../tests/fixtures/oracle/description-evidence.jsonl
+  working_tree: untracked
+  sha256: d5e3529c40bbe25f1dbc163569de2929bc16049587cbe2abf0c6093c4fe184e8
+- id: quint-description-evidence-replay
+  resource: ../../../tests/description.rs
+  working_tree: modified
+  sha256: e722d2661d19ca87f28325e53606433634afd7c230b1cdb255a528e2ee7abd2d
+- id: quint-unused-policy
+  resource: ../../../formal/quint/unused_policy.qnt
+  working_tree: untracked
+  sha256: 9e17530e47d4abc55fd886307491ba120912e17c021406169c581f733ba98e0f
+- id: quint-unused-policy-corpus
+  resource: ../../../tests/fixtures/oracle/unused-policy.jsonl
+  working_tree: untracked
+  sha256: a1525b355fa7250c1bc5b129a0147c1fa8845ef78a0a44f8a0429b1b400712ca
+- id: quint-unused-policy-replay
+  resource: ../../../tests/policy_usage.rs
+  working_tree: untracked
+  sha256: d66ce2e024c2a9c8fee05499ba2ce4c819e1b361ae5a78d9d41ce4515fd9501a
+- id: warning-report-order
+  resource: ../../../src/report.rs
+  revision: c1686812868abd649d0b55986ab63c8734d397d9
+- id: quint-scoped-policy
+  resource: ../../../formal/quint/scoped_policy.qnt
+  working_tree: untracked
+  sha256: cb1132f1c6025c4ee76600f4856a9d4bef89f38fec0648144256382af35f4cf5
+- id: quint-scoped-policy-corpus
+  resource: ../../../tests/fixtures/oracle/scoped-policy.jsonl
+  working_tree: untracked
+  sha256: d787a9d967d211029df6bbe632644c433eed9081147a0d8c9ff4b04d447fe8da
+- id: quint-path-ties
+  resource: ../../../formal/quint/path_ties.qnt
+  working_tree: untracked
+  sha256: dbb198326220eb393a66cdfcfcee3f087fcc4df22e9d29dbb8b7c3743281d458
+- id: quint-path-ties-corpus
+  resource: ../../../tests/fixtures/oracle/path-ties.jsonl
+  working_tree: untracked
+  sha256: f6622b883310310afb316b314409cd905ba2adbf5b23175fc7b81829b37c03ff
+- id: quint-locked-forks
+  resource: ../../../formal/quint/locked_forks.qnt
+  working_tree: untracked
+  sha256: 913e845a10bb9aa62f5d50c8f8a4dd0d7241caa6c8ddaf146b7b5b05f7423778
+- id: quint-locked-forks-corpus
+  resource: ../../../tests/fixtures/oracle/locked-forks.jsonl
+  working_tree: untracked
+  sha256: 977c287f42440a111f94a90bee9c7b71cc0d96dbaa4b18c95aed8d202e151a4f
+- id: quint-locked-forks-replay
+  resource: ../../../tests/resolution_matching.rs
+  working_tree: modified
+  sha256: d64c47695208e4d16596c256758af8bac3e7210646fabf0091abe3e6746d1b36
+- id: quint-extras
+  resource: ../../../formal/quint/extras.qnt
+  working_tree: untracked
+  sha256: 3153085c191fb85df6ea0c943a70fee29cf984af9d891ee0cfd273e6f8e774d8
+- id: quint-extras-corpus
+  resource: ../../../tests/fixtures/oracle/extras.jsonl
+  working_tree: untracked
+  sha256: f467e1713e2af9b51857f7da68c15dff368e9cb6feaf44abd2a5af4620151c1e
+- id: quint-extras-replay
+  resource: ../../../tests/resolution_paths.rs
+  working_tree: modified
+  sha256: 2a7ee4a5320f899239c68337cd37c66b4aba59651c3b012414339b0295179198
+- id: generated-resolution-graphs
+  resource: ../../../tests/resolution_graphs.rs
+  working_tree: untracked
+  sha256: 31608d07d7324c67183380cc7a318b8ce5e5eadf13af19a701a52aff3c74fff4
+- id: quint-shared-cache
+  resource: ../../../formal/quint/shared_cache.qnt
+  working_tree: untracked
+  sha256: 982a45bce248a62edfb8685287bd8658612fadbafdcec66a37870957e804a5b1
+- id: quint-shared-cache-replay
+  resource: ../../../src/acquisition/http_tests/cache_interleaving.rs
+  working_tree: modified
+  sha256: 5f8b21b8c105cafa614accb44562a735ddd7a911afdaf7a19a0fb775235e81db
+- id: quint-shared-cache-corpus
+  resource: ../../../tests/fixtures/oracle/shared-cache.jsonl
+  working_tree: untracked
+  sha256: 053a6ef527010ce06054ba77d41df692736511bcc9b00c419629127a722b5ae3
+- id: quint-connect-dependency-policy
+  resource: ../../../deny.toml
+  working_tree: modified
+  sha256: bcc6c0ec7f22c06472c9cf4f7fc1bcd4d893fb030764e49836f456d1c7258f50
+- id: quint-index-concurrency
+  resource: ../../../formal/quint/index_concurrency.qnt
+  working_tree: untracked
+  sha256: bd4e761c0ac10a50becf806db6ff258b1508ce2225cd6762369c139b5688bb9d
+- id: quint-lifecycle
+  resource: ../../../formal/quint/lifecycle.qnt
+  working_tree: untracked
+  sha256: 5ccfe6f0fcc0e131c14b38d3d82f04fca09d152835c0a0d503ec920913cfd6aa
+- id: quint-replay
+  resource: ../../../src/acquisition/http_tests/lifecycle.rs
+  working_tree: modified
+  sha256: 38dd2c936ce7303d3ac3d97a343799fa89367018d2a9259941fafd31e635f60f
+- id: quint-lifecycle-corpus
+  resource: ../../../tests/fixtures/oracle/lifecycle.jsonl
+  working_tree: untracked
+  sha256: 1965be615b084cc86338c2fb18d050adca18d7e1df574ca596bd9cfd7a297be6
+- id: quint-inspection
+  resource: ../../../formal/quint/inspection.qnt
+  working_tree: untracked
+  sha256: 0bbc899d9964e3894ae14a77264ef7426412cae371b2b0be1ec8d9544994f685
+- id: cli-verdict-property
+  resource: ../../../tests/cli.rs
+  revision: e8bd7490cd3c33af612077ec9384b60c8fa1c744
+- id: acquisition-route-fixtures
+  resource: ../../../src/acquisition/http_tests.rs
+  revision: e8bd7490cd3c33af612077ec9384b60c8fa1c744
+- id: quint-observation
+  resource: ../../../formal/quint/observation.qnt
+  working_tree: untracked
+  sha256: 5ae3d505eaa24543d10127bb7460f0232816649ae8f88d2ccd79c8fd5e8d23fe
+- id: quint-acquisition
+  resource: ../../../formal/quint/acquisition.qnt
+  working_tree: untracked
+  sha256: 320ed8f4658e3929136a57f889786ade4a7221115c7416d7d178f5ffd1478091
+- id: observation-traces
+  resource: ../../../crates/taloon-decisions/tests/observation.rs
+  working_tree: modified
+  sha256: 3c834ee035029629f19af1850f8ed128c9035c103ced34930366b9cf34d0b7b7
+- id: inspection-exit-property
+  resource: ../../../tests/inspection.rs
+  working_tree: modified
+  sha256: 4bef33840a259b688562ffde10d2d583ce855275aae5eaf35b048b843a343baa
+- id: quint-model
+  resource: ../../../formal/quint/aggregation.qnt
+  working_tree: untracked
+  sha256: 7fe1c23e378edb1f34bef3522be9fb670be65388b7639d789d04f8771fa682f5
+- id: quint-correspondence
+  resource: ../../../crates/taloon-decisions/tests/aggregate.rs
+  working_tree: modified
+  sha256: 78b748c068101082d140893fc4adb0c07625c2045f81a0e831d951c3248e55b3
+- id: allpair-quint
+  resource: https://github.com/HayaoSuzuki/pytest-allpair/blob/369f173a32a83c0982b542b298a270988b5d1107/formal/quint/README.md
 - id: python-mutation-verification
   resource: ../work/coverage/python-mutations.md
   working_tree: untracked
@@ -296,7 +510,19 @@ minimal witness. The [stage record](../work/core-accounting-and-resolution/revie
 separates model proofs, exercised correspondence, red/green regression evidence,
 fuzz bounds and measured timings.[^core-design-review]
 
+
+The generated graph checks exercise the public inspection report across two
+workspace roots, workspace and root dependency groups, and root extras.
+Each generated inventory includes an unreachable external record, and the
+expected request set comes from the generated records. For each external
+target, an independent reverse distance calculation over package/extra states
+determines shortest paths. Tie order, activated extras, dependency markers
+and package markers are checked at the diagnostic boundary. Markers remain
+annotations, while extras affect traversal. This complements the fixed
+same-name fork and origin-resolution cases.[^generated-resolution-graphs]
+
 [^core-design-review]: [Core assessment and staged reviews](../work/core-accounting-and-resolution/review.md).
+[^generated-resolution-graphs]: [Generated inspection graphs and reverse distance oracle](../../../tests/resolution_graphs.rs).
 
 
 # Scoped policy follow-up evidence
@@ -609,3 +835,381 @@ The prior image pin cannot be reused with the new builder. The [published image 
 records the successful trusted-main publisher and exact adopted identity.
 Proof generation, the full obligation inventory and negative witnesses remain
 required; updating tool versions alone does not establish their results.
+
+# Finite aggregation model
+
+Following pytest-allpair's pruning check, use Quint with TLC for a finite
+transition graph, an independent invariant, and a deliberately broken variant.
+Aggregation was the first model because the public Rust function accepts all
+inputs needed to represent every abstract state.[^allpair-quint][^quint-model]
+
+The Rust model-based test covers one canonical package list and flag for each
+reachable event set. Keep the existing proptest for list order and multiplicity.
+Lean and Creusot retain their existing proof roles. A second hand-maintained
+TLA+ model would duplicate the Quint specification. Trace export and replay
+would add encoding and tooling for a state space whose representatives fit
+in a small exhaustive test. Reconsider trace replay if a future model has
+history-dependent observations or models a real multi-step API.
+[^quint-correspondence]
+
+See the [reproduction procedure](../../../formal/quint/README.md).
+
+[^quint-model]: [Quint model and negative control](../../../formal/quint/aggregation.qnt).
+[^quint-correspondence]: [Rust correspondence and proptest](../../../crates/taloon-decisions/tests/aggregate.rs).
+[^allpair-quint]: [pytest-allpair's finite pruning check](https://github.com/HayaoSuzuki/pytest-allpair/blob/369f173a32a83c0982b542b298a270988b5d1107/formal/quint/README.md).
+
+# Verification across taloon
+
+Add finite observation and remote-acquisition models where the order of
+events or routing affects the result. For observation, compare each consume
+result to the records since the preceding consume. For acquisition, model
+routes after identity and evidence strength have already been checked. The
+concrete transport and cache fixtures supply correspondence for selected routes.
+[^quint-observation][^quint-acquisition][^observation-traces][^acquisition-route-fixtures]
+
+The inspection model combines two targets' observation histories, policy
+permission, warning presence, and warning escalation into an exit code.
+The Rust adapter covers all 128 input combinations through the public API,
+and proptest varies order and multiplicity. The CLI process property checks
+the exit value against the JSON report with real local archives.
+[^quint-inspection][^inspection-exit-property][^cli-verdict-property]
+
+Check the complete application using the layers in the table.
+
+| Boundary | Checks |
+| --- | --- |
+| Lockfile and target resolution | Rust integration tests, generated graph properties and lockfile fuzzing |
+| Metadata, archives and content identity | Rust fixtures, parser fuzz targets and Creusot evidence bindings |
+| Acquisition and offline cache | Quint routing, Rust transport/cache fixtures and CLI process tests |
+| Observation, inspection and policy | Quint observation, Lean corpora, Creusot contracts and Rust model-based/property tests |
+| Report, description and exit | Quint aggregation and inspection exit, Lean selection corpora and Rust report and CLI integration tests |
+| Packaging, release and repository tooling | Python tests including binary smoke, release properties and workflow and documentation checks |
+
+This coverage spans the main execution paths and development tooling. The
+exhaustive claims apply to the documented finite models. Revisit the
+acquisition abstraction when a route, cache admission rule or strength
+requirement changes. Expand it to include scheduling only when the intended
+interleavings and observable outcomes can be expressed independently.
+
+[^quint-observation]: [Observation transition model](../../../formal/quint/observation.qnt).
+[^quint-acquisition]: [Remote acquisition routing model](../../../formal/quint/acquisition.qnt).
+[^observation-traces]: [Rust observation traces and property test](../../../crates/taloon-decisions/tests/observation.rs).
+[^inspection-exit-property]: [Public inspection and exit-status property](../../../tests/inspection.rs).
+[^acquisition-route-fixtures]: [Rust acquisition route fixtures](../../../src/acquisition/http_tests.rs).
+[^quint-inspection]: [Inspection and exit model](../../../formal/quint/inspection.qnt).
+[^cli-verdict-property]: [CLI process and JSON exit property](../../../tests/cli.rs).
+
+# Acquisition-to-report lifecycle
+
+Use a single Quint transition for one completed inspection on a bounded
+two-package graph. Carry validated archive digests across checks so that
+retries, failures, lock changes, offline runs and explicit cache clearing
+constrain later observations. The invariant connects exact cache membership
+to package completeness and report precedence. A negative control keys
+the child cache lookup too broadly, so TLC can show an older digest masking an
+offline miss.[^quint-lifecycle]
+
+Generate fixed-seed ITF traces from the verified model and compare a
+normalized corpus byte-for-byte in CI. Replay through the binary's
+acquisition layer and the library's inspection API with a disk cache and
+scripted transport. Resolve both packages from uv.lock across three graph shapes and observe
+the shortest diagnostic path on failures. This checks the wiring between model
+boundaries while the smaller models retain their independent checks. A
+separate Lean trace generator would duplicate the transition rules.
+Revisit the domain when adding cache admission behavior, retry policy, or
+new report precedence rules. Add concurrent schedules when the contract
+specifies how overlap affects observations.[^quint-lifecycle-corpus][^quint-replay]
+
+In the same CI job, Quint Connect replays additional generated histories.
+proptest varies the Quint seed, dependency topology, and wheel content.
+Compare package status, report exit, cache hits, archive attempts, and
+exact digest membership after each check. Keep the cache across checks
+within each trace.[^quint-replay]
+
+[^quint-lifecycle]: [Finite acquisition-to-report model](../../../formal/quint/lifecycle.qnt).
+[^quint-replay]: [Rust trace adapter](../../../src/acquisition/http_tests/lifecycle.rs).
+[^quint-lifecycle-corpus]: [Versioned model-generated traces](../../../tests/fixtures/oracle/lifecycle.jsonl).
+
+# Concurrent package-index initialization
+
+Model contention within a single index entry as an exclusive owner,
+an initially empty snapshot, and two worker outcomes. A completed load
+publishes a result that waiters reuse, including terminal errors. A panic
+relinquishes ownership without publishing. The invariant distinguishes
+publication count from initializer attempts. Verify outcome correspondence
+with the existing transport fixtures for successful sharing, shared error
+with independent archive verification, and panic recovery. Revisit the
+model if an entry permits invalidation, cancellation, or replacement
+while a batch is running.[^quint-index-concurrency][^acquisition-route-fixtures]
+
+[^quint-index-concurrency]: [Concurrent index-initialization model](../../../formal/quint/index_concurrency.qnt).
+
+# Shared disk-cache interleavings
+
+Extend the acquisition lifecycle with a separate model of archive
+publication and deletion. Only a published digest may satisfy a fresh
+lookup. An opened file remains readable across unlink, and an in-flight
+writer can publish after a completed clear. The latter is allowed by the
+existing cache clear contract. Treat clear as an operation between
+checkpoints, with two digest-specific writers and one retained reader.
+[^quint-shared-cache]
+
+Generate and replay fixed traces through concurrent Rust acquisition batches
+sharing a disk cache. Test-only hooks pause the actual cache writer and reader
+at the filesystem boundaries. Compare archive identity and report status as
+well as what each step leaves available offline. Keep the existing tests for
+same-digest replacement and damaged records. Revisit the abstraction if
+locking, cache-key semantics, file publication, or clear guarantees change.
+[^quint-shared-cache-replay][^quint-shared-cache-corpus]
+
+Use Quint Connect in the formal CI job to replay additional generated
+traces. proptest varies the Quint seed and the archive bytes. Project the
+actual event result and offline visibility at each step, reusing the
+checkpoint driver used by the fixed corpus. The runner is a dev dependency.
+Allow its MPL-2.0 terminal diagnostics dependency at the exact audited
+version. Review the exception when updating or removing the runner.
+[^quint-shared-cache-replay][^quint-connect-dependency-policy]
+
+[^quint-shared-cache]: [Shared disk-cache transition model](../../../formal/quint/shared_cache.qnt).
+[^quint-shared-cache-replay]: [Shared-cache trace replay](../../../src/acquisition/http_tests/cache_interleaving.rs).
+[^quint-shared-cache-corpus]: [Generated shared-cache traces](../../../tests/fixtures/oracle/shared-cache.jsonl).
+[^quint-connect-dependency-policy]: [Version-scoped license exception for test diagnostics](../../../deny.toml).
+
+# Extras on cyclic paths
+
+Use a finite Quint graph to check why a visited state includes its activated
+extras. Vary activation at the root, activation on the cycle's return edge,
+and a shorter path from the root. Compare the traversal with the shortest
+path derivable from this graph shape. A model keyed only by package loses
+the only reachable path when activation occurs on return.[^quint-extras]
+
+Check every generated terminal case through the public Rust resolver. Keep
+the reverse-distance property for larger graph shapes and multiple extras.
+The trace adapter reads the scenario and expected path from the model corpus.
+Revisit the model when extra activation or path tie semantics change.
+[^quint-extras-corpus][^quint-extras-replay][^generated-resolution-graphs]
+
+[^quint-extras]: [Finite cyclic extras model](../../../formal/quint/extras.qnt).
+[^quint-extras-corpus]: [Generated terminal extras cases](../../../tests/fixtures/oracle/extras.jsonl).
+[^quint-extras-replay]: [Public resolver replay](../../../tests/resolution_paths.rs).
+
+# Conditional edges and same-name forks
+
+Use finite selector tables to check exact version, source, and constraint
+intersection over same-name locked identities. A unique edge retains its
+marker as an annotation. A non-unique ordinary edge rejects the lock, while
+a non-unique manifest dependency group omits its origin and preserves
+locked coverage. The negative control ignores source selection.
+[^quint-locked-forks]
+
+Replay all 192 combinations against the public resolver and check the exact
+inventory and selected path. Keep existing behavioral coverage for input
+diagnostics and unrelated records. Revisit the finite domain when conditional
+edge matching or manifest origin handling changes.
+[^quint-locked-forks-corpus][^quint-locked-forks-replay]
+
+[^quint-locked-forks]: [Finite locked fork selection model](../../../formal/quint/locked_forks.qnt).
+[^quint-locked-forks-corpus]: [Generated fork selectors and decisions](../../../tests/fixtures/oracle/locked-forks.jsonl).
+[^quint-locked-forks-replay]: [Public resolver replay for fork selectors](../../../tests/resolution_matching.rs).
+
+# Tie order for annotated dependency paths
+
+Rank complete routes on a fixed graph and compare the result with the
+shortest route derivable directly from the graph shape. Tie resolution
+uses canonical edge order, and ordinary edges precede optional groups.
+Preserve the selected marker and extras annotations. Each entry origin
+selects its own route. A negative control preserves wire order and loses
+that tie rule.[^quint-path-ties]
+
+Use all 32 generated inputs in the public Rust resolver. Reverse both
+package and root-edge order and vary the marker comparisons, active extras,
+ordinary edge and shortcut. Keep the larger generated graph suite for
+different topology. Revisit this model if diagnostic ordering or extra
+normalization changes.[^quint-path-ties-corpus][^quint-extras-replay]
+
+[^quint-path-ties]: [Finite canonical path selection model](../../../formal/quint/path_ties.qnt).
+[^quint-path-ties-corpus]: [Generated annotated paths](../../../tests/fixtures/oracle/path-ties.jsonl).
+
+# Scoped policy and proof strength
+
+Model the composed inspection decision for a hash-scoped exception and
+clarification, with independent identity, digest, mode, and proof inputs.
+Check which cases require archive proof before interpreting a declaration.
+Once interpretation succeeds, apply global deny precedence and record the
+matching override identifiers. The negative control admits a wrong-hash
+exception.[^quint-scoped-policy]
+
+Replay all 96 combinations through the public inspection API, using real
+archive and sidecar evidence. Compare both the requested proof and the
+reported verdict and interpretation. Keep Lean and property tests for
+expression structure and existing focused cases for policy selectors and
+unused entries. Revisit the model when proof admission or override precedence
+changes.[^quint-scoped-policy-corpus][^inspection-exit-property]
+
+[^quint-scoped-policy]: [Finite scoped policy and proof model](../../../formal/quint/scoped_policy.qnt).
+[^quint-scoped-policy-corpus]: [Generated policy decisions](../../../tests/fixtures/oracle/scoped-policy.jsonl).
+
+# Unused policy warnings across inspection results
+
+Count all effective expression units, including each OR alternative.
+Account for exact package/digest exceptions and hash-bound clarifications.
+Incomplete runs suppress unused warnings. Complete runs retain the policy
+verdict and may escalate compliance under strict warnings. The negative
+control accounts for only one OR alternative.[^quint-unused-policy]
+
+The initial oracle used the policy's emission order and disagreed with
+the public report. Report assembly sorts these diagnostics by message
+within their common error code. Use that ordering in the normalized
+corpus and replay exact messages and exit codes across the 128 finite
+cases. Revisit the model if usage accounting or warning presentation
+changes.[^warning-report-order][^quint-unused-policy-corpus][^quint-unused-policy-replay]
+
+[^quint-unused-policy]: [Finite policy usage model](../../../formal/quint/unused_policy.qnt).
+[^quint-unused-policy-corpus]: [Generated warning and exit decisions](../../../tests/fixtures/oracle/unused-policy.jsonl).
+[^quint-unused-policy-replay]: [Public report replay for unused policy warnings](../../../tests/policy_usage.rs).
+[^warning-report-order]: [Public report warning order](../../../src/report.rs).
+
+# Description evidence grouping and incomplete observations
+
+Model two artifact slots for a selected package. Resolve observation
+cardinality, content binding and declaration interpretation before grouping
+by the exact expression. Unknown counts are per artifact. An unclaimed
+request affects report completeness while successful artifact groups
+remain visible. The negative control accepts the first of a duplicate pair.
+[^quint-description-evidence]
+
+Replay all 324 finite inputs through the public Description API with real
+archive and sidecar observations. Compare diagnostic codes, group membership
+and exit status. Preserve the separate Lean coverage of graph selection and
+the existing Rust cases for source and identity binding. Revisit this model
+when description accounting or grouping changes.
+[^quint-description-evidence-corpus][^quint-description-evidence-replay]
+
+[^quint-description-evidence]: [Finite description evidence accounting](../../../formal/quint/description_evidence.qnt).
+[^quint-description-evidence-corpus]: [Generated description outcomes and groups](../../../tests/fixtures/oracle/description-evidence.jsonl).
+[^quint-description-evidence-replay]: [Public description report replay](../../../tests/description.rs).
+
+# Sidecar admission and archive fallback
+
+Compose index admission with metadata verification, archive fallback and
+offline reuse. Index admission requires a unique matching locked URL and
+archive digest. Metadata admission binds the response bytes and package
+identity. Strong proof bypasses both index and sidecar. The negative control
+accepts a response with the wrong metadata digest.[^quint-sidecar-fallback]
+
+Replay 240 cases through the binary acquirer using JSON and HTML fixtures,
+wheel bytes and an actual disk cache. Compare request counts, report proof,
+declaration, and diagnostics. Reopen the cache in offline mode to verify
+the effect of successful and failed paths. Keep the Lean index corpus for
+parser lookup cases. Revisit the composed model when sidecar admission,
+fallback, proof strength, or cache eligibility changes.
+[^quint-sidecar-fallback-corpus][^quint-sidecar-fallback-replay]
+
+[^quint-sidecar-fallback]: [Finite sidecar admission and fallback model](../../../formal/quint/sidecar_fallback.qnt).
+[^quint-sidecar-fallback-corpus]: [Generated cold and offline acquisition expectations](../../../tests/fixtures/oracle/sidecar-fallback.jsonl).
+[^quint-sidecar-fallback-replay]: [Binary acquisition replay](../../../src/acquisition/http_tests/sidecar_fallback.rs).
+
+# Pending and completed bundled license observations
+
+Model the sequence from an inconclusive sidecar through archive admission,
+fresh declaration interpretation and cache reuse. A failed archive fetch
+keeps the sidecar pending. Offline inspection can read that pending evidence,
+and the next online run retries the archive. Completed archive observations
+remain reusable even when license interpretation is inconclusive. The
+negative control fetches the archive again for a completed negative
+observation.[^quint-legacy-scan]
+
+Replay 16 five-step schedules through the binary acquirer and public
+inspection, with real wheel and metadata bytes and a persistent disk cache.
+Check archive authority, proof and interpretation origin as well as
+request counts and errors. Keep the parser and family-compatibility
+properties for text classification. Revisit the lifecycle when pending
+evidence, archive interpretation, or cache reuse changes.
+[^quint-legacy-scan-corpus][^quint-legacy-scan-replay]
+
+[^quint-legacy-scan]: [Finite bundled license scan lifecycle](../../../formal/quint/legacy_scan.qnt).
+[^quint-legacy-scan-corpus]: [Generated pending and completed cache decisions](../../../tests/fixtures/oracle/legacy-scan.jsonl).
+[^quint-legacy-scan-replay]: [Binary replay for archive license scans](../../../src/acquisition/http_tests/legacy_scan.rs).
+
+# HTTP routing, retries, and authentication
+
+Compose per-hop retry limits, redirect limits, HTTPS enforcement, and
+origin-bound credential forwarding. Use a permanent downgrade of
+credential eligibility after an origin change within a request.
+Compare final attempts with an independent count by route and retry
+pattern. The negative control restores authentication on return to the
+initial origin.[^quint-http-routing]
+
+Replay all 96 sequences through the production HTTP wrapper with a
+scripted transport and synthetic credentials. Check actual outgoing URLs,
+credentials, terminal status, and attempt and byte totals. Loopback tests
+remain the evidence for the TLS and response-reader paths. Revisit the
+model if retry budgets, redirect handling, or credential scope changes.
+[^quint-http-routing-corpus][^quint-http-routing-replay]
+
+[^quint-http-routing]: [Finite HTTP routing and retry model](../../../formal/quint/http_routing.qnt).
+[^quint-http-routing-corpus]: [Generated HTTP attempt transcripts](../../../tests/fixtures/oracle/http-routing.jsonl).
+[^quint-http-routing-replay]: [Production HTTP wrapper replay](../../../src/acquisition/http_tests/http_routing.rs).
+
+# Release reservation retries and reconciliation
+
+Model the lease read, competing atomic update, push budget and final
+reconciliation over a linear four-commit history. Compare stable tag and
+ordering ref state and the reported result after competing reservations
+and rejected or unacknowledged pushes. The negative control omits the final
+read and loses a reservation that was created on the fifth push.
+[^quint-release-reservation]
+
+Regenerate the 32 terminal cases in CI and replay them in the frozen Python
+environment against local bare Git. A second checkout updates the real local
+remote before the stale caller pushes. Inject acknowledgement faults after
+the subprocess returns. Check both refs and the attempt count. The small
+Lean reservation model covers the snapshot decision. Revisit the Quint
+schedule if the lease, retry budget or acknowledgement recovery changes.
+[^quint-release-reservation-corpus][^quint-release-reservation-replay]
+
+[^quint-release-reservation]: [Finite release reservation interleavings](../../../formal/quint/release_reservation.qnt).
+[^quint-release-reservation-corpus]: [Generated reservation decisions and refs](../../../tests/fixtures/oracle/release-reservation.jsonl).
+[^quint-release-reservation-replay]: [Local bare Git reservation replay](../../../tests/test_release.py).
+
+# Index publication inspection and propagation
+
+Before publishing, only a missing version document permits a fresh upload.
+After observing the version, require the full inventory, exact wheel bytes,
+expected publisher and both provenance predicates. In post-upload verification,
+retry 404 responses within the propagation deadline, but fail on inconsistent
+published data. A model variant equating missing per-wheel provenance with an
+absent release violates the inspection contract.[^quint-index-publication]
+
+Replay both indexes through local inventory, wheel and provenance fixtures.
+Compare the terminal result, version reads and requested waits. The fake
+clock advances during waits. Signature checks remain behind the existing
+verification boundary. Revisit the model when the retry budget, response
+classification or publication acceptance criteria change.
+[^quint-index-publication-corpus][^quint-index-publication-replay]
+
+[^quint-index-publication]: [Finite index publication model](../../../formal/quint/index_publication.qnt).
+[^quint-index-publication-corpus]: [Generated outcomes and waits](../../../tests/fixtures/oracle/index-publication.jsonl).
+[^quint-index-publication-replay]: [Local publication replay](../../../tests/test_pypi_provenance.py).
+
+# TestPyPI-to-PyPI promotion
+
+Start publication from the reported staging and preparation outcomes.
+Attempt an upload only after that index's inspection reports the version
+absent. If the expected version is already present, run verification
+with the same gate as a successful upload. Require successful TestPyPI
+verification before the first PyPI job. A failure prevents later jobs
+from starting, and cancellation prevents the next job from starting.
+[^quint-release-promotion][^quint-release-promotion-workflow]
+
+Evaluate the checked-in workflow expressions over the model's scripted
+job outcomes. Compare started jobs, attempted uploads, and final PyPI
+verification. Check the configured target for each operation. Revisit
+this model if the workflow adds a publication channel, changes its
+recovery gates, or permits verification at a different stage.
+[^quint-release-promotion-corpus][^quint-release-promotion-replay]
+
+[^quint-release-promotion]: [Finite promotion workflow model](../../../formal/quint/release_promotion.qnt).
+[^quint-release-promotion-workflow]: [Production release job conditions](../../../.github/workflows/release.yml).
+[^quint-release-promotion-corpus]: [Generated promotion traces](../../../tests/fixtures/oracle/release-promotion.jsonl).
+[^quint-release-promotion-replay]: [Workflow-condition correspondence tests](../../../tests/test_distribution.py).

@@ -1,0 +1,128 @@
+{"scenario":{"alphaScope":false,"betaScope":false,"clarify":false,"deny":false,"listed":false,"outcome":0},"decision":{"exit":1,"strictExit":1,"warnings":["clarification","beta exception","alpha exception"]}}
+{"scenario":{"alphaScope":false,"betaScope":false,"clarify":true,"deny":false,"listed":false,"outcome":0},"decision":{"exit":1,"strictExit":1,"warnings":["beta exception","alpha exception"]}}
+{"scenario":{"alphaScope":true,"betaScope":false,"clarify":false,"deny":false,"listed":false,"outcome":0},"decision":{"exit":1,"strictExit":1,"warnings":["clarification","beta exception"]}}
+{"scenario":{"alphaScope":true,"betaScope":false,"clarify":true,"deny":false,"listed":false,"outcome":0},"decision":{"exit":1,"strictExit":1,"warnings":["beta exception"]}}
+{"scenario":{"alphaScope":false,"betaScope":true,"clarify":false,"deny":false,"listed":false,"outcome":0},"decision":{"exit":1,"strictExit":1,"warnings":["clarification","alpha exception"]}}
+{"scenario":{"alphaScope":false,"betaScope":true,"clarify":true,"deny":false,"listed":false,"outcome":0},"decision":{"exit":0,"strictExit":1,"warnings":["alpha exception"]}}
+{"scenario":{"alphaScope":true,"betaScope":true,"clarify":false,"deny":false,"listed":false,"outcome":0},"decision":{"exit":1,"strictExit":1,"warnings":["clarification"]}}
+{"scenario":{"alphaScope":true,"betaScope":true,"clarify":true,"deny":false,"listed":false,"outcome":0},"decision":{"exit":0,"strictExit":0,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":false,"clarify":false,"deny":false,"listed":true,"outcome":0},"decision":{"exit":0,"strictExit":1,"warnings":["clarification","beta exception","alpha exception"]}}
+{"scenario":{"alphaScope":false,"betaScope":false,"clarify":true,"deny":false,"listed":true,"outcome":0},"decision":{"exit":1,"strictExit":1,"warnings":["beta exception","alpha exception","ISC"]}}
+{"scenario":{"alphaScope":true,"betaScope":false,"clarify":false,"deny":false,"listed":true,"outcome":0},"decision":{"exit":0,"strictExit":1,"warnings":["clarification","beta exception"]}}
+{"scenario":{"alphaScope":true,"betaScope":false,"clarify":true,"deny":false,"listed":true,"outcome":0},"decision":{"exit":1,"strictExit":1,"warnings":["beta exception","ISC"]}}
+{"scenario":{"alphaScope":false,"betaScope":true,"clarify":false,"deny":false,"listed":true,"outcome":0},"decision":{"exit":0,"strictExit":1,"warnings":["clarification","alpha exception"]}}
+{"scenario":{"alphaScope":false,"betaScope":true,"clarify":true,"deny":false,"listed":true,"outcome":0},"decision":{"exit":0,"strictExit":1,"warnings":["alpha exception","ISC"]}}
+{"scenario":{"alphaScope":true,"betaScope":true,"clarify":false,"deny":false,"listed":true,"outcome":0},"decision":{"exit":0,"strictExit":1,"warnings":["clarification"]}}
+{"scenario":{"alphaScope":true,"betaScope":true,"clarify":true,"deny":false,"listed":true,"outcome":0},"decision":{"exit":0,"strictExit":1,"warnings":["ISC"]}}
+{"scenario":{"alphaScope":false,"betaScope":false,"clarify":false,"deny":true,"listed":false,"outcome":0},"decision":{"exit":0,"strictExit":1,"warnings":["clarification","beta exception","alpha exception"]}}
+{"scenario":{"alphaScope":false,"betaScope":false,"clarify":true,"deny":true,"listed":false,"outcome":0},"decision":{"exit":0,"strictExit":1,"warnings":["beta exception","alpha exception"]}}
+{"scenario":{"alphaScope":true,"betaScope":false,"clarify":false,"deny":true,"listed":false,"outcome":0},"decision":{"exit":0,"strictExit":1,"warnings":["clarification","beta exception"]}}
+{"scenario":{"alphaScope":true,"betaScope":false,"clarify":true,"deny":true,"listed":false,"outcome":0},"decision":{"exit":0,"strictExit":1,"warnings":["beta exception"]}}
+{"scenario":{"alphaScope":false,"betaScope":true,"clarify":false,"deny":true,"listed":false,"outcome":0},"decision":{"exit":0,"strictExit":1,"warnings":["clarification","alpha exception"]}}
+{"scenario":{"alphaScope":false,"betaScope":true,"clarify":true,"deny":true,"listed":false,"outcome":0},"decision":{"exit":0,"strictExit":1,"warnings":["alpha exception"]}}
+{"scenario":{"alphaScope":true,"betaScope":true,"clarify":false,"deny":true,"listed":false,"outcome":0},"decision":{"exit":0,"strictExit":1,"warnings":["clarification"]}}
+{"scenario":{"alphaScope":true,"betaScope":true,"clarify":true,"deny":true,"listed":false,"outcome":0},"decision":{"exit":0,"strictExit":0,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":false,"clarify":false,"deny":true,"listed":true,"outcome":0},"decision":{"exit":1,"strictExit":1,"warnings":["clarification","beta exception","alpha exception"]}}
+{"scenario":{"alphaScope":false,"betaScope":false,"clarify":true,"deny":true,"listed":true,"outcome":0},"decision":{"exit":0,"strictExit":1,"warnings":["beta exception","alpha exception","ISC"]}}
+{"scenario":{"alphaScope":true,"betaScope":false,"clarify":false,"deny":true,"listed":true,"outcome":0},"decision":{"exit":1,"strictExit":1,"warnings":["clarification","beta exception"]}}
+{"scenario":{"alphaScope":true,"betaScope":false,"clarify":true,"deny":true,"listed":true,"outcome":0},"decision":{"exit":0,"strictExit":1,"warnings":["beta exception","ISC"]}}
+{"scenario":{"alphaScope":false,"betaScope":true,"clarify":false,"deny":true,"listed":true,"outcome":0},"decision":{"exit":1,"strictExit":1,"warnings":["clarification","alpha exception"]}}
+{"scenario":{"alphaScope":false,"betaScope":true,"clarify":true,"deny":true,"listed":true,"outcome":0},"decision":{"exit":0,"strictExit":1,"warnings":["alpha exception","ISC"]}}
+{"scenario":{"alphaScope":true,"betaScope":true,"clarify":false,"deny":true,"listed":true,"outcome":0},"decision":{"exit":1,"strictExit":1,"warnings":["clarification"]}}
+{"scenario":{"alphaScope":true,"betaScope":true,"clarify":true,"deny":true,"listed":true,"outcome":0},"decision":{"exit":0,"strictExit":1,"warnings":["ISC"]}}
+{"scenario":{"alphaScope":false,"betaScope":false,"clarify":false,"deny":false,"listed":false,"outcome":1},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":false,"clarify":true,"deny":false,"listed":false,"outcome":1},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":false,"clarify":false,"deny":false,"listed":false,"outcome":1},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":false,"clarify":true,"deny":false,"listed":false,"outcome":1},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":true,"clarify":false,"deny":false,"listed":false,"outcome":1},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":true,"clarify":true,"deny":false,"listed":false,"outcome":1},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":true,"clarify":false,"deny":false,"listed":false,"outcome":1},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":true,"clarify":true,"deny":false,"listed":false,"outcome":1},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":false,"clarify":false,"deny":false,"listed":true,"outcome":1},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":false,"clarify":true,"deny":false,"listed":true,"outcome":1},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":false,"clarify":false,"deny":false,"listed":true,"outcome":1},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":false,"clarify":true,"deny":false,"listed":true,"outcome":1},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":true,"clarify":false,"deny":false,"listed":true,"outcome":1},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":true,"clarify":true,"deny":false,"listed":true,"outcome":1},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":true,"clarify":false,"deny":false,"listed":true,"outcome":1},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":true,"clarify":true,"deny":false,"listed":true,"outcome":1},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":false,"clarify":false,"deny":true,"listed":false,"outcome":1},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":false,"clarify":true,"deny":true,"listed":false,"outcome":1},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":false,"clarify":false,"deny":true,"listed":false,"outcome":1},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":false,"clarify":true,"deny":true,"listed":false,"outcome":1},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":true,"clarify":false,"deny":true,"listed":false,"outcome":1},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":true,"clarify":true,"deny":true,"listed":false,"outcome":1},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":true,"clarify":false,"deny":true,"listed":false,"outcome":1},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":true,"clarify":true,"deny":true,"listed":false,"outcome":1},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":false,"clarify":false,"deny":true,"listed":true,"outcome":1},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":false,"clarify":true,"deny":true,"listed":true,"outcome":1},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":false,"clarify":false,"deny":true,"listed":true,"outcome":1},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":false,"clarify":true,"deny":true,"listed":true,"outcome":1},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":true,"clarify":false,"deny":true,"listed":true,"outcome":1},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":true,"clarify":true,"deny":true,"listed":true,"outcome":1},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":true,"clarify":false,"deny":true,"listed":true,"outcome":1},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":true,"clarify":true,"deny":true,"listed":true,"outcome":1},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":false,"clarify":false,"deny":false,"listed":false,"outcome":2},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":false,"clarify":true,"deny":false,"listed":false,"outcome":2},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":false,"clarify":false,"deny":false,"listed":false,"outcome":2},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":false,"clarify":true,"deny":false,"listed":false,"outcome":2},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":true,"clarify":false,"deny":false,"listed":false,"outcome":2},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":true,"clarify":true,"deny":false,"listed":false,"outcome":2},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":true,"clarify":false,"deny":false,"listed":false,"outcome":2},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":true,"clarify":true,"deny":false,"listed":false,"outcome":2},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":false,"clarify":false,"deny":false,"listed":true,"outcome":2},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":false,"clarify":true,"deny":false,"listed":true,"outcome":2},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":false,"clarify":false,"deny":false,"listed":true,"outcome":2},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":false,"clarify":true,"deny":false,"listed":true,"outcome":2},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":true,"clarify":false,"deny":false,"listed":true,"outcome":2},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":true,"clarify":true,"deny":false,"listed":true,"outcome":2},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":true,"clarify":false,"deny":false,"listed":true,"outcome":2},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":true,"clarify":true,"deny":false,"listed":true,"outcome":2},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":false,"clarify":false,"deny":true,"listed":false,"outcome":2},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":false,"clarify":true,"deny":true,"listed":false,"outcome":2},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":false,"clarify":false,"deny":true,"listed":false,"outcome":2},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":false,"clarify":true,"deny":true,"listed":false,"outcome":2},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":true,"clarify":false,"deny":true,"listed":false,"outcome":2},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":true,"clarify":true,"deny":true,"listed":false,"outcome":2},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":true,"clarify":false,"deny":true,"listed":false,"outcome":2},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":true,"clarify":true,"deny":true,"listed":false,"outcome":2},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":false,"clarify":false,"deny":true,"listed":true,"outcome":2},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":false,"clarify":true,"deny":true,"listed":true,"outcome":2},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":false,"clarify":false,"deny":true,"listed":true,"outcome":2},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":false,"clarify":true,"deny":true,"listed":true,"outcome":2},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":true,"clarify":false,"deny":true,"listed":true,"outcome":2},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":true,"clarify":true,"deny":true,"listed":true,"outcome":2},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":true,"clarify":false,"deny":true,"listed":true,"outcome":2},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":true,"clarify":true,"deny":true,"listed":true,"outcome":2},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":false,"clarify":false,"deny":false,"listed":false,"outcome":3},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":false,"clarify":true,"deny":false,"listed":false,"outcome":3},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":false,"clarify":false,"deny":false,"listed":false,"outcome":3},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":false,"clarify":true,"deny":false,"listed":false,"outcome":3},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":true,"clarify":false,"deny":false,"listed":false,"outcome":3},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":true,"clarify":true,"deny":false,"listed":false,"outcome":3},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":true,"clarify":false,"deny":false,"listed":false,"outcome":3},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":true,"clarify":true,"deny":false,"listed":false,"outcome":3},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":false,"clarify":false,"deny":false,"listed":true,"outcome":3},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":false,"clarify":true,"deny":false,"listed":true,"outcome":3},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":false,"clarify":false,"deny":false,"listed":true,"outcome":3},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":false,"clarify":true,"deny":false,"listed":true,"outcome":3},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":true,"clarify":false,"deny":false,"listed":true,"outcome":3},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":true,"clarify":true,"deny":false,"listed":true,"outcome":3},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":true,"clarify":false,"deny":false,"listed":true,"outcome":3},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":true,"clarify":true,"deny":false,"listed":true,"outcome":3},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":false,"clarify":false,"deny":true,"listed":false,"outcome":3},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":false,"clarify":true,"deny":true,"listed":false,"outcome":3},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":false,"clarify":false,"deny":true,"listed":false,"outcome":3},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":false,"clarify":true,"deny":true,"listed":false,"outcome":3},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":true,"clarify":false,"deny":true,"listed":false,"outcome":3},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":true,"clarify":true,"deny":true,"listed":false,"outcome":3},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":true,"clarify":false,"deny":true,"listed":false,"outcome":3},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":true,"clarify":true,"deny":true,"listed":false,"outcome":3},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":false,"clarify":false,"deny":true,"listed":true,"outcome":3},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":false,"clarify":true,"deny":true,"listed":true,"outcome":3},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":false,"clarify":false,"deny":true,"listed":true,"outcome":3},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":false,"clarify":true,"deny":true,"listed":true,"outcome":3},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":true,"clarify":false,"deny":true,"listed":true,"outcome":3},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":false,"betaScope":true,"clarify":true,"deny":true,"listed":true,"outcome":3},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":true,"clarify":false,"deny":true,"listed":true,"outcome":3},"decision":{"exit":2,"strictExit":2,"warnings":[]}}
+{"scenario":{"alphaScope":true,"betaScope":true,"clarify":true,"deny":true,"listed":true,"outcome":3},"decision":{"exit":2,"strictExit":2,"warnings":[]}}

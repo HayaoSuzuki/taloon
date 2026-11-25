@@ -56,3 +56,34 @@ proptest! {
         prop_assert_eq!(actual, expected);
     }
 }
+
+/// One representative package list for each reachable `seen` set in Aggregation.
+#[rstest]
+fn aggregate_matches_model_state(
+    #[values(false, true)] has_compliant: bool,
+    #[values(false, true)] has_violation: bool,
+    #[values(false, true)] has_incomplete: bool,
+    #[values(false, true)] input_error: bool,
+) {
+    // Arrange
+    let packages: Vec<_> = [
+        has_compliant.then_some(Status::Compliant),
+        has_violation.then_some(Status::Violation),
+        has_incomplete.then_some(Status::Incomplete),
+    ]
+    .into_iter()
+    .flatten()
+    .map(package)
+    .collect();
+    let expected = match (input_error, has_incomplete, has_violation) {
+        (true, _, _) | (_, true, _) => Status::Incomplete,
+        (_, _, true) => Status::Violation,
+        _ => Status::Compliant,
+    };
+
+    // Act
+    let actual = aggregate(&packages, input_error);
+
+    // Assert
+    assert_eq!(actual, expected);
+}

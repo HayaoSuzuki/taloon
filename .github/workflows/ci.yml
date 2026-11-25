@@ -16,6 +16,68 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  quint:
+    name: Quint behavioral models
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install locked Quint tools
+        working-directory: formal/quint
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify invariants and mutant counterexamples
+        run: |
+          export PATH="${JAVA_HOME_21_X64:?Java 21 is required}/bin:$PATH"
+          export QUINT_HOME="$RUNNER_TEMP/quint-home"
+          quint="$GITHUB_WORKSPACE/formal/quint/node_modules/.bin/quint"
+          cd "$RUNNER_TEMP" || exit 1
+          for spec in \
+            'aggregation Aggregation Precedence' \
+            'observation Observation ObservationContract' \
+            'acquisition Acquisition AcquisitionContract' \
+            'inspection Inspection ExitContract' \
+            'lifecycle Lifecycle LifecycleContract' \
+            'index_concurrency IndexConcurrency SnapshotContract' \
+            'shared_cache SharedCache PublicationContract' \
+            'extras Extras ExtrasContract' \
+            'locked_forks LockedForks UniqueIdentity' \
+            'path_ties PathTies CanonicalPath' \
+            'scoped_policy ScopedPolicy ScopeContract' \
+            'unused_policy UnusedPolicy WarningContract' \
+            'description_evidence DescriptionEvidence DescriptionContract' \
+            'sidecar_fallback SidecarFallback FallbackContract' \
+            'legacy_scan LegacyScan ScanContract' \
+            'http_routing HttpRouting RoutingContract' \
+            'release_reservation ReleaseReservation ReservationContract' \
+            'index_publication IndexPublication IndexContract' \
+            'release_promotion ReleasePromotion PromotionContract'; do
+            read -r file main invariant <<< "$spec"
+            model="$GITHUB_WORKSPACE/formal/quint/$file.qnt"
+            "$quint" typecheck "$model"
+            "$quint" verify "$model" --backend=tlc --main "$main" --invariants "$invariant"
+            log="$RUNNER_TEMP/$file-mutant.log"
+            if "$quint" verify "$model" --backend=tlc --main "${main}Mutant" --invariants "$invariant" >"$log" 2>&1; then
+              cat "$log"
+              echo "The $file mutant unexpectedly passed"
+              exit 1
+            fi
+            cat "$log"
+            grep -E '^Error: Invariant q_inv is violated([.]| by the initial state:)$' "$log"
+          done
+      - name: Replay Quint traces through Rust acquisition and reporting
+        run: |
+          rustup toolchain install
+          bash formal/quint/replay.sh "$GITHUB_WORKSPACE/formal/quint/node_modules/.bin/quint"
+      - name: Generate and replay traces with Quint Connect and proptest
+        env:
+          PROPTEST_RNG_SEED: ${{ github.run_id }}
+        run: |
+          export PATH="$GITHUB_WORKSPACE/formal/quint/node_modules/.bin:$PATH"
+          # Quint initializes its shared Rust evaluator cache on the first call.
+          cargo test --locked --bin taloon quint_connect_ -- --ignored --test-threads=1
+
   rust:
     name: Rust quality and tests
     runs-on: ubuntu-latest
@@ -39,7 +101,7 @@ jobs:
       - name: Local hook integration and Rust tests
         run: cargo test --locked --workspace --all-features
       - name: Real TLS failure and timeout fixture
-        run: cargo test --locked --bin taloon real_https_transport_rejects_bad_tls_and_times_out -- --ignored
+        run: cargo test --locked --bin taloon real_https_transport_rejects_invalid_connection -- --ignored
       - name: Build documentation
         env:
           RUSTDOCFLAGS: -D warnings
@@ -83,6 +145,14 @@ jobs:
       - run: uv run --frozen --no-sync ruff format --check .
       - run: uv run --frozen --no-sync ruff check --no-fix .
       - run: uv run --frozen --no-sync ty check
+      - name: Replay Quint release reservations against local Git
+        run: uv run --frozen --no-sync pytest tests/test_release.py -k quint_replays_release_reservation
+
+      - name: Replay Quint index publication checks against local fixtures
+        run: uv run --frozen --no-sync pytest tests/test_pypi_provenance.py -k quint_replays_index_publication
+
+      - name: Replay Quint release promotion against the workflow conditions
+        run: uv run --frozen --no-sync pytest tests/test_distribution.py -k release_promotion
 
   workflow-lint:
     name: Workflow lint

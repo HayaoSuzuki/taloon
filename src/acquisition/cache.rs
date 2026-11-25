@@ -19,6 +19,16 @@ struct Envelope {
 }
 pub(crate) struct EvidenceCache {
     root: PathBuf,
+    #[cfg(test)]
+    pub(super) checkpoint: Option<Box<dyn Fn(Checkpoint) + Send + Sync>>,
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Checkpoint {
+    TemporaryCreated,
+    BeforePublish,
+    ReaderOpened,
 }
 fn failure() -> Error {
     Error::new(Code::Cache, "evidence cache is unavailable")
@@ -42,8 +52,20 @@ fn regular_record(result: std::io::Result<fs::FileType>) -> Result<bool, Error> 
 }
 impl EvidenceCache {
     pub(crate) fn new(root: PathBuf) -> Self {
-        Self { root }
+        Self {
+            root,
+            #[cfg(test)]
+            checkpoint: None,
+        }
     }
+
+    #[cfg(test)]
+    fn pause_at(&self, point: Checkpoint) {
+        if let Some(checkpoint) = &self.checkpoint {
+            checkpoint(point);
+        }
+    }
+
     /// Remove completed v1 records without following links or descending into
     /// directories. The configured root may contain unrelated files. Concurrent
     /// publishers can recreate records; clearing is intentionally not atomic.
@@ -112,6 +134,8 @@ impl EvidenceCache {
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
                 Err(_) => return Err(failure()),
             };
+            #[cfg(test)]
+            self.pause_at(Checkpoint::ReaderOpened);
             let mut bytes = Vec::new();
             file.take(MAX_RECORD + 1)
                 .read_to_end(&mut bytes)
@@ -142,6 +166,8 @@ impl EvidenceCache {
             .prefix(".evidence-")
             .tempfile_in(&self.root)
             .map_err(io_failure)?;
+        #[cfg(test)]
+        self.pause_at(Checkpoint::TemporaryCreated);
         let envelope = Envelope {
             schema: 1,
             observation: e.to_record(),
@@ -152,6 +178,8 @@ impl EvidenceCache {
             buffered.flush().map_err(io_failure)?;
         }
         temporary.as_file().sync_all().map_err(io_failure)?;
+        #[cfg(test)]
+        self.pause_at(Checkpoint::BeforePublish);
         temporary
             .persist(self.path(
                 r,

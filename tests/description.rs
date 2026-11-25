@@ -4,7 +4,7 @@ use taloon::{
     description::Description,
     evidence::{Evidence, SidecarAssociation},
     inspection::AcquisitionResult,
-    model::ContentHash,
+    model::{ArtifactRequest, Code, ContentHash, Error},
     resolution::Resolution,
 };
 
@@ -663,4 +663,234 @@ fn selection_adapter_covers_the_complete_corpus() {
     let row_count = corpus.lines().count();
     // Assert: update the named row cases when regenerating the corpus.
     assert_eq!(row_count, 50);
+}
+
+#[derive(serde::Deserialize)]
+struct DescriptionEvidenceCase {
+    scenario: DescriptionEvidenceScenario,
+    decision: DescriptionEvidenceDecision,
+}
+
+#[derive(Debug, PartialEq, Eq, serde::Deserialize)]
+struct DescriptionEvidenceScenario {
+    left: usize,
+    right: usize,
+    foreign: bool,
+    reverse: bool,
+}
+
+#[derive(serde::Deserialize)]
+struct DescriptionEvidenceDecision {
+    exit: u8,
+    unknown: usize,
+    artifacts: [DescriptionArtifactCase; 2],
+    groups: Vec<DescriptionGroupCase>,
+    foreign: bool,
+}
+
+#[derive(serde::Deserialize)]
+struct DescriptionArtifactCase {
+    expression: String,
+    issue: String,
+}
+
+#[derive(Debug, PartialEq, Eq, serde::Deserialize)]
+struct DescriptionGroupCase {
+    expression: String,
+    members: Vec<usize>,
+}
+
+fn description_archive(slot: &str, outcome: usize) -> (Vec<u8>, Vec<u8>) {
+    let declaration = match outcome {
+        3 => "BSD-3-Clause",
+        4 => "LicenseRef-Local",
+        5 => "MIT OR",
+        _ => "MIT",
+    };
+    let fields = format!("License-Expression: {declaration}\nX-Variant: {slot}");
+    let metadata = common::metadata(&fields);
+    let wheel = common::wheel(&metadata);
+    (metadata, wheel)
+}
+
+fn add_description_observations(
+    results: &mut Vec<AcquisitionResult>,
+    outcome: usize,
+    request: &ArtifactRequest,
+    archive: &(Vec<u8>, Vec<u8>),
+    other_request: &ArtifactRequest,
+    other_archive: &(Vec<u8>, Vec<u8>),
+) {
+    if outcome == 0 {
+        return;
+    }
+    let failure = || {
+        AcquisitionResult::failed(
+            request.id(),
+            Error::new(Code::Acquisition, "fixture acquisition failed"),
+        )
+    };
+    if outcome == 7 {
+        results.push(failure());
+        return;
+    }
+    let evidence = match outcome {
+        2 | 3 => Evidence::from_archive(request, &archive.1),
+        8 => Evidence::from_archive(other_request, &other_archive.1),
+        _ => {
+            let hash = request.hash().unwrap();
+            let proof =
+                SidecarAssociation::new(hash, hash, ContentHash::digest(&archive.0)).unwrap();
+            Evidence::from_sidecar(request, proof, &archive.0)
+        }
+    };
+    results.push(AcquisitionResult::observed(request.id(), evidence.unwrap()));
+    if outcome == 6 {
+        results.push(failure());
+    }
+}
+
+fn expected_description_code(label: &str) -> Option<Code> {
+    match label {
+        "" => None,
+        "acquisition" => Some(Code::Acquisition),
+        "hash_mismatch" => Some(Code::HashMismatch),
+        "invalid_result" => Some(Code::InvalidResult),
+        "missing_result" => Some(Code::MissingResult),
+        "unknown_license" => Some(Code::UnknownLicense),
+        _ => panic!("unrecognized description artifact diagnostic: {label}"),
+    }
+}
+
+#[rstest::rstest]
+fn quint_replays_description_evidence(
+    #[values(0, 1, 2, 3, 4, 5, 6, 7, 8)] left: usize,
+    #[values(0, 1, 2, 3, 4, 5, 6, 7, 8)] right: usize,
+    #[values(false, true)] foreign: bool,
+    #[values(false, true)] reverse: bool,
+) {
+    // Arrange
+    let index = (left * 9 + right) * 4 + usize::from(foreign) * 2 + usize::from(reverse);
+    let row = include_str!("fixtures/oracle/description-evidence.jsonl")
+        .lines()
+        .nth(index)
+        .unwrap();
+    let case: DescriptionEvidenceCase = serde_json::from_str(row).unwrap();
+    assert_eq!(
+        case.scenario,
+        DescriptionEvidenceScenario {
+            left,
+            right,
+            foreign,
+            reverse
+        }
+    );
+    let archives = [
+        description_archive("a", left),
+        description_archive("b", right),
+    ];
+    let hashes = archives
+        .each_ref()
+        .map(|(_, bytes)| ContentHash::digest(bytes));
+    let lock = format!(
+        "version=1\nrevision=5\n[[package]]\nname='example'\nversion='1.0'\n\
+         source={{registry='https://index.test/simple'}}\n\
+         wheels=[{{url='https://files.test/a.whl',hash='{}'}},{{url='https://files.test/b.whl',hash='{}'}}]{}",
+        hashes[0],
+        hashes[1],
+        package("foreign", "1.0", "registry='https://index.test/simple'", "")
+    );
+    let description = Description::from_uv_lock(&lock, "example").unwrap();
+    assert_eq!(description.requests().len(), 2);
+    let requests = hashes.map(|hash| {
+        description
+            .requests()
+            .iter()
+            .find(|request| request.hash() == Some(hash))
+            .unwrap()
+    });
+    let mut results = Vec::new();
+    for (slot, outcome) in [left, right].into_iter().enumerate() {
+        let other = 1 - slot;
+        add_description_observations(
+            &mut results,
+            outcome,
+            requests[slot],
+            &archives[slot],
+            requests[other],
+            &archives[other],
+        );
+    }
+    if foreign {
+        let unrelated = Description::from_uv_lock(&lock, "foreign").unwrap();
+        results.push(AcquisitionResult::failed(
+            unrelated.requests()[0].id(),
+            Error::new(Code::Acquisition, "foreign fixture"),
+        ));
+    }
+    if reverse {
+        results.reverse();
+    }
+
+    // Act
+    let report = description.evaluate(results);
+
+    // Assert
+    let expected = case.decision;
+    assert_eq!(report.exit_code(), expected.exit);
+    let top_level: Vec<_> = report
+        .diagnostics()
+        .iter()
+        .map(|diagnostic| diagnostic.error.code)
+        .collect();
+    let unexpected = expected.foreign.then_some(Code::InvalidResult);
+    assert_eq!(top_level, unexpected.into_iter().collect::<Vec<_>>());
+    let [package] = report.packages() else {
+        panic!("expected one described package")
+    };
+    assert_eq!(package.unknown_artifacts, expected.unknown);
+    assert_eq!(package.artifacts.len(), 2);
+    for (request, expected_artifact) in requests.into_iter().zip(expected.artifacts) {
+        let artifact = package
+            .artifacts
+            .iter()
+            .find(|artifact| artifact.request_id == request.id())
+            .unwrap();
+        assert_eq!(
+            artifact.expression.as_deref().unwrap_or_default(),
+            expected_artifact.expression
+        );
+        let actual: Vec<_> = artifact
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.severity == taloon::report::Severity::Error)
+            .map(|diagnostic| diagnostic.error.code)
+            .collect();
+        let expected_codes: Vec<_> = expected_description_code(&expected_artifact.issue)
+            .into_iter()
+            .collect();
+        assert_eq!(actual, expected_codes);
+    }
+    let groups: Vec<_> = package
+        .licenses
+        .iter()
+        .map(|group| {
+            let mut members: Vec<_> = group
+                .artifacts
+                .iter()
+                .map(|id| {
+                    requests
+                        .iter()
+                        .position(|request| request.id() == *id)
+                        .unwrap()
+                })
+                .collect();
+            members.sort_unstable();
+            DescriptionGroupCase {
+                expression: group.expression.clone(),
+                members,
+            }
+        })
+        .collect();
+    assert_eq!(groups, expected.groups);
 }

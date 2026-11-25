@@ -48,3 +48,6 @@ __pycache__/
 .coverage.*
 /htmlcov/
 /coverage.json
+
+# Locally installed Quint verification tools
+/formal/quint/node_modules/

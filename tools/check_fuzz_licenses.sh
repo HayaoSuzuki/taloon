@@ -4,7 +4,9 @@ set -euo pipefail
 root=$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd -P)
 policy=$(mktemp "${TMPDIR:-/tmp}/taloon-fuzz-deny.XXXXXX")
 trap 'rm -f "$policy"' EXIT
-cat "$root/deny.toml" > "$policy"
+# colored is pulled in by the main workspace's Quint Connect tests only.
+awk 'BEGIN { RS=""; ORS="\n\n" } !/(^|\n)name = "colored"(\n|$)/' \
+    "$root/deny.toml" > "$policy"
 cat >> "$policy" <<'TOML'
 
 [[licenses.exceptions]]

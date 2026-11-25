@@ -2,6 +2,7 @@
 """Exercise one reservation scenario per case against real local Git repositories."""
 
 import hashlib
+import json
 import runpy
 import shutil
 import subprocess
@@ -10,6 +11,7 @@ import tomllib
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from typing import TypedDict, cast
 from unittest.mock import Mock
 
 import pytest
@@ -521,3 +523,115 @@ def test_missing_commit_is_rejected_before_remote_reservation_lookup(
         release.reserve_tag(repository, missing)
     lookup.assert_not_called()
     assert git(repository, "ls-remote", "origin") == ""
+
+
+class ReservationScenario(TypedDict):
+    """Parameters for one generated competing reservation."""
+
+    seeded: bool
+    competitor: int
+    fault: int
+
+
+class ReservationCase(TypedDict):
+    """Expected release result and complete remote ref inventory."""
+
+    scenario: ReservationScenario
+    tags: list[int]
+    head: int
+    attempts: int
+    result: int
+
+
+def _reservation_cases() -> list[ReservationCase]:
+    fixture = Path(__file__).parent / "fixtures/oracle/release-reservation.jsonl"
+    return [
+        cast("ReservationCase", json.loads(line))
+        for line in fixture.read_text().splitlines()
+    ]
+
+
+def _tag(offset: int) -> str:
+    return f"v0.1.{offset}"
+
+
+@pytest.mark.parametrize(
+    "case",
+    _reservation_cases(),
+    ids=lambda case: (
+        f"seed-{case['scenario']['seeded']}-competitor-{case['scenario']['competitor']}"
+        f"-fault-{case['scenario']['fault']}"
+    ),
+)
+def test_quint_replays_release_reservation(
+    repository: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    case: ReservationCase,
+) -> None:
+    # Arrange
+    scenario = case["scenario"]
+    commits = [
+        git(repository, "rev-parse", "HEAD"),
+        *(advance(repository) for _ in range(3)),
+    ]
+    if scenario["seeded"]:
+        assert release.reserve_tag(repository, commits[0]) == _tag(0)
+    other = tmp_path / "competitor"
+    git(repository, "clone", str(repository), str(other))
+    git(
+        other,
+        "remote",
+        "set-url",
+        "origin",
+        git(repository, "remote", "get-url", "origin"),
+    )
+    attempts = 0
+    original = release.git
+
+    def compete(
+        root: Path, *args: str, check: bool = True
+    ) -> subprocess.CompletedProcess[str]:
+        if root != repository or args[0] != "push":
+            return original(root, *args, check=check)
+        nonlocal attempts
+        attempts += 1
+        rival = scenario["competitor"]
+        if rival and attempts == 1:
+            assert release.reserve_tag(other, commits[rival]) is not None
+            before = release.remote_release_state(root)
+            push = original(root, *args, check=check)
+            assert release.remote_release_state(root) == before
+            if rival != 2:
+                assert push.returncode != 0
+            return push
+        fault = scenario["fault"]
+        if fault == 3 or (fault == 2 and attempts < 5):
+            return subprocess.CompletedProcess(args, 1, "", "fixture push rejection")
+        push = original(root, *args, check=check)
+        if fault in (1, 2):
+            push.check_returncode()
+            return subprocess.CompletedProcess(
+                args, 1, "", "fixture lost acknowledgement"
+            )
+        return push
+
+    monkeypatch.setattr(release, "git", compete)
+
+    # Act and assert the outcome at the public orchestration boundary.
+    if case["result"] == -2:
+        with pytest.raises(
+            RuntimeError, match="Could not reserve release tag after five attempts"
+        ):
+            release.reserve_tag(repository, commits[2])
+    else:
+        result = release.reserve_tag(repository, commits[2])
+        expected = None if case["result"] == -1 else _tag(case["result"])
+        assert result == expected
+
+    assert attempts == case["attempts"]
+    tags, state = release.remote_release_state(repository)
+    assert tags == {
+        _tag(offset): commits[commit] for offset, commit in enumerate(case["tags"])
+    }
+    assert state == (commits[case["head"]] if case["head"] >= 0 else "")
