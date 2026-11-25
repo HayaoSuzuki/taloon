@@ -68,12 +68,12 @@ jobs:
         run: |
           rustup toolchain install
           bash formal/quint/replay.sh "$GITHUB_WORKSPACE/formal/quint/node_modules/.bin/quint"
-      - name: Generate and replay shared cache traces with Quint Connect and proptest
+      - name: Generate and replay traces with Quint Connect and proptest
         env:
           PROPTEST_RNG_SEED: ${{ github.run_id }}
         run: |
           export PATH="$GITHUB_WORKSPACE/formal/quint/node_modules/.bin:$PATH"
-          cargo test --locked --bin taloon quint_connect_shared_disk_cache -- --ignored
+          cargo test --locked --bin taloon quint_connect_ -- --ignored
 
   rust:
     name: Rust quality and tests

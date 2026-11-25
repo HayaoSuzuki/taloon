@@ -150,7 +150,7 @@ sources:
 - id: quint-replay
   resource: ../../../src/acquisition/http_tests/lifecycle.rs
   working_tree: modified
-  sha256: 03ec3de5a30f2d2996d49dbcfe29792e530f4df7b5c5744c2040e1009047631d
+  sha256: 38dd2c936ce7303d3ac3d97a343799fa89367018d2a9259941fafd31e635f60f
 - id: quint-lifecycle-corpus
   resource: ../../../tests/fixtures/oracle/lifecycle.jsonl
   working_tree: untracked
@@ -892,6 +892,13 @@ separate Lean trace generator would duplicate the transition rules.
 Revisit the domain when adding cache admission behavior, retry policy, or
 new report precedence rules. Add concurrent schedules when the contract
 specifies how overlap affects observations.[^quint-lifecycle-corpus][^quint-replay]
+
+In the same CI job, Quint Connect replays additional generated histories.
+proptest varies the Quint seed, dependency topology, and wheel content.
+Compare package status, report exit, cache hits, archive attempts, and
+exact digest membership after each check. Keep the cache across checks
+within each trace.[^quint-replay]
+
 [^quint-lifecycle]: [Finite acquisition-to-report model](../../../formal/quint/lifecycle.qnt).
 [^quint-replay]: [Rust trace adapter](../../../src/acquisition/http_tests/lifecycle.rs).
 [^quint-lifecycle-corpus]: [Versioned model-generated traces](../../../tests/fixtures/oracle/lifecycle.jsonl).

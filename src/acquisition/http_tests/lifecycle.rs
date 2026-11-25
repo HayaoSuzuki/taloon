@@ -1,7 +1,9 @@
 //! Replay Quint's ITF operations through the real acquirer and inspection API.
 use super::*;
+use quint_connect::{Driver, State, runner};
 use serde::Deserialize;
 use std::{
+    collections::BTreeSet,
     path::Path,
     sync::atomic::{AtomicBool, Ordering},
 };
@@ -9,16 +11,19 @@ use std::{
 const PARENT_URL: &str = "https://files.test/parent.whl";
 const CHILD_URL: &str = "https://files.test/child.whl";
 
-#[derive(Deserialize)]
-struct State {
-    cache: Vec<u8>,
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+struct LifecycleState {
+    #[serde(alias = "Lifecycle::LifecycleModel::cache")]
+    cache: BTreeSet<u8>,
+    #[serde(alias = "Lifecycle::LifecycleModel::operation")]
     operation: Operation,
-    report: ExpectedReport,
+    #[serde(alias = "Lifecycle::LifecycleModel::report")]
+    report: Report,
 }
 
 // This wire record mirrors independent switches in the Quint operation.
 #[allow(clippy::struct_excessive_bools)]
-#[derive(Deserialize)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq)]
 struct Operation {
     offline: bool,
     clear: bool,
@@ -28,7 +33,7 @@ struct Operation {
     duplicate: bool,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 enum Delivery {
     Current,
@@ -37,13 +42,13 @@ enum Delivery {
     Missing,
 }
 
-#[derive(Deserialize)]
-struct ExpectedReport {
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq)]
+struct Report {
     parent: u8,
     child: u8,
     exit: u8,
-    hits: u8,
-    attempts: u8,
+    hits: u64,
+    attempts: u64,
 }
 
 struct RetryOnce {
@@ -80,7 +85,7 @@ fn wheel(name: &str, description: &str) -> Vec<u8> {
     crate::testfixtures::wheel(metadata.as_bytes())
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 enum Topology {
     Chain,
     Siblings,
@@ -118,14 +123,13 @@ fn request<'a>(inspection: &'a Inspection, name: &str) -> &'a ArtifactRequest {
 }
 
 fn replay_step(
-    state: &State,
+    op: Operation,
     cache_root: &Path,
     parent: &[u8],
     children: &[Vec<u8>; 2],
     topology: Topology,
-) {
+) -> LifecycleState {
     // Arrange
-    let op = &state.operation;
     let revision = usize::from(op.revision - 1);
     let current = &children[revision];
     let inspection = inspection(parent, current, op.permitted, topology);
@@ -159,25 +163,16 @@ fn replay_step(
     }
     let report = inspection.evaluate(batch.results);
 
-    // Assert
-    assert_eq!(batch.summary.cache_hits, u64::from(state.report.hits));
-    assert_eq!(
-        batch.summary.http.archive.requests,
-        u64::from(state.report.attempts)
-    );
+    // Assert the boundary checks that apply to all modeled inputs.
     if op.offline {
         assert_eq!(batch.summary.network_requests, 0);
     }
-    assert_eq!(report.exit_code(false), state.report.exit);
     assert_eq!(report.packages().len(), 2);
-    for (name, expected) in [
-        ("parent", &state.report.parent),
-        ("child", &state.report.child),
-    ] {
+    let [parent_status, child_status] = ["parent", "child"].map(|name| {
         let key = request(&inspection, name).package().key();
         let package = report.packages().iter().find(|p| p.package == key).unwrap();
-        assert_eq!(package.status.exit_code(false, false), *expected);
-        if name == "child" && *expected != 0 {
+        let status = package.status.exit_code(false, false);
+        if name == "child" && status != 0 {
             let parent = request(&inspection, "parent").package().to_string();
             let child = request(&inspection, "child").package().to_string();
             assert!(
@@ -193,17 +188,27 @@ fn replay_step(
                     })
             );
         }
+        status
+    });
+    LifecycleState {
+        cache: visible_keys(&acquirer, parent, children, topology),
+        operation: op,
+        report: Report {
+            parent: parent_status,
+            child: child_status,
+            exit: report.exit_code(false),
+            hits: batch.summary.cache_hits,
+            attempts: batch.summary.http.archive.requests,
+        },
     }
-    assert_cache(state, &acquirer, parent, children, topology);
 }
 
-fn assert_cache(
-    state: &State,
+fn visible_keys(
     acquirer: &Acquirer,
     parent: &[u8],
     children: &[Vec<u8>; 2],
     topology: Topology,
-) {
+) -> BTreeSet<u8> {
     let first = inspection(parent, &children[0], true, topology);
     let second = inspection(parent, &children[1], true, topology);
     let keys = [
@@ -211,17 +216,17 @@ fn assert_cache(
         request(&first, "child"),
         request(&second, "child"),
     ];
-    for (key, request) in (0_u8..).zip(keys) {
-        let expected = state.cache.contains(&key);
-        assert_eq!(
+    (0_u8..)
+        .zip(keys)
+        .filter(|&(_, request)| {
             acquirer
                 .cache
                 .get(request, request.hash().unwrap())
                 .unwrap()
-                .is_some(),
-            expected
-        );
-    }
+                .is_some()
+        })
+        .map(|(key, _)| key)
+        .collect()
 }
 
 #[rstest::rstest]
@@ -234,7 +239,7 @@ fn quint_replays_acquisition_and_inspection_lifecycle(
         .lines()
         .nth(seed - 1)
         .unwrap();
-    let trace: Vec<State> = serde_json::from_str(line).unwrap();
+    let trace: Vec<LifecycleState> = serde_json::from_str(line).unwrap();
     assert_eq!(trace.len(), 24);
     let parent = wheel("parent", "parent");
     let children = [wheel("child", "old"), wheel("child", "new")];
@@ -243,6 +248,91 @@ fn quint_replays_acquisition_and_inspection_lifecycle(
     // Act and assert each transition against the generated state.
     for (step, state) in trace.iter().enumerate() {
         eprintln!("Quint seed {seed}, step {}", step + 1);
-        replay_step(state, cache.path(), &parent, &children, topology);
+        assert_eq!(
+            replay_step(state.operation, cache.path(), &parent, &children, topology),
+            *state
+        );
+    }
+}
+
+struct LifecycleDriver {
+    cache: tempfile::TempDir,
+    parent: Vec<u8>,
+    children: [Vec<u8>; 2],
+    topology: Topology,
+    observed: Option<LifecycleState>,
+}
+
+impl State<LifecycleDriver> for LifecycleState {
+    fn from_driver(driver: &LifecycleDriver) -> quint_connect::Result<Self> {
+        Ok(driver.observed.as_ref().unwrap().clone())
+    }
+}
+
+impl Driver for LifecycleDriver {
+    type State = LifecycleState;
+
+    fn step(&mut self, step: &quint_connect::Step) -> quint_connect::Result {
+        quint_connect::switch!(step {
+            init => self.run(Operation {
+                offline: true,
+                clear: false,
+                revision: 1,
+                delivery: Delivery::Missing,
+                permitted: false,
+                duplicate: false,
+            }),
+            step(offline: bool, clear: bool, revision: u8, delivery: Delivery, permitted: bool, duplicate: bool)
+                => self.run(Operation { offline, clear, revision, delivery, permitted, duplicate }),
+        })
+    }
+}
+
+impl LifecycleDriver {
+    fn run(&mut self, operation: Operation) {
+        self.observed = Some(replay_step(
+            operation,
+            self.cache.path(),
+            &self.parent,
+            &self.children,
+            self.topology,
+        ));
+    }
+}
+
+proptest::proptest! {
+    #![proptest_config(proptest::test_runner::Config::with_cases(16))]
+    #[test]
+    #[ignore = "requires the pinned Quint CLI in PATH"]
+    fn quint_connect_acquisition_and_inspection_lifecycle(
+        seed in 1..=u32::MAX,
+        topology in proptest::sample::select(vec![Topology::Chain, Topology::Siblings, Topology::MultiplePaths]),
+        variant in "[a-z0-9]{0,48}",
+    ) {
+        // Arrange
+        let driver = LifecycleDriver {
+            cache: tempfile::tempdir().unwrap(),
+            parent: wheel("parent", &format!("parent {variant}")),
+            children: ["old", "new"].map(|tag| wheel("child", &format!("{tag} {variant}"))),
+            topology,
+            observed: None,
+        };
+
+        // Act
+        let result = runner::run_test(driver, runner::Config {
+            test_name: format!("acquisition and inspection lifecycle, seed {seed}"),
+            gen_config: runner::RunConfig {
+                spec: "formal/quint/lifecycle.qnt".into(),
+                main: Some("Lifecycle".into()),
+                init: None,
+                step: None,
+                max_samples: Some(1),
+                max_steps: Some(24),
+                seed: seed.to_string(),
+            },
+        });
+
+        // Assert
+        proptest::prop_assert!(result.is_ok(), "{result:#?}");
     }
 }

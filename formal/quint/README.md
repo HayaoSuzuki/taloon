@@ -81,6 +81,19 @@ accepted a cached child for the old digest during an offline check for the new
 digest. TLC rejected that transition. The Rust adapter replayed the 192 steps
 for each of the three graphs.
 
+Quint Connect and proptest also generate 16 histories by default, each
+with up to 24 checks. The property varies the Quint seed, dependency
+topology and wheel contents. The generated and fixed replays share an
+adapter that checks both package statuses, exit code, cache hits, archive
+attempts and exact cached digests. A fresh disk cache serves each history.
+
+```sh
+PATH="$PWD/formal/quint/node_modules/.bin:$PATH" cargo test --locked --bin taloon quint_connect_acquisition_and_inspection_lifecycle -- --ignored
+```
+
+To replay a CI run's generated inputs, set `PROPTEST_RNG_SEED` to its
+GitHub Actions run ID.
+
 ## Concurrent index initialization
 
 [IndexConcurrency](index_concurrency.qnt) explores two workers competing
