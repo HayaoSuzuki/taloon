@@ -133,3 +133,28 @@ offline observations for both digests after each action, and completion of
 paused readers and writers. Traces include simultaneous staging, clear
 during staging and immediately before publication, and reads that finish
 after clear has removed the opened record.
+
+## Extras on a cyclic dependency path
+
+[Extras](extras.qnt) explores the eight combinations of three choices on a
+fixed graph. The root can activate `hub[feature]` directly, the back edge
+from `bridge` can activate it on return to `hub`, and the root can have
+a shortcut to the target. The model compares its queue traversal with the
+shortest path derived directly from the shape of the graph.
+
+```sh
+"$quint" verify formal/quint/extras.qnt --backend=tlc --main Extras --invariants ExtrasContract
+bash formal/quint/replay.sh "$quint"
+```
+
+TLC checked 30 reachable states. The mutant merges `hub` and
+`hub[feature]` in its visited set. TLC found a counterexample when the back
+edge alone activates the extra. The queue discards the second visit and
+loses the only route to the target.
+
+The [generated result corpus](../../tests/fixtures/oracle/extras.jsonl) contains
+all eight cases. The [Rust replay](../../tests/resolution_paths.rs) renders each
+case as uv.lock, calls the public resolver, and checks the path and extras
+annotation. In an isolated Rust copy, removing extras from the visited key caused the
+return-edge-only replay to fail. The [generated graph properties](../../tests/resolution_graphs.rs)
+cover larger cyclic graphs, multiple entries and multiple active extras.

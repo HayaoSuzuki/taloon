@@ -234,8 +234,8 @@ first; the dependency-audit CI job performs this preparation on a fresh runner.
 
 The [Quint reproduction procedure](../../formal/quint/README.md) runs TLC on
 aggregation, observation, remote acquisition, and inspection through the exit
-status. It also checks concurrent index initialization and shared disk-cache
-publication. CI regenerates and replays both lifecycle and cache traces.
+status. It also checks concurrent index initialization, shared disk-cache
+publication and cyclic extras. CI regenerates and replays the model cases.
 
 The [verification decision](knowledge/verification-strategy.md) explains model
 boundaries and correspondence. Install the pinned Lean toolchain in

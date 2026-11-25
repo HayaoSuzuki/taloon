@@ -4,6 +4,18 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: quint-extras
+  resource: ../../../formal/quint/extras.qnt
+  working_tree: untracked
+  sha256: 3153085c191fb85df6ea0c943a70fee29cf984af9d891ee0cfd273e6f8e774d8
+- id: quint-extras-corpus
+  resource: ../../../tests/fixtures/oracle/extras.jsonl
+  working_tree: untracked
+  sha256: f467e1713e2af9b51857f7da68c15dff368e9cb6feaf44abd2a5af4620151c1e
+- id: quint-extras-replay
+  resource: ../../../tests/resolution_paths.rs
+  working_tree: modified
+  sha256: 64215aa73f56f0135c35967f250ad7d616213d80e069ad25936da0532aa94313
 - id: generated-resolution-graphs
   resource: ../../../tests/resolution_graphs.rs
   working_tree: untracked
@@ -812,3 +824,21 @@ locking, cache-key semantics, file publication, or clear guarantees change.
 [^quint-shared-cache]: [Shared disk-cache transition model](../../../formal/quint/shared_cache.qnt).
 [^quint-shared-cache-replay]: [Shared-cache trace replay](../../../src/acquisition/http_tests/cache_interleaving.rs).
 [^quint-shared-cache-corpus]: [Generated shared-cache traces](../../../tests/fixtures/oracle/shared-cache.jsonl).
+
+# Extras on cyclic paths
+
+Use a finite Quint graph to check why a visited state includes its activated
+extras. Vary activation at the root, activation on the cycle's return edge,
+and a shorter path from the root. Compare the traversal with the shortest
+path derivable from this graph shape. A model keyed only by package loses
+the only reachable path when activation occurs on return.[^quint-extras]
+
+Check every generated terminal case through the public Rust resolver. Keep
+the reverse-distance property for larger graph shapes and multiple extras.
+The trace adapter reads the scenario and expected path from the model corpus.
+Revisit the model when extra activation or path tie semantics change.
+[^quint-extras-corpus][^quint-extras-replay][^generated-resolution-graphs]
+
+[^quint-extras]: [Finite cyclic extras model](../../../formal/quint/extras.qnt).
+[^quint-extras-corpus]: [Generated terminal extras cases](../../../tests/fixtures/oracle/extras.jsonl).
+[^quint-extras-replay]: [Public resolver replay](../../../tests/resolution_paths.rs).

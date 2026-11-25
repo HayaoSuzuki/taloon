@@ -18,9 +18,16 @@ for seed in {1..8}; do
     --invariants PublicationContract --seed "$seed" --max-steps 32 --verbosity 0 \
     --out-itf "$traces/shared-cache-$seed.itf.json"
 done
+"$quint" run formal/quint/extras.qnt --main Extras --backend typescript \
+  --invariants ExtrasContract --seed 1 --max-steps 64 --verbosity 0 \
+  --out-itf "$traces/extras.itf.json"
 node - "$traces" <<'JS'
 const { readFileSync, writeFileSync } = require("node:fs");
 const directory = process.argv[2];
+function readStates(file) {
+  return JSON.parse(readFileSync(file, "utf8"),
+    (_, value) => value?.["#bigint"] === undefined ? value : Number(value["#bigint"])).states;
+}
 const models = [
   {
     file: "lifecycle", name: "Lifecycle::LifecycleModel::", length: 24,
@@ -42,15 +49,27 @@ for (const model of models) {
   const traces = [];
   for (let seed = 1; seed <= 8; seed += 1) {
     const file = `${directory}/${model.file}-${seed}.itf.json`;
-    const { states } = JSON.parse(readFileSync(file, "utf8"),
-      (_, value) => value?.["#bigint"] === undefined ? value : Number(value["#bigint"]));
+    const states = readStates(file);
     if (states.length !== model.length + 1) throw new Error(`Incomplete trace for ${file}`);
     traces.push(JSON.stringify(states.slice(1).map(state => model.project(state, model.name))));
   }
   writeFileSync(`${directory}/${model.file}.jsonl`, traces.join("\n") + "\n");
 }
+const prefix = "Extras::ExtrasModel::";
+const cases = new Map();
+for (const state of readStates(`${directory}/extras.itf.json`)) {
+  if (state[prefix + "queue"].length === 0) {
+    cases.set(state[prefix + "caseId"], {
+      scenario: state[prefix + "scenario"],
+      path: state[prefix + "path"],
+    });
+  }
+}
+if (cases.size !== 8) throw new Error("The extras trace must reach all eight cases");
+writeFileSync(`${directory}/extras.jsonl`,
+  Array.from(cases.values(), value => JSON.stringify(value)).join("\n") + "\n");
 JS
-for corpus in lifecycle shared-cache; do
+for corpus in lifecycle shared-cache extras; do
   if "$generate"; then
     cp "$traces/$corpus.jsonl" "$fixture/$corpus.jsonl"
   else
@@ -59,4 +78,5 @@ for corpus in lifecycle shared-cache; do
 done
 if ! "$generate"; then
   cargo test --locked --bin taloon quint_replays
+  cargo test --locked --test resolution_paths quint_replays_extras
 fi

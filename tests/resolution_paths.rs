@@ -111,3 +111,101 @@ proptest! {
         prop_assert!(actual.len() <= 1);
     }
 }
+
+#[derive(serde::Deserialize)]
+struct ExtrasCase {
+    scenario: ExtrasScenario,
+    path: Vec<u8>,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ExtrasScenario {
+    root_extra: bool,
+    return_extra: bool,
+    shortcut: bool,
+}
+
+fn extras_lock(scenario: &ExtrasScenario) -> String {
+    let root_activation = if scenario.root_extra {
+        ",extra=['feature']"
+    } else {
+        ""
+    };
+    let return_activation = if scenario.return_extra {
+        ",extra=['feature']"
+    } else {
+        ""
+    };
+    let shortcut = if scenario.shortcut {
+        ",{name='target'}"
+    } else {
+        ""
+    };
+    format!(
+        "version=1\nrevision=5\n\
+         [[package]]\nname='root'\nsource={{virtual='.'}}\n\
+         dependencies=[{{name='hub'{root_activation}}}{shortcut}]\n\
+         [[package]]\nname='hub'\nversion='1.0'\nsource={{registry='https://example.test/simple'}}\n\
+         dependencies=[{{name='bridge'}}]\n\
+         [package.optional-dependencies]\nfeature=[{{name='target'}}]\n\
+         [[package]]\nname='bridge'\nversion='1.0'\nsource={{registry='https://example.test/simple'}}\n\
+         dependencies=[{{name='hub'{return_activation}}}]\n\
+         [[package]]\nname='target'\nversion='1.0'\nsource={{registry='https://example.test/simple'}}"
+    )
+}
+
+#[rstest]
+fn quint_replays_extras(#[values(0, 1, 2, 3, 4, 5, 6, 7)] index: usize) {
+    // Arrange
+    let row = include_str!("fixtures/oracle/extras.jsonl")
+        .lines()
+        .nth(index)
+        .unwrap();
+    let case: ExtrasCase = serde_json::from_str(row).unwrap();
+    let resolution = Resolution::from_uv_lock(&extras_lock(&case.scenario)).unwrap();
+    let target = resolution
+        .targets()
+        .iter()
+        .find(|target| target.package().name() == "target")
+        .unwrap();
+
+    // Act
+    let paths = resolution.paths(target.package());
+
+    // Assert
+    let actual: Vec<Vec<u8>> = paths
+        .iter()
+        .map(|path| {
+            assert_eq!(path.entry, "root");
+            path.steps
+                .iter()
+                .map(|step| match step.package.split_once("==").unwrap().0 {
+                    "hub" => {
+                        if step.via.iter().any(|label| label == "extra:feature") {
+                            2
+                        } else {
+                            0
+                        }
+                    }
+                    "bridge" => 1,
+                    "target" => {
+                        let expected: &[&str] = if case.scenario.shortcut {
+                            &[]
+                        } else {
+                            &["extra:feature"]
+                        };
+                        assert_eq!(step.via, expected);
+                        3
+                    }
+                    package => panic!("unexpected package in extras path: {package}"),
+                })
+                .collect()
+        })
+        .collect();
+    let expected: Vec<_> = Some(case.path)
+        .filter(|path| !path.is_empty())
+        .into_iter()
+        .collect();
+    assert_eq!(actual, expected);
+}
