@@ -4,6 +4,18 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: quint-shared-cache
+  resource: ../../../formal/quint/shared_cache.qnt
+  working_tree: untracked
+  sha256: 982a45bce248a62edfb8685287bd8658612fadbafdcec66a37870957e804a5b1
+- id: quint-shared-cache-replay
+  resource: ../../../src/acquisition/http_tests/cache_interleaving.rs
+  working_tree: untracked
+  sha256: 5f3f17b374a6f0dca9f1740a279b2aca3b8c20aefde2165a5213e3b8250119f7
+- id: quint-shared-cache-corpus
+  resource: ../../../tests/fixtures/oracle/shared-cache.jsonl
+  working_tree: untracked
+  sha256: 053a6ef527010ce06054ba77d41df692736511bcc9b00c419629127a722b5ae3
 - id: quint-index-concurrency
   resource: ../../../formal/quint/index_concurrency.qnt
   working_tree: untracked
@@ -762,3 +774,25 @@ model if an entry permits invalidation, cancellation, or replacement
 while a batch is running.[^quint-index-concurrency][^acquisition-route-fixtures]
 
 [^quint-index-concurrency]: [Concurrent index-initialization model](../../../formal/quint/index_concurrency.qnt).
+
+# Shared disk-cache interleavings
+
+Extend the acquisition lifecycle with a separate model of archive
+publication and deletion. Only a published digest may satisfy a fresh
+lookup. An opened file remains readable across unlink, and an in-flight
+writer can publish after a completed clear. The latter is allowed by the
+existing cache clear contract. Treat clear as an operation between
+checkpoints, with two digest-specific writers and one retained reader.
+[^quint-shared-cache]
+
+Generate and replay fixed traces through concurrent Rust acquisition batches
+sharing a disk cache. Test-only hooks pause the actual cache writer and reader
+at the filesystem boundaries. Compare archive identity and report status as
+well as what each step leaves available offline. Keep the existing tests for
+same-digest replacement and damaged records. Revisit the abstraction if
+locking, cache-key semantics, file publication, or clear guarantees change.
+[^quint-shared-cache-replay][^quint-shared-cache-corpus]
+
+[^quint-shared-cache]: [Shared disk-cache transition model](../../../formal/quint/shared_cache.qnt).
+[^quint-shared-cache-replay]: [Shared-cache trace replay](../../../src/acquisition/http_tests/cache_interleaving.rs).
+[^quint-shared-cache-corpus]: [Generated shared-cache traces](../../../tests/fixtures/oracle/shared-cache.jsonl).

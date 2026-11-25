@@ -39,7 +39,8 @@ jobs:
             'acquisition Acquisition AcquisitionContract' \
             'inspection Inspection ExitContract' \
             'lifecycle Lifecycle LifecycleContract' \
-            'index_concurrency IndexConcurrency SnapshotContract'; do
+            'index_concurrency IndexConcurrency SnapshotContract' \
+            'shared_cache SharedCache PublicationContract'; do
             read -r file main invariant <<< "$spec"
             model="$GITHUB_WORKSPACE/formal/quint/$file.qnt"
             "$quint" typecheck "$model"

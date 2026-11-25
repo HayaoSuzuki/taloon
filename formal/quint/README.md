@@ -102,3 +102,34 @@ shared successful fetch, a shared terminal error with archive fallback, and
 retry after a controlled initializer panic. The model abstracts one package
 endpoint and two workers. Rust fixtures also exercise multiple endpoints,
 parallel workers, and loopback TLS.
+
+## Shared disk cache
+
+[SharedCache](shared_cache.qnt) models two writers for different locked
+digests of an archive at the same URL. A writer creates an unpublished
+temporary file, syncs its contents, and publishes it. Lookups observe only
+published records for their digest. A reader that already holds an open
+file can finish after its directory entry is removed. A writer can publish
+after a clear, including when it was already staging the record at the
+time of the clear.
+
+```sh
+"$quint" verify formal/quint/shared_cache.qnt --backend=tlc --main SharedCache --invariants PublicationContract
+bash formal/quint/replay.sh "$quint"
+```
+
+The model treats a completed clear as one action between writer and reader
+checkpoints. It covers cross-digest reads and one open reader at a time.
+The Rust suite also exercises concurrent replacement of the same digest
+and rejection of truncated or invalid records.
+
+TLC explored 254 states and rejected a mutant that made an unpublished
+record visible at temporary-file creation. The [generated corpus](../../tests/fixtures/oracle/shared-cache.jsonl)
+contains eight 32-step traces. The [Rust replay](../../src/acquisition/http_tests/cache_interleaving.rs)
+uses separate real acquisition batches sharing a disk cache. Test-only
+checkpoints pause at temporary-file creation, immediately before publication,
+and after opening a published record. The adapter verifies the clear count,
+offline observations for both digests after each action, and completion of
+paused readers and writers. Traces include simultaneous staging, clear
+during staging and immediately before publication, and reads that finish
+after clear has removed the opened record.

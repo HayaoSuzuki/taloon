@@ -2456,4 +2456,5 @@ fn remote_acquisition_refuses_a_pinned_local_locator() {
     assert_eq!(summary.network_requests, 0);
 }
 
+mod cache_interleaving;
 mod lifecycle;
