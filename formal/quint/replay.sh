@@ -51,6 +51,9 @@ done
 "$quint" run formal/quint/index_publication.qnt --main IndexPublication --backend typescript \
   --invariants IndexContract --seed 1 --max-steps 500 --verbosity 0 \
   --out-itf "$traces/index-publication.itf.json"
+"$quint" run formal/quint/release_promotion.qnt --main ReleasePromotion --backend typescript \
+  --invariants PromotionContract --seed 1 --max-steps 1300 --verbosity 0 \
+  --out-itf "$traces/release-promotion.itf.json"
 node - "$traces" <<'JS'
 const { readFileSync, writeFileSync } = require("node:fs");
 const directory = process.argv[2];
@@ -146,8 +149,19 @@ for (const state of readStates(`${directory}/index-publication.itf.json`)) {
 if (publications.size !== 112) throw new Error("The publication trace must finish all 112 cases");
 writeFileSync(`${directory}/index-publication.jsonl`, Array.from(publications.values(), value =>
   JSON.stringify(value)).join("\n") + "\n");
+const promotionPrefix = "ReleasePromotion::ReleasePromotionModel::";
+const promotions = new Map();
+for (const state of readStates(`${directory}/release-promotion.itf.json`)) {
+  const { phase, jobs, uploads, verified } = state[promotionPrefix + "promotion"];
+  if (phase === 0) promotions.set(state[promotionPrefix + "caseId"], {
+    scenario: state[promotionPrefix + "scenario"], jobs, uploads, verified,
+  });
+}
+if (promotions.size !== 252) throw new Error("The promotion trace must finish all 252 cases");
+writeFileSync(`${directory}/release-promotion.jsonl`, Array.from(promotions.values(), value =>
+  JSON.stringify(value)).join("\n") + "\n");
 JS
-for corpus in lifecycle shared-cache extras locked-forks path-ties scoped-policy unused-policy description-evidence sidecar-fallback legacy-scan http-routing release-reservation index-publication; do
+for corpus in lifecycle shared-cache extras locked-forks path-ties scoped-policy unused-policy description-evidence sidecar-fallback legacy-scan http-routing release-reservation index-publication release-promotion; do
   if "$generate"; then
     cp "$traces/$corpus.jsonl" "$fixture/$corpus.jsonl"
   else

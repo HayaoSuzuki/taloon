@@ -51,7 +51,8 @@ jobs:
             'legacy_scan LegacyScan ScanContract' \
             'http_routing HttpRouting RoutingContract' \
             'release_reservation ReleaseReservation ReservationContract' \
-            'index_publication IndexPublication IndexContract'; do
+            'index_publication IndexPublication IndexContract' \
+            'release_promotion ReleasePromotion PromotionContract'; do
             read -r file main invariant <<< "$spec"
             model="$GITHUB_WORKSPACE/formal/quint/$file.qnt"
             "$quint" typecheck "$model"
@@ -148,6 +149,9 @@ jobs:
 
       - name: Replay Quint index publication checks against local fixtures
         run: uv run --frozen --no-sync pytest tests/test_pypi_provenance.py -k quint_replays_index_publication
+
+      - name: Replay Quint release promotion against the workflow conditions
+        run: uv run --frozen --no-sync pytest tests/test_distribution.py -k release_promotion
 
   workflow-lint:
     name: Workflow lint

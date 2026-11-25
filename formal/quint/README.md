@@ -458,3 +458,31 @@ by the requested waits. It runs the actual verifier through inventory,
 download, publisher and predicate validation. Signature verification and
 publication workflow scheduling are outside the model. Existing tests
 cover the attempt limit independently of the deadline.
+
+## Promotion from TestPyPI to PyPI
+
+[ReleasePromotion](release_promotion.qnt) checks 252 scenarios for the six
+publication jobs. It varies whether each index already holds the exact
+release, a failure at one job or in staging, publication disabled by
+preparation, and cancellation between jobs. Reusing a verified existing
+release skips the upload step and still runs post-upload verification.
+PyPI inspection may start only after successful TestPyPI verification.
+TLC checked 840 reachable states and rejected a variant allowing promotion
+after failed TestPyPI verification.
+
+```sh
+"$quint" verify formal/quint/release_promotion.qnt --backend=tlc --main ReleasePromotion --invariants PromotionContract
+bash formal/quint/replay.sh "$quint"
+uv run --frozen --no-sync pytest tests/test_distribution.py -k release_promotion
+```
+
+The [generated corpus](../../tests/fixtures/oracle/release-promotion.jsonl)
+records which jobs start, which upload steps are attempted, and whether the
+final verification succeeds. The [replay](../../tests/test_distribution.py)
+evaluates the checked-in workflow's dependency conditions and upload
+guards over scripted outcomes. It also checks which index each action
+targets. The model starts with preparation and staging outcomes
+and treats each publication job as one transition. Runner scheduling,
+interruption during a job, and remote service behavior are outside this
+model. [IndexPublication](index_publication.qnt) covers the local
+verification and retry decision.

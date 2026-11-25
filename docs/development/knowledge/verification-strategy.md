@@ -4,6 +4,21 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: quint-release-promotion
+  resource: ../../../formal/quint/release_promotion.qnt
+  working_tree: untracked
+  sha256: 681420c833af9a18459fbc34ca7dd4e71b17e347ac587869659ce7b09e67cbc8
+- id: quint-release-promotion-corpus
+  resource: ../../../tests/fixtures/oracle/release-promotion.jsonl
+  working_tree: untracked
+  sha256: 0f538e3447b7eff1f7a3f682d52999e0b95d6f3378a24c18be7be9ccd69dfb4b
+- id: quint-release-promotion-replay
+  resource: ../../../tests/test_distribution.py
+  working_tree: modified
+  sha256: db6f4d7327341895ec419d1386da6af62bb5a573ce3fb1c104d9f78ea5c7799d
+- id: quint-release-promotion-workflow
+  resource: ../../../.github/workflows/release.yml
+  revision: 8237bb94120358ff024c5ebf9f1c7958bcb21d1a
 - id: quint-index-publication
   resource: ../../../formal/quint/index_publication.qnt
   working_tree: untracked
@@ -1176,3 +1191,25 @@ classification or publication acceptance criteria change.
 [^quint-index-publication]: [Finite index publication model](../../../formal/quint/index_publication.qnt).
 [^quint-index-publication-corpus]: [Generated outcomes and waits](../../../tests/fixtures/oracle/index-publication.jsonl).
 [^quint-index-publication-replay]: [Local publication replay](../../../tests/test_pypi_provenance.py).
+
+# TestPyPI-to-PyPI promotion
+
+Start publication from the reported staging and preparation outcomes.
+Attempt an upload only after that index's inspection reports the version
+absent. If the expected version is already present, run verification
+with the same gate as a successful upload. Require successful TestPyPI
+verification before the first PyPI job. A failure prevents later jobs
+from starting, and cancellation prevents the next job from starting.
+[^quint-release-promotion][^quint-release-promotion-workflow]
+
+Evaluate the checked-in workflow expressions over the model's scripted
+job outcomes. Compare started jobs, attempted uploads, and final PyPI
+verification. Check the configured target for each operation. Revisit
+this model if the workflow adds a publication channel, changes its
+recovery gates, or permits verification at a different stage.
+[^quint-release-promotion-corpus][^quint-release-promotion-replay]
+
+[^quint-release-promotion]: [Finite promotion workflow model](../../../formal/quint/release_promotion.qnt).
+[^quint-release-promotion-workflow]: [Production release job conditions](../../../.github/workflows/release.yml).
+[^quint-release-promotion-corpus]: [Generated promotion traces](../../../tests/fixtures/oracle/release-promotion.jsonl).
+[^quint-release-promotion-replay]: [Workflow-condition correspondence tests](../../../tests/test_distribution.py).
