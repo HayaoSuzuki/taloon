@@ -36,6 +36,9 @@ done
 "$quint" run formal/quint/description_evidence.qnt --main DescriptionEvidence --backend typescript \
   --invariants DescriptionContract --seed 1 --max-steps 323 --verbosity 0 \
   --out-itf "$traces/description-evidence.itf.json"
+"$quint" run formal/quint/sidecar_fallback.qnt --main SidecarFallback --backend typescript \
+  --invariants FallbackContract --seed 1 --max-steps 239 --verbosity 0 \
+  --out-itf "$traces/sidecar-fallback.itf.json"
 node - "$traces" <<'JS'
 const { readFileSync, writeFileSync } = require("node:fs");
 const directory = process.argv[2];
@@ -96,8 +99,9 @@ writeOrderedCases("path-ties", "PathTies::PathTiesModel::", 32, ["scenario", "pa
 writeOrderedCases("scoped-policy", "ScopedPolicy::ScopedPolicyModel::", 96, ["scenario", "decision"]);
 writeOrderedCases("unused-policy", "UnusedPolicy::UnusedPolicyModel::", 128, ["scenario", "decision"]);
 writeOrderedCases("description-evidence", "DescriptionEvidence::DescriptionEvidenceModel::", 324, ["scenario", "decision"]);
+writeOrderedCases("sidecar-fallback", "SidecarFallback::SidecarFallbackModel::", 240, ["scenario", "decision"]);
 JS
-for corpus in lifecycle shared-cache extras locked-forks path-ties scoped-policy unused-policy description-evidence; do
+for corpus in lifecycle shared-cache extras locked-forks path-ties scoped-policy unused-policy description-evidence sidecar-fallback; do
   if "$generate"; then
     cp "$traces/$corpus.jsonl" "$fixture/$corpus.jsonl"
   else

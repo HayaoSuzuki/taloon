@@ -4,6 +4,18 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: quint-sidecar-fallback
+  resource: ../../../formal/quint/sidecar_fallback.qnt
+  working_tree: untracked
+  sha256: ed98d1532485bb740e86a0ca6b9f04f5f4b9fd86a83aa68e737bad413ed2bb43
+- id: quint-sidecar-fallback-corpus
+  resource: ../../../tests/fixtures/oracle/sidecar-fallback.jsonl
+  working_tree: untracked
+  sha256: a8407cdf781359bf076991d8db6a4d02e7a2d4033163559c26ba95eac9c10472
+- id: quint-sidecar-fallback-replay
+  resource: ../../../src/acquisition/http_tests/sidecar_fallback.rs
+  working_tree: untracked
+  sha256: d01e3f02df72089b6ceaca3db664b768991790842c96c878f569df2f6d6945ec
 - id: quint-description-evidence
   resource: ../../../formal/quint/description_evidence.qnt
   working_tree: untracked
@@ -993,3 +1005,23 @@ when description accounting or grouping changes.
 [^quint-description-evidence]: [Finite description evidence accounting](../../../formal/quint/description_evidence.qnt).
 [^quint-description-evidence-corpus]: [Generated description outcomes and groups](../../../tests/fixtures/oracle/description-evidence.jsonl).
 [^quint-description-evidence-replay]: [Public description report replay](../../../tests/description.rs).
+
+# Sidecar admission and archive fallback
+
+Compose index admission with metadata verification, archive fallback and
+offline reuse. Index admission requires a unique matching locked URL and
+archive digest. Metadata admission binds the response bytes and package
+identity. Strong proof bypasses both index and sidecar. The negative control
+accepts a response with the wrong metadata digest.[^quint-sidecar-fallback]
+
+Replay 240 cases through the binary acquirer using JSON and HTML fixtures,
+wheel bytes and an actual disk cache. Compare request counts, report proof,
+declaration, and diagnostics. Reopen the cache in offline mode to verify
+the effect of successful and failed paths. Keep the Lean index corpus for
+parser lookup cases. Revisit the composed model when sidecar admission,
+fallback, proof strength, or cache eligibility changes.
+[^quint-sidecar-fallback-corpus][^quint-sidecar-fallback-replay]
+
+[^quint-sidecar-fallback]: [Finite sidecar admission and fallback model](../../../formal/quint/sidecar_fallback.qnt).
+[^quint-sidecar-fallback-corpus]: [Generated cold and offline acquisition expectations](../../../tests/fixtures/oracle/sidecar-fallback.jsonl).
+[^quint-sidecar-fallback-replay]: [Binary acquisition replay](../../../src/acquisition/http_tests/sidecar_fallback.rs).

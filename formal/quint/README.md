@@ -288,3 +288,31 @@ wheel and sidecar evidence. The adapter checks the diagnostic codes,
 unknown count, exact group membership, and exit status. Keeping the first
 of duplicate observations in an isolated Rust copy caused 68 replays to fail.
 The Lean selection corpus separately exercises graph selection.
+
+## Sidecar admission and archive fallback
+
+[SidecarFallback](sidecar_fallback.qnt) checks 240 combinations of index
+advertisement, metadata response, archive response, minimum proof, and
+index representation. An index offer must match the complete URL and
+locked archive digest and be unambiguous. The downloaded metadata must
+match its advertised digest and package identity. A request for archive
+proof bypasses the index and sidecar.
+
+```sh
+"$quint" verify formal/quint/sidecar_fallback.qnt --backend=tlc --main SidecarFallback --invariants FallbackContract
+bash formal/quint/replay.sh "$quint"
+```
+
+TLC explored 240 states and detected a mutant that omitted the metadata
+digest check. The [generated cases](../../tests/fixtures/oracle/sidecar-fallback.jsonl)
+drive [Rust acquisition](../../src/acquisition/http_tests/sidecar_fallback.rs)
+with scripted JSON and HTML index responses, real wheel bytes and a disk
+cache. The adapter compares request counts, warnings, artifact errors,
+interpreted expressions and retained proof. A second offline acquisition
+checks reuse of successful evidence and the absence of usable evidence
+after both acquisition paths fail. Removing the metadata digest check in
+an isolated Rust copy caused six replays to fail.
+
+The fixture covers cold online acquisition followed by offline reuse.
+Separate models and Rust cases cover shared-cache interleavings, retry,
+and reading bundled license files.

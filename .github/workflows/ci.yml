@@ -46,7 +46,8 @@ jobs:
             'path_ties PathTies CanonicalPath' \
             'scoped_policy ScopedPolicy ScopeContract' \
             'unused_policy UnusedPolicy WarningContract' \
-            'description_evidence DescriptionEvidence DescriptionContract'; do
+            'description_evidence DescriptionEvidence DescriptionContract' \
+            'sidecar_fallback SidecarFallback FallbackContract'; do
             read -r file main invariant <<< "$spec"
             model="$GITHUB_WORKSPACE/formal/quint/$file.qnt"
             "$quint" typecheck "$model"

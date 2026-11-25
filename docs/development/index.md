@@ -236,8 +236,8 @@ The [Quint reproduction procedure](../../formal/quint/README.md) runs TLC on
 aggregation, observation, remote acquisition, and inspection through the exit
 status. It also checks concurrent index initialization, shared disk-cache
 publication, cyclic extras, conditional same-name dependencies, diagnostic
-path ties, scoped policy, unused-policy warnings, and description evidence.
-CI regenerates and replays the model cases.
+path ties, scoped policy, unused-policy warnings, description evidence,
+and sidecar fallback. CI regenerates and replays the model cases.
 
 The [verification decision](knowledge/verification-strategy.md) explains model
 boundaries and correspondence. Install the pinned Lean toolchain in

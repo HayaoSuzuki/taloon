@@ -2458,3 +2458,4 @@ fn remote_acquisition_refuses_a_pinned_local_locator() {
 
 mod cache_interleaving;
 mod lifecycle;
+mod sidecar_fallback;
