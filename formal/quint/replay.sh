@@ -42,6 +42,9 @@ done
 "$quint" run formal/quint/legacy_scan.qnt --main LegacyScan --backend typescript \
   --invariants ScanContract --seed 1 --max-steps 79 --verbosity 0 \
   --out-itf "$traces/legacy-scan.itf.json"
+"$quint" run formal/quint/http_routing.qnt --main HttpRouting --backend typescript \
+  --invariants RoutingContract --seed 1 --max-steps 700 --verbosity 0 \
+  --out-itf "$traces/http-routing.itf.json"
 node - "$traces" <<'JS'
 const { readFileSync, writeFileSync } = require("node:fs");
 const directory = process.argv[2];
@@ -104,8 +107,19 @@ writeOrderedCases("unused-policy", "UnusedPolicy::UnusedPolicyModel::", 128, ["s
 writeOrderedCases("description-evidence", "DescriptionEvidence::DescriptionEvidenceModel::", 324, ["scenario", "decision"]);
 writeOrderedCases("sidecar-fallback", "SidecarFallback::SidecarFallbackModel::", 240, ["scenario", "decision"]);
 writeOrderedCases("legacy-scan", "LegacyScan::LegacyScanModel::", 80, ["scenario", "decision"]);
+const httpPrefix = "HttpRouting::HttpRoutingModel::";
+const finished = new Map();
+for (const state of readStates(`${directory}/http-routing.itf.json`)) {
+  const { outcome, calls, bytes } = state[httpPrefix + "session"];
+  if (outcome) finished.set(state[httpPrefix + "caseId"], {
+    scenario: state[httpPrefix + "scenario"], outcome, calls, bytes,
+  });
+}
+if (finished.size !== 96) throw new Error("The HTTP trace must finish all 96 cases");
+writeFileSync(`${directory}/http-routing.jsonl`, Array.from(finished.values(), value =>
+  JSON.stringify(value)).join("\n") + "\n");
 JS
-for corpus in lifecycle shared-cache extras locked-forks path-ties scoped-policy unused-policy description-evidence sidecar-fallback legacy-scan; do
+for corpus in lifecycle shared-cache extras locked-forks path-ties scoped-policy unused-policy description-evidence sidecar-fallback legacy-scan http-routing; do
   if "$generate"; then
     cp "$traces/$corpus.jsonl" "$fixture/$corpus.jsonl"
   else

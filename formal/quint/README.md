@@ -346,3 +346,29 @@ to fail.
 The model abstracts the interpretation of four fixed archive outcomes.
 Existing parser fixtures and properties exercise recognition and family
 compatibility with additional inputs.
+
+## HTTP redirects, retries, and authentication
+
+[HttpRouting](http_routing.qnt) checks 96 combinations across six routes,
+four retry prefixes, and four terminal responses. Routes include
+same-origin redirects, a round trip through another host or port, an
+HTTPS downgrade, and a redirect loop. Retry prefixes exercise 429, 503,
+and partial transport failures. The invariant independently computes
+the final attempt count and terminal outcome and checks credential
+eligibility on every request.
+
+```sh
+"$quint" verify formal/quint/http_routing.qnt --backend=tlc --main HttpRouting --invariants RoutingContract
+bash formal/quint/replay.sh "$quint"
+```
+
+TLC explored 656 states and detected a mutant that resumed authentication
+after a return to the original origin. The [generated corpus](../../tests/fixtures/oracle/http-routing.jsonl)
+supplies scripted responses and expected attempts. The
+[Rust replay](../../src/acquisition/http_tests/http_routing.rs) invokes the
+production HTTP wrapper, captures the requested URL and authorization,
+and checks the terminal result, request counts, and downloaded bytes.
+Synthetic credentials also distinguish explicit authorization from URL
+userinfo. Reducing the retry budget from three attempts to two in an
+isolated Rust copy caused 48 replays to fail. The transport is scripted.
+Existing loopback tests exercise actual HTTP and TLS handling.

@@ -4,6 +4,18 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: quint-http-routing
+  resource: ../../../formal/quint/http_routing.qnt
+  working_tree: untracked
+  sha256: d4c27c22baee4185756574eee5e19d461a4ba2fb937be7563da9282da96ad8f3
+- id: quint-http-routing-corpus
+  resource: ../../../tests/fixtures/oracle/http-routing.jsonl
+  working_tree: untracked
+  sha256: c1f36893c2c716a411dc4ca3f2cae4275f0fd69bfc890b67d6601bde0aac9cea
+- id: quint-http-routing-replay
+  resource: ../../../src/acquisition/http_tests/http_routing.rs
+  working_tree: untracked
+  sha256: 441d1358ff26c140e343d2a343aeabf368c219bc7b4b0878ecb4c3a2b086a65e
 - id: quint-legacy-scan
   resource: ../../../formal/quint/legacy_scan.qnt
   working_tree: untracked
@@ -1059,3 +1071,23 @@ evidence, archive interpretation, or cache reuse changes.
 [^quint-legacy-scan]: [Finite bundled license scan lifecycle](../../../formal/quint/legacy_scan.qnt).
 [^quint-legacy-scan-corpus]: [Generated pending and completed cache decisions](../../../tests/fixtures/oracle/legacy-scan.jsonl).
 [^quint-legacy-scan-replay]: [Binary replay for archive license scans](../../../src/acquisition/http_tests/legacy_scan.rs).
+
+# HTTP routing, retries, and authentication
+
+Compose per-hop retry limits, redirect limits, HTTPS enforcement, and
+origin-bound credential forwarding. Use a permanent downgrade of
+credential eligibility after an origin change within a request.
+Compare final attempts with an independent count by route and retry
+pattern. The negative control restores authentication on return to the
+initial origin.[^quint-http-routing]
+
+Replay all 96 sequences through the production HTTP wrapper with a
+scripted transport and synthetic credentials. Check actual outgoing URLs,
+credentials, terminal status, and attempt and byte totals. Loopback tests
+remain the evidence for the TLS and response-reader paths. Revisit the
+model if retry budgets, redirect handling, or credential scope changes.
+[^quint-http-routing-corpus][^quint-http-routing-replay]
+
+[^quint-http-routing]: [Finite HTTP routing and retry model](../../../formal/quint/http_routing.qnt).
+[^quint-http-routing-corpus]: [Generated HTTP attempt transcripts](../../../tests/fixtures/oracle/http-routing.jsonl).
+[^quint-http-routing-replay]: [Production HTTP wrapper replay](../../../src/acquisition/http_tests/http_routing.rs).

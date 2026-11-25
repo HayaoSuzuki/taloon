@@ -2457,6 +2457,7 @@ fn remote_acquisition_refuses_a_pinned_local_locator() {
 }
 
 mod cache_interleaving;
+mod http_routing;
 mod legacy_scan;
 mod lifecycle;
 mod sidecar_fallback;

@@ -48,7 +48,8 @@ jobs:
             'unused_policy UnusedPolicy WarningContract' \
             'description_evidence DescriptionEvidence DescriptionContract' \
             'sidecar_fallback SidecarFallback FallbackContract' \
-            'legacy_scan LegacyScan ScanContract'; do
+            'legacy_scan LegacyScan ScanContract' \
+            'http_routing HttpRouting RoutingContract'; do
             read -r file main invariant <<< "$spec"
             model="$GITHUB_WORKSPACE/formal/quint/$file.qnt"
             "$quint" typecheck "$model"
