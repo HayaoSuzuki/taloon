@@ -208,3 +208,26 @@ and each step's marker and extra labels through the public resolver.
 Removing the canonical edge sort in an isolated Rust copy caused 12
 replays to fail. The model ranks complete routes on a fixed graph. The generated graph
 property exercises shortest paths on larger shapes.
+
+## Hash-scoped policy and evidence
+
+[ScopedPolicy](scoped_policy.qnt) checks 96 combinations of exception scope,
+clarification hash, allow or deny mode, global listing, and evidence
+strength. The original declaration is a custom unit. The clarification, when
+its digest matches, substitutes MIT. A matching custom exception or
+clarification requires archive proof. A global MIT deny retains precedence
+over the exception after clarification.
+
+```sh
+"$quint" verify formal/quint/scoped_policy.qnt --backend=tlc --main ScopedPolicy --invariants ScopeContract
+bash formal/quint/replay.sh "$quint"
+```
+
+TLC explored 96 states and detected a mutant that applied an exception to the
+wrong digest. The [generated corpus](../../tests/fixtures/oracle/scoped-policy.jsonl)
+drives the public [Rust inspection replay](../../tests/inspection.rs). It
+compares the requested proof, artifact and report status, effective
+expression, and ordered override identifiers. Removing the exception hash
+check in an isolated Rust copy caused 20 replays to fail. The model fixes two atomic
+units and a single exception and clarification. Lean and Rust properties
+cover Boolean expressions and the surrounding inspection contracts.

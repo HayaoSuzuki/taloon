@@ -4,6 +4,14 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: quint-scoped-policy
+  resource: ../../../formal/quint/scoped_policy.qnt
+  working_tree: untracked
+  sha256: cb1132f1c6025c4ee76600f4856a9d4bef89f38fec0648144256382af35f4cf5
+- id: quint-scoped-policy-corpus
+  resource: ../../../tests/fixtures/oracle/scoped-policy.jsonl
+  working_tree: untracked
+  sha256: d787a9d967d211029df6bbe632644c433eed9081147a0d8c9ff4b04d447fe8da
 - id: quint-path-ties
   resource: ../../../formal/quint/path_ties.qnt
   working_tree: untracked
@@ -93,7 +101,7 @@ sources:
 - id: inspection-exit-property
   resource: ../../../tests/inspection.rs
   working_tree: modified
-  sha256: def45ba120d93b5dd934d1d385c1e0a74205a29fd06d53e98c509d20962da72a
+  sha256: 4bef33840a259b688562ffde10d2d583ce855275aae5eaf35b048b843a343baa
 - id: quint-model
   resource: ../../../formal/quint/aggregation.qnt
   working_tree: untracked
@@ -899,3 +907,22 @@ normalization changes.[^quint-path-ties-corpus][^quint-extras-replay]
 
 [^quint-path-ties]: [Finite canonical path selection model](../../../formal/quint/path_ties.qnt).
 [^quint-path-ties-corpus]: [Generated annotated paths](../../../tests/fixtures/oracle/path-ties.jsonl).
+
+# Scoped policy and proof strength
+
+Model the composed inspection decision for a hash-scoped exception and
+clarification, with independent identity, digest, mode, and proof inputs.
+Check which cases require archive proof before interpreting a declaration.
+Once interpretation succeeds, apply global deny precedence and record the
+matching override identifiers. The negative control admits a wrong-hash
+exception.[^quint-scoped-policy]
+
+Replay all 96 combinations through the public inspection API, using real
+archive and sidecar evidence. Compare both the requested proof and the
+reported verdict and interpretation. Keep Lean and property tests for
+expression structure and existing focused cases for policy selectors and
+unused entries. Revisit the model when proof admission or override precedence
+changes.[^quint-scoped-policy-corpus][^inspection-exit-property]
+
+[^quint-scoped-policy]: [Finite scoped policy and proof model](../../../formal/quint/scoped_policy.qnt).
+[^quint-scoped-policy-corpus]: [Generated policy decisions](../../../tests/fixtures/oracle/scoped-policy.jsonl).

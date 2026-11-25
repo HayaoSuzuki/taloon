@@ -1,5 +1,6 @@
 mod common;
 use common::{metadata, wheel};
+use std::fmt::Write as _;
 use taloon::{
     evidence::Evidence,
     inspection::{AcquisitionResult, Inspection},
@@ -510,5 +511,168 @@ proptest::proptest! {
         // Assert
         proptest::prop_assert_eq!(report.status(), taloon::report::Status::Incomplete);
         proptest::prop_assert!(report.packages()[0].artifacts.iter().any(|artifact| artifact.diagnostics.iter().any(|diagnostic| diagnostic.error.code == taloon::model::Code::InvalidResult)));
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct ScopedPolicyCase {
+    scenario: ScopedPolicyScenario,
+    decision: ScopedPolicyDecision,
+}
+
+#[derive(Debug, PartialEq, Eq, serde::Deserialize)]
+struct ScopedPolicyScenario {
+    scope: usize,
+    clarification: usize,
+    deny: bool,
+    listed: bool,
+    archive: bool,
+}
+
+#[derive(serde::Deserialize)]
+struct ScopedPolicyDecision {
+    strong: bool,
+    exit: u8,
+    expression: String,
+    overrides: Vec<String>,
+}
+
+fn scoped_configuration(scenario: &ScopedPolicyScenario, hash: ContentHash) -> String {
+    let mode = if scenario.deny { "deny" } else { "allow" };
+    let listing = if scenario.listed { "'MIT'" } else { "" };
+    let wrong = ContentHash::digest(b"a different archive");
+    let mut config = format!("[tool.taloon]\nschema-version=1\n{mode}=[{listing}]");
+    if scenario.scope != 0 {
+        let exception_hash = if scenario.scope == 2 { wrong } else { hash };
+        let host = if scenario.scope == 3 {
+            "elsewhere.test"
+        } else {
+            "pypi.org"
+        };
+        write!(
+            config,
+            "\n[[tool.taloon.exceptions]]\nname='example'\nversion='1.0'\n\
+             source={{kind='registry',location='https://{host}/simple'}}\n\
+             artifact-hash='{exception_hash}'\nallow=['MIT','LicenseRef-Reviewed']\nreason='reviewed scope'"
+        ).unwrap();
+    }
+    if scenario.clarification != 0 {
+        let clarified_hash = if scenario.clarification == 1 {
+            hash
+        } else {
+            wrong
+        };
+        write!(
+            config,
+            "\n[[tool.taloon.clarifications]]\nartifact-hash='{clarified_hash}'\n\
+             expression='MIT'\nreason='reviewed declaration'"
+        )
+        .unwrap();
+    }
+    config
+}
+
+#[rstest::rstest]
+fn quint_replays_scoped_policy(
+    #[values(0, 1, 2, 3)] scope: usize,
+    #[values(0, 1, 2)] clarification: usize,
+    #[values(false, true)] deny: bool,
+    #[values(false, true)] listed: bool,
+    #[values(false, true)] archive: bool,
+) {
+    // Arrange
+    use taloon::{
+        evidence::SidecarAssociation,
+        model::{Code, EvidenceRequirement},
+        policy::OverrideKind,
+    };
+    let index = (((scope * 3 + clarification) * 2 + usize::from(deny)) * 2 + usize::from(listed))
+        * 2
+        + usize::from(archive);
+    let row = include_str!("fixtures/oracle/scoped-policy.jsonl")
+        .lines()
+        .nth(index)
+        .unwrap();
+    let case: ScopedPolicyCase = serde_json::from_str(row).unwrap();
+    assert_eq!(
+        case.scenario,
+        ScopedPolicyScenario {
+            scope,
+            clarification,
+            deny,
+            listed,
+            archive
+        }
+    );
+    let meta = metadata("License-Expression: LicenseRef-Reviewed");
+    let bytes = wheel(&meta);
+    let hash = ContentHash::digest(&bytes);
+    let config = scoped_configuration(&case.scenario, hash);
+    let inspection = Inspection::from_documents(&lock(&bytes), &config, date()).unwrap();
+    let proof = SidecarAssociation::new(hash, hash, ContentHash::digest(&meta)).unwrap();
+    let requirements: Vec<_> = inspection
+        .requests()
+        .iter()
+        .map(taloon::model::ArtifactRequest::requirement)
+        .collect();
+    let results = inspection
+        .requests()
+        .iter()
+        .map(|request| {
+            let evidence = if archive {
+                Evidence::from_archive(request, &bytes)
+            } else {
+                Evidence::from_sidecar(request, proof, &meta)
+            }
+            .unwrap();
+            AcquisitionResult::observed(request.id(), evidence)
+        })
+        .collect();
+
+    // Act
+    let report = inspection.evaluate(results);
+
+    // Assert
+    let expected = case.decision;
+    let need = if expected.strong {
+        EvidenceRequirement::ArchiveVerified
+    } else {
+        EvidenceRequirement::IndexAssociated
+    };
+    assert_eq!(requirements, [need; 2]);
+    assert_eq!(report.exit_code(false), expected.exit);
+    let expression = Some(expected.expression.as_str()).filter(|value| !value.is_empty());
+    let artifacts = &report.packages()[0].artifacts;
+    assert_eq!(artifacts.len(), 2);
+    for artifact in artifacts {
+        assert_eq!(artifact.status.exit_code(false, false), expected.exit);
+        assert_eq!(artifact.interpreted_expression.as_deref(), expression);
+        assert_eq!(artifact.decision.is_some(), expression.is_some());
+        if let Some(decision) = &artifact.decision {
+            let overrides: Vec<_> = decision
+                .overrides
+                .iter()
+                .map(|entry| match entry.kind {
+                    OverrideKind::Exception => {
+                        assert_eq!(entry.id, "exception[1]");
+                        "exception"
+                    }
+                    OverrideKind::Clarification => {
+                        assert_eq!(entry.id, format!("clarification:{hash}"));
+                        "clarification"
+                    }
+                })
+                .collect();
+            assert_eq!(overrides, expected.overrides);
+            assert_eq!(decision.is_permitted(), expected.exit == 0);
+        } else {
+            assert_eq!(expected.exit, 2);
+            assert!(
+                artifact
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| { diagnostic.error.code == Code::InsufficientEvidence })
+            );
+        }
     }
 }

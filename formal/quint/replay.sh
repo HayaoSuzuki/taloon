@@ -27,6 +27,9 @@ done
 "$quint" run formal/quint/path_ties.qnt --main PathTies --backend typescript \
   --invariants CanonicalPath --seed 1 --max-steps 31 --verbosity 0 \
   --out-itf "$traces/path-ties.itf.json"
+"$quint" run formal/quint/scoped_policy.qnt --main ScopedPolicy --backend typescript \
+  --invariants ScopeContract --seed 1 --max-steps 95 --verbosity 0 \
+  --out-itf "$traces/scoped-policy.itf.json"
 node - "$traces" <<'JS'
 const { readFileSync, writeFileSync } = require("node:fs");
 const directory = process.argv[2];
@@ -84,8 +87,9 @@ function writeOrderedCases(file, prefix, count, fields) {
 }
 writeOrderedCases("locked-forks", "LockedForks::LockedForksModel::", 192, ["selector", "decision"]);
 writeOrderedCases("path-ties", "PathTies::PathTiesModel::", 32, ["scenario", "path", "development"]);
+writeOrderedCases("scoped-policy", "ScopedPolicy::ScopedPolicyModel::", 96, ["scenario", "decision"]);
 JS
-for corpus in lifecycle shared-cache extras locked-forks path-ties; do
+for corpus in lifecycle shared-cache extras locked-forks path-ties scoped-policy; do
   if "$generate"; then
     cp "$traces/$corpus.jsonl" "$fixture/$corpus.jsonl"
   else
@@ -96,4 +100,5 @@ if ! "$generate"; then
   cargo test --locked --bin taloon quint_replays
   cargo test --locked --test resolution_paths quint_replays
   cargo test --locked --test resolution_matching quint_replays_locked_forks
+  cargo test --locked --test inspection quint_replays_scoped_policy
 fi
