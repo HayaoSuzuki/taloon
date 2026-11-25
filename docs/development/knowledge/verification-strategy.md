@@ -4,6 +4,14 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: quint-path-ties
+  resource: ../../../formal/quint/path_ties.qnt
+  working_tree: untracked
+  sha256: dbb198326220eb393a66cdfcfcee3f087fcc4df22e9d29dbb8b7c3743281d458
+- id: quint-path-ties-corpus
+  resource: ../../../tests/fixtures/oracle/path-ties.jsonl
+  working_tree: untracked
+  sha256: f6622b883310310afb316b314409cd905ba2adbf5b23175fc7b81829b37c03ff
 - id: quint-locked-forks
   resource: ../../../formal/quint/locked_forks.qnt
   working_tree: untracked
@@ -27,7 +35,7 @@ sources:
 - id: quint-extras-replay
   resource: ../../../tests/resolution_paths.rs
   working_tree: modified
-  sha256: 64215aa73f56f0135c35967f250ad7d616213d80e069ad25936da0532aa94313
+  sha256: 2a7ee4a5320f899239c68337cd37c66b4aba59651c3b012414339b0295179198
 - id: generated-resolution-graphs
   resource: ../../../tests/resolution_graphs.rs
   working_tree: untracked
@@ -873,3 +881,21 @@ edge matching or manifest origin handling changes.
 [^quint-locked-forks]: [Finite locked fork selection model](../../../formal/quint/locked_forks.qnt).
 [^quint-locked-forks-corpus]: [Generated fork selectors and decisions](../../../tests/fixtures/oracle/locked-forks.jsonl).
 [^quint-locked-forks-replay]: [Public resolver replay for fork selectors](../../../tests/resolution_matching.rs).
+
+# Tie order for annotated dependency paths
+
+Rank complete routes on a fixed graph and compare the result with the
+shortest route derivable directly from the graph shape. Tie resolution
+uses canonical edge order, and ordinary edges precede optional groups.
+Preserve the selected marker and extras annotations. Each entry origin
+selects its own route. A negative control preserves wire order and loses
+that tie rule.[^quint-path-ties]
+
+Use all 32 generated inputs in the public Rust resolver. Reverse both
+package and root-edge order and vary the marker comparisons, active extras,
+ordinary edge and shortcut. Keep the larger generated graph suite for
+different topology. Revisit this model if diagnostic ordering or extra
+normalization changes.[^quint-path-ties-corpus][^quint-extras-replay]
+
+[^quint-path-ties]: [Finite canonical path selection model](../../../formal/quint/path_ties.qnt).
+[^quint-path-ties-corpus]: [Generated annotated paths](../../../tests/fixtures/oracle/path-ties.jsonl).

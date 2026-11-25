@@ -183,3 +183,28 @@ Removing the source filter in an isolated Rust copy caused 52 replays to fail.
 The model uses two valid range predicates and a fixed version/source
 inventory. Rust tests separately cover malformed selectors and variation in
 unrelated records.
+
+## Ties between annotated dependency paths
+
+[PathTies](path_ties.qnt) compares competing routes through different
+packages, different markers on the same package, and different sets of
+extras. It varies whether a shorter route exists, whether the hub offers
+an ordinary edge, and whether the lock lists the same records and edges in
+reverse order. When the shortest distance ties, the model orders root edges
+by package, marker, and extra labels. At a hub it considers the ordinary
+edge before the active optional groups, then visits those groups in
+normalized extra order.
+
+```sh
+"$quint" verify formal/quint/path_ties.qnt --backend=tlc --main PathTies --invariants CanonicalPath
+bash formal/quint/replay.sh "$quint"
+```
+
+TLC explored 32 states and rejected a mutant that used lock listing order
+for competing root edges. The [generated cases](../../tests/fixtures/oracle/path-ties.jsonl)
+include both the ordinary root and its development group. The
+[Rust replay](../../tests/resolution_paths.rs) compares the winning route
+and each step's marker and extra labels through the public resolver.
+Removing the canonical edge sort in an isolated Rust copy caused 12
+replays to fail. The model ranks complete routes on a fixed graph. The generated graph
+property exercises shortest paths on larger shapes.

@@ -42,7 +42,8 @@ jobs:
             'index_concurrency IndexConcurrency SnapshotContract' \
             'shared_cache SharedCache PublicationContract' \
             'extras Extras ExtrasContract' \
-            'locked_forks LockedForks UniqueIdentity'; do
+            'locked_forks LockedForks UniqueIdentity' \
+            'path_ties PathTies CanonicalPath'; do
             read -r file main invariant <<< "$spec"
             model="$GITHUB_WORKSPACE/formal/quint/$file.qnt"
             "$quint" typecheck "$model"
