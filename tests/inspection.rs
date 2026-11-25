@@ -413,8 +413,88 @@ fn applied_overrides_have_unambiguous_policy_entry_identifiers() {
     assert_eq!(entries[2]["id"], format!("clarification:{hash}"));
 }
 
+/// Each observation list is a canonical representative of one model input.
+#[rstest::rstest]
+fn inspection_exit_matches_model(
+    #[values(&[], &[true], &[false], &[true, true])] left: &[bool],
+    #[values(&[], &[true], &[false], &[true, true])] right: &[bool],
+    #[values(false, true)] permitted: bool,
+    #[values(false, true)] unused_permission: bool,
+    #[values(false, true)] deny_warnings: bool,
+) {
+    // Arrange
+    let bytes = wheel(&metadata("License-Expression: MIT"));
+    let allow = match (permitted, unused_permission) {
+        (false, false) => "",
+        (true, false) => "'MIT'",
+        (false, true) => "'ISC'",
+        (true, true) => "'MIT','ISC'",
+    };
+    let inspection = Inspection::from_documents(&lock(&bytes), &policy(allow), date()).unwrap();
+    let outcomes = [left, right]
+        .into_iter()
+        .enumerate()
+        .flat_map(|(index, results)| results.iter().map(move |&success| (index, success)));
+    let results = inspection_results(&inspection, &bytes, outcomes);
+    let expected = match (left, right) {
+        ([true], [true]) => u8::from(!permitted || (unused_permission && deny_warnings)),
+        _ => 2,
+    };
+
+    // Act
+    let report = inspection.evaluate(results);
+
+    // Assert
+    assert_eq!(report.exit_code(deny_warnings), expected);
+}
+
+fn inspection_results(
+    inspection: &Inspection,
+    bytes: &[u8],
+    outcomes: impl IntoIterator<Item = (usize, bool)>,
+) -> Vec<AcquisitionResult> {
+    outcomes
+        .into_iter()
+        .map(|(index, success)| {
+            let request = &inspection.requests()[index];
+            if success {
+                let evidence = Evidence::from_archive(request, bytes).unwrap();
+                AcquisitionResult::observed(request.id(), evidence)
+            } else {
+                AcquisitionResult::failed(
+                    request.id(),
+                    taloon::model::Error::new(taloon::model::Code::Acquisition, "fixture failure"),
+                )
+            }
+        })
+        .collect()
+}
+
 proptest::proptest! {
     #![proptest_config(proptest::test_runner::Config::with_cases(128))]
+    #[test]
+    fn report_exit_requires_exact_successful_coverage_before_policy(
+        outcomes in proptest::collection::vec((0_usize..2, proptest::bool::ANY), 0..7),
+        permitted in proptest::bool::ANY,
+    ) {
+        // Arrange
+        let bytes = wheel(&metadata("License-Expression: MIT"));
+        let allow = if permitted { "'MIT'" } else { "" };
+        let inspection = Inspection::from_documents(&lock(&bytes), &policy(allow), date()).unwrap();
+        let complete = matches!(
+            outcomes.as_slice(),
+            [(0, true), (1, true)] | [(1, true), (0, true)]
+        );
+        let expected = if complete { u8::from(!permitted) } else { 2 };
+        let results = inspection_results(&inspection, &bytes, outcomes);
+
+        // Act
+        let report = inspection.evaluate(results);
+
+        // Assert
+        proptest::prop_assert_eq!(report.exit_code(false), expected);
+    }
+
     #[test]
     fn repeated_successful_results_never_replace_a_unique_observation(repetitions in 2_usize..32) {
         // Arrange

@@ -114,3 +114,25 @@ fn retained_observation_fits_one_pointer() {
     // Assert
     assert_eq!(observation_bytes, pointer_bytes);
 }
+
+#[rstest]
+#[case::missing(&[None], &[Err(ObservationError::Missing)])]
+#[case::singleton_then_missing(&[Some(2), None, None], &[Ok(2), Err(ObservationError::Missing)])]
+#[case::duplicate_then_missing(
+    &[Some(1), Some(2), None, None],
+    &[Err(ObservationError::Duplicate), Err(ObservationError::Missing)]
+)]
+#[case::duplicate_then_fresh(
+    &[Some(2), Some(1), Some(2), None, Some(1), None],
+    &[Err(ObservationError::Duplicate), Ok(1)]
+)]
+fn observation_trace_matches_model(
+    #[case] events: &[Option<u32>],
+    #[case] expected: &[Result<u32, ObservationError>],
+) {
+    // Act
+    let actual = observe_events(events);
+
+    // Assert
+    assert_eq!(actual, expected);
+}

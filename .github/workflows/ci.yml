@@ -16,6 +16,40 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  quint:
+    name: Quint behavioral models
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify invariants and mutant counterexamples
+        run: |
+          export PATH="${JAVA_HOME_21_X64:?Java 21 is required}/bin:$PATH"
+          export QUINT_HOME="$RUNNER_TEMP/quint-home"
+          npm install --prefix "$RUNNER_TEMP/quint" --no-audit --no-fund @informalsystems/quint@0.33.1
+          quint="$RUNNER_TEMP/quint/node_modules/.bin/quint"
+          cd "$RUNNER_TEMP" || exit 1
+          for spec in \
+            'aggregation Aggregation Precedence' \
+            'observation Observation ObservationContract' \
+            'acquisition Acquisition AcquisitionContract' \
+            'inspection Inspection ExitContract'; do
+            read -r file main invariant <<< "$spec"
+            model="$GITHUB_WORKSPACE/formal/quint/$file.qnt"
+            "$quint" typecheck "$model"
+            "$quint" verify "$model" --backend=tlc --main "$main" --invariants "$invariant"
+            log="$RUNNER_TEMP/$file-mutant.log"
+            if "$quint" verify "$model" --backend=tlc --main "${main}Mutant" --invariants "$invariant" >"$log" 2>&1; then
+              cat "$log"
+              echo "The $file mutant unexpectedly passed"
+              exit 1
+            fi
+            cat "$log"
+            grep -F 'Error: Invariant q_inv is violated.' "$log"
+          done
+
   rust:
     name: Rust quality and tests
     runs-on: ubuntu-latest
@@ -39,7 +73,7 @@ jobs:
       - name: Local hook integration and Rust tests
         run: cargo test --locked --workspace --all-features
       - name: Real TLS failure and timeout fixture
-        run: cargo test --locked --bin taloon real_https_transport_rejects_bad_tls_and_times_out -- --ignored
+        run: cargo test --locked --bin taloon real_https_transport_rejects_invalid_connection -- --ignored
       - name: Build documentation
         env:
           RUSTDOCFLAGS: -D warnings

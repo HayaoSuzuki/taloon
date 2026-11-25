@@ -4,6 +4,42 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: quint-inspection
+  resource: ../../../formal/quint/inspection.qnt
+  working_tree: untracked
+  sha256: 0bbc899d9964e3894ae14a77264ef7426412cae371b2b0be1ec8d9544994f685
+- id: cli-verdict-property
+  resource: ../../../tests/cli.rs
+  revision: e8bd7490cd3c33af612077ec9384b60c8fa1c744
+- id: acquisition-route-fixtures
+  resource: ../../../src/acquisition/http_tests.rs
+  revision: e8bd7490cd3c33af612077ec9384b60c8fa1c744
+- id: quint-observation
+  resource: ../../../formal/quint/observation.qnt
+  working_tree: untracked
+  sha256: 5ae3d505eaa24543d10127bb7460f0232816649ae8f88d2ccd79c8fd5e8d23fe
+- id: quint-acquisition
+  resource: ../../../formal/quint/acquisition.qnt
+  working_tree: untracked
+  sha256: 320ed8f4658e3929136a57f889786ade4a7221115c7416d7d178f5ffd1478091
+- id: observation-traces
+  resource: ../../../crates/taloon-decisions/tests/observation.rs
+  working_tree: modified
+  sha256: 3c834ee035029629f19af1850f8ed128c9035c103ced34930366b9cf34d0b7b7
+- id: inspection-exit-property
+  resource: ../../../tests/inspection.rs
+  working_tree: modified
+  sha256: def45ba120d93b5dd934d1d385c1e0a74205a29fd06d53e98c509d20962da72a
+- id: quint-model
+  resource: ../../../formal/quint/aggregation.qnt
+  working_tree: untracked
+  sha256: 7fe1c23e378edb1f34bef3522be9fb670be65388b7639d789d04f8771fa682f5
+- id: quint-correspondence
+  resource: ../../../crates/taloon-decisions/tests/aggregate.rs
+  working_tree: modified
+  sha256: 78b748c068101082d140893fc4adb0c07625c2045f81a0e831d951c3248e55b3
+- id: allpair-quint
+  resource: https://github.com/HayaoSuzuki/pytest-allpair/blob/369f173a32a83c0982b542b298a270988b5d1107/formal/quint/README.md
 - id: python-mutation-verification
   resource: ../work/coverage/python-mutations.md
   working_tree: untracked
@@ -609,3 +645,66 @@ The prior image pin cannot be reused with the new builder. The [published image 
 records the successful trusted-main publisher and exact adopted identity.
 Proof generation, the full obligation inventory and negative witnesses remain
 required; updating tool versions alone does not establish their results.
+
+# Finite aggregation model
+
+Following pytest-allpair's pruning check, use Quint with TLC for a finite
+transition graph, an independent invariant, and a deliberately broken variant.
+Aggregation was the first model because the public Rust function accepts all
+inputs needed to represent every abstract state.[^allpair-quint][^quint-model]
+
+The Rust model-based test covers one canonical package list and flag for each
+reachable event set. Keep the existing proptest for list order and multiplicity.
+Lean and Creusot retain their existing proof roles. A second hand-maintained
+TLA+ model would duplicate the Quint specification. Trace export and replay
+would add encoding and tooling for a state space whose representatives fit
+in a small exhaustive test. Reconsider trace replay if a future model has
+history-dependent observations or models a real multi-step API.
+[^quint-correspondence]
+
+See the [reproduction procedure](../../../formal/quint/README.md).
+
+[^quint-model]: [Quint model and negative control](../../../formal/quint/aggregation.qnt).
+[^quint-correspondence]: [Rust correspondence and proptest](../../../crates/taloon-decisions/tests/aggregate.rs).
+[^allpair-quint]: [pytest-allpair's finite pruning check](https://github.com/HayaoSuzuki/pytest-allpair/blob/369f173a32a83c0982b542b298a270988b5d1107/formal/quint/README.md).
+
+# Verification across taloon
+
+Add finite observation and remote-acquisition models where the order of
+events or routing affects the result. For observation, compare each consume
+result to the records since the preceding consume. For acquisition, model
+routes after identity and evidence strength have already been checked. The
+concrete transport and cache fixtures supply correspondence for selected routes.
+[^quint-observation][^quint-acquisition][^observation-traces][^acquisition-route-fixtures]
+
+The inspection model combines two targets' observation histories, policy
+permission, warning presence, and warning escalation into an exit code.
+The Rust adapter covers all 128 input combinations through the public API,
+and proptest varies order and multiplicity. The CLI process property checks
+the exit value against the JSON report with real local archives.
+[^quint-inspection][^inspection-exit-property][^cli-verdict-property]
+
+Check the complete application using the layers in the table.
+
+| Boundary | Checks |
+| --- | --- |
+| Lockfile and target resolution | Rust integration tests, generated graph properties and lockfile fuzzing |
+| Metadata, archives and content identity | Rust fixtures, parser fuzz targets and Creusot evidence bindings |
+| Acquisition and offline cache | Quint routing, Rust transport/cache fixtures and CLI process tests |
+| Observation, inspection and policy | Quint observation, Lean corpora, Creusot contracts and Rust model-based/property tests |
+| Report, description and exit | Quint aggregation and inspection exit, Lean selection corpora and Rust report and CLI integration tests |
+| Packaging, release and repository tooling | Python tests including binary smoke, release properties and workflow and documentation checks |
+
+This coverage spans the main execution paths and development tooling. The
+exhaustive claims apply to the documented finite models. Revisit the
+acquisition abstraction when a route, cache admission rule or strength
+requirement changes. Expand it to include scheduling only when the intended
+interleavings and observable outcomes can be expressed independently.
+
+[^quint-observation]: [Observation transition model](../../../formal/quint/observation.qnt).
+[^quint-acquisition]: [Remote acquisition routing model](../../../formal/quint/acquisition.qnt).
+[^observation-traces]: [Rust observation traces and property test](../../../crates/taloon-decisions/tests/observation.rs).
+[^inspection-exit-property]: [Public inspection and exit-status property](../../../tests/inspection.rs).
+[^acquisition-route-fixtures]: [Rust acquisition route fixtures](../../../src/acquisition/http_tests.rs).
+[^quint-inspection]: [Inspection and exit model](../../../formal/quint/inspection.qnt).
+[^cli-verdict-property]: [CLI process and JSON exit property](../../../tests/cli.rs).

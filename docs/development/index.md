@@ -232,6 +232,10 @@ first; the dependency-audit CI job performs this preparation on a fresh runner.
 
 ## Formal and generated checks
 
+The [Quint reproduction procedure](../../formal/quint/README.md) runs TLC on
+aggregation, observation, remote acquisition, and inspection through the exit
+status. It links to the corresponding Rust cases. CI runs the Quint models in a separate job.
+
 The [verification decision](knowledge/verification-strategy.md) explains model
 boundaries and correspondence. Install the pinned Lean toolchain in
 `formal/TaloonOracle/lean-toolchain`; follow the
