@@ -24,12 +24,14 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Install locked Quint tools
+        working-directory: formal/quint
+        run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Verify invariants and mutant counterexamples
         run: |
           export PATH="${JAVA_HOME_21_X64:?Java 21 is required}/bin:$PATH"
           export QUINT_HOME="$RUNNER_TEMP/quint-home"
-          npm install --prefix "$RUNNER_TEMP/quint" --no-audit --no-fund @informalsystems/quint@0.33.1
-          quint="$RUNNER_TEMP/quint/node_modules/.bin/quint"
+          quint="$GITHUB_WORKSPACE/formal/quint/node_modules/.bin/quint"
           cd "$RUNNER_TEMP" || exit 1
           for spec in \
             'aggregation Aggregation Precedence' \
@@ -54,7 +56,7 @@ jobs:
       - name: Replay Quint traces through Rust acquisition and inspection
         run: |
           rustup toolchain install
-          bash formal/quint/replay.sh "$RUNNER_TEMP/quint/node_modules/.bin/quint"
+          bash formal/quint/replay.sh "$GITHUB_WORKSPACE/formal/quint/node_modules/.bin/quint"
 
   rust:
     name: Rust quality and tests
