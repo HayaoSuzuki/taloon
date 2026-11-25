@@ -80,14 +80,26 @@ fn wheel(name: &str, description: &str) -> Vec<u8> {
     crate::testfixtures::wheel(metadata.as_bytes())
 }
 
-fn inspection(parent: &[u8], child: &[u8], permitted: bool) -> Inspection {
+#[derive(Clone, Copy)]
+enum Topology {
+    Chain,
+    Siblings,
+    MultiplePaths,
+}
+
+fn inspection(parent: &[u8], child: &[u8], permitted: bool, topology: Topology) -> Inspection {
+    let (root_edges, parent_edges) = match topology {
+        Topology::Chain => ("{name='parent'}", "{name='child'}"),
+        Topology::Siblings => ("{name='parent'},{name='child'}", ""),
+        Topology::MultiplePaths => ("{name='parent'},{name='child'}", "{name='child'}"),
+    };
     let parent_hash = ContentHash::digest(parent);
     let child_hash = ContentHash::digest(child);
     let lock = format!(
         "version=1\nrevision=5\n\
-         [[package]]\nname='workspace'\nsource={{virtual='.'}}\ndependencies=[{{name='parent'}}]\n\
+         [[package]]\nname='workspace'\nsource={{virtual='.'}}\ndependencies=[{root_edges}]\n\
          [[package]]\nname='parent'\nversion='1.0'\nsource={{registry='https://example.test/simple'}}\n\
-         dependencies=[{{name='child'}}]\nwheels=[{{url='{PARENT_URL}',hash='{parent_hash}'}}]\n\
+         dependencies=[{parent_edges}]\nwheels=[{{url='{PARENT_URL}',hash='{parent_hash}'}}]\n\
          [[package]]\nname='child'\nversion='1.0'\nsource={{registry='https://example.test/simple'}}\n\
          wheels=[{{url='{CHILD_URL}',hash='{child_hash}'}}]"
     );
@@ -105,12 +117,18 @@ fn request<'a>(inspection: &'a Inspection, name: &str) -> &'a ArtifactRequest {
         .unwrap()
 }
 
-fn replay_step(state: &State, cache_root: &Path, parent: &[u8], children: &[Vec<u8>; 2]) {
+fn replay_step(
+    state: &State,
+    cache_root: &Path,
+    parent: &[u8],
+    children: &[Vec<u8>; 2],
+    topology: Topology,
+) {
     // Arrange
     let op = &state.operation;
     let revision = usize::from(op.revision - 1);
     let current = &children[revision];
-    let inspection = inspection(parent, current, op.permitted);
+    let inspection = inspection(parent, current, op.permitted, topology);
     assert_eq!(inspection.requests().len(), 2);
     let fixture = Fixture::default();
     fixture.add(PARENT_URL, 200, parent);
@@ -162,18 +180,32 @@ fn replay_step(state: &State, cache_root: &Path, parent: &[u8], children: &[Vec<
         if name == "child" && *expected != 0 {
             let parent = request(&inspection, "parent").package().to_string();
             let child = request(&inspection, "child").package().to_string();
-            assert!(package.paths.iter().any(|path| {
-                matches!(path.steps.as_slice(), [first, last]
-                    if first.package == parent && last.package == child)
-            }));
+            assert!(
+                package
+                    .paths
+                    .iter()
+                    .any(|path| match (topology, path.steps.as_slice()) {
+                        (Topology::Chain, [first, last]) =>
+                            first.package == parent && last.package == child,
+                        (Topology::Siblings | Topology::MultiplePaths, [only]) =>
+                            only.package == child,
+                        _ => false,
+                    })
+            );
         }
     }
-    assert_cache(state, &acquirer, parent, children);
+    assert_cache(state, &acquirer, parent, children, topology);
 }
 
-fn assert_cache(state: &State, acquirer: &Acquirer, parent: &[u8], children: &[Vec<u8>; 2]) {
-    let first = inspection(parent, &children[0], true);
-    let second = inspection(parent, &children[1], true);
+fn assert_cache(
+    state: &State,
+    acquirer: &Acquirer,
+    parent: &[u8],
+    children: &[Vec<u8>; 2],
+    topology: Topology,
+) {
+    let first = inspection(parent, &children[0], true, topology);
+    let second = inspection(parent, &children[1], true, topology);
     let keys = [
         request(&first, "parent"),
         request(&first, "child"),
@@ -195,6 +227,7 @@ fn assert_cache(state: &State, acquirer: &Acquirer, parent: &[u8], children: &[V
 #[rstest::rstest]
 fn quint_replays_acquisition_and_inspection_lifecycle(
     #[values(1, 2, 3, 4, 5, 6, 7, 8)] seed: usize,
+    #[values(Topology::Chain, Topology::Siblings, Topology::MultiplePaths)] topology: Topology,
 ) {
     // Arrange
     let line = include_str!("../../../tests/fixtures/oracle/lifecycle.jsonl")
@@ -210,6 +243,6 @@ fn quint_replays_acquisition_and_inspection_lifecycle(
     // Act and assert each transition against the generated state.
     for (step, state) in trace.iter().enumerate() {
         eprintln!("Quint seed {seed}, step {}", step + 1);
-        replay_step(state, cache.path(), &parent, &children);
+        replay_step(state, cache.path(), &parent, &children, topology);
     }
 }

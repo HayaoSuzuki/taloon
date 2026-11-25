@@ -36,7 +36,8 @@ jobs:
             'observation Observation ObservationContract' \
             'acquisition Acquisition AcquisitionContract' \
             'inspection Inspection ExitContract' \
-            'lifecycle Lifecycle LifecycleContract'; do
+            'lifecycle Lifecycle LifecycleContract' \
+            'index_concurrency IndexConcurrency SnapshotContract'; do
             read -r file main invariant <<< "$spec"
             model="$GITHUB_WORKSPACE/formal/quint/$file.qnt"
             "$quint" typecheck "$model"

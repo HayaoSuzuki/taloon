@@ -4,14 +4,18 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: quint-index-concurrency
+  resource: ../../../formal/quint/index_concurrency.qnt
+  working_tree: untracked
+  sha256: bd4e761c0ac10a50becf806db6ff258b1508ce2225cd6762369c139b5688bb9d
 - id: quint-lifecycle
   resource: ../../../formal/quint/lifecycle.qnt
   working_tree: untracked
   sha256: 5ccfe6f0fcc0e131c14b38d3d82f04fca09d152835c0a0d503ec920913cfd6aa
 - id: quint-replay
   resource: ../../../src/acquisition/http_tests/lifecycle.rs
-  working_tree: untracked
-  sha256: 2913d2a5cb32ef453636e11144a7889be225ba123c977456f855cb3f1282fd18
+  working_tree: modified
+  sha256: 03ec3de5a30f2d2996d49dbcfe29792e530f4df7b5c5744c2040e1009047631d
 - id: quint-lifecycle-corpus
   resource: ../../../tests/fixtures/oracle/lifecycle.jsonl
   working_tree: untracked
@@ -734,8 +738,8 @@ offline miss.[^quint-lifecycle]
 Generate fixed-seed ITF traces from the verified model and compare a
 normalized corpus byte-for-byte in CI. Replay through the binary's
 acquisition layer and the library's inspection API with a disk cache and
-scripted transport. Resolve both packages from uv.lock and observe the
-transitive diagnostic path on failures. This checks the wiring between model
+scripted transport. Resolve both packages from uv.lock across three graph shapes and observe
+the shortest diagnostic path on failures. This checks the wiring between model
 boundaries while the smaller models retain their independent checks. A
 separate Lean trace generator would duplicate the transition rules.
 Revisit the domain when adding cache admission behavior, retry policy, or
@@ -744,3 +748,17 @@ specifies how overlap affects observations.[^quint-lifecycle-corpus][^quint-repl
 [^quint-lifecycle]: [Finite acquisition-to-report model](../../../formal/quint/lifecycle.qnt).
 [^quint-replay]: [Rust trace adapter](../../../src/acquisition/http_tests/lifecycle.rs).
 [^quint-lifecycle-corpus]: [Versioned model-generated traces](../../../tests/fixtures/oracle/lifecycle.jsonl).
+
+# Concurrent package-index initialization
+
+Model contention within a single index entry as an exclusive owner,
+an initially empty snapshot, and two worker outcomes. A completed load
+publishes a result that waiters reuse, including terminal errors. A panic
+relinquishes ownership without publishing. The invariant distinguishes
+publication count from initializer attempts. Verify outcome correspondence
+with the existing transport fixtures for successful sharing, shared error
+with independent archive verification, and panic recovery. Revisit the
+model if an entry permits invalidation, cancellation, or replacement
+while a batch is running.[^quint-index-concurrency][^acquisition-route-fixtures]
+
+[^quint-index-concurrency]: [Concurrent index-initialization model](../../../formal/quint/index_concurrency.qnt).
