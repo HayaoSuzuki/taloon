@@ -234,7 +234,8 @@ first; the dependency-audit CI job performs this preparation on a fresh runner.
 
 The [Quint reproduction procedure](../../formal/quint/README.md) runs TLC on
 aggregation, observation, remote acquisition, and inspection through the exit
-status. It links to the corresponding Rust cases. CI runs the Quint models in a separate job.
+status. The lifecycle model connects these operations across repeated runs.
+CI also regenerates and replays the model traces through the Rust acquirer.
 
 The [verification decision](knowledge/verification-strategy.md) explains model
 boundaries and correspondence. Install the pinned Lean toolchain in

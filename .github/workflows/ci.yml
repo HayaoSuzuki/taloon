@@ -19,7 +19,7 @@ jobs:
   quint:
     name: Quint behavioral models
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -35,7 +35,8 @@ jobs:
             'aggregation Aggregation Precedence' \
             'observation Observation ObservationContract' \
             'acquisition Acquisition AcquisitionContract' \
-            'inspection Inspection ExitContract'; do
+            'inspection Inspection ExitContract' \
+            'lifecycle Lifecycle LifecycleContract'; do
             read -r file main invariant <<< "$spec"
             model="$GITHUB_WORKSPACE/formal/quint/$file.qnt"
             "$quint" typecheck "$model"
@@ -49,6 +50,10 @@ jobs:
             cat "$log"
             grep -F 'Error: Invariant q_inv is violated.' "$log"
           done
+      - name: Replay Quint traces through Rust acquisition and inspection
+        run: |
+          rustup toolchain install
+          bash formal/quint/replay.sh "$RUNNER_TEMP/quint/node_modules/.bin/quint"
 
   rust:
     name: Rust quality and tests

@@ -4,6 +4,18 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: quint-lifecycle
+  resource: ../../../formal/quint/lifecycle.qnt
+  working_tree: untracked
+  sha256: 5ccfe6f0fcc0e131c14b38d3d82f04fca09d152835c0a0d503ec920913cfd6aa
+- id: quint-replay
+  resource: ../../../src/acquisition/http_tests/lifecycle.rs
+  working_tree: untracked
+  sha256: 2913d2a5cb32ef453636e11144a7889be225ba123c977456f855cb3f1282fd18
+- id: quint-lifecycle-corpus
+  resource: ../../../tests/fixtures/oracle/lifecycle.jsonl
+  working_tree: untracked
+  sha256: 1965be615b084cc86338c2fb18d050adca18d7e1df574ca596bd9cfd7a297be6
 - id: quint-inspection
   resource: ../../../formal/quint/inspection.qnt
   working_tree: untracked
@@ -708,3 +720,27 @@ interleavings and observable outcomes can be expressed independently.
 [^acquisition-route-fixtures]: [Rust acquisition route fixtures](../../../src/acquisition/http_tests.rs).
 [^quint-inspection]: [Inspection and exit model](../../../formal/quint/inspection.qnt).
 [^cli-verdict-property]: [CLI process and JSON exit property](../../../tests/cli.rs).
+
+# Acquisition-to-report lifecycle
+
+Use a single Quint transition for one completed inspection on a bounded
+two-package graph. Carry validated archive digests across checks so that
+retries, failures, lock changes, offline runs and explicit cache clearing
+constrain later observations. The invariant connects exact cache membership
+to package completeness and report precedence. A negative control keys
+the child cache lookup too broadly, so TLC can show an older digest masking an
+offline miss.[^quint-lifecycle]
+
+Generate fixed-seed ITF traces from the verified model and compare a
+normalized corpus byte-for-byte in CI. Replay through the binary's
+acquisition layer and the library's inspection API with a disk cache and
+scripted transport. Resolve both packages from uv.lock and observe the
+transitive diagnostic path on failures. This checks the wiring between model
+boundaries while the smaller models retain their independent checks. A
+separate Lean trace generator would duplicate the transition rules.
+Revisit the domain when adding cache admission behavior, retry policy, or
+new report precedence rules. Add concurrent schedules when the contract
+specifies how overlap affects observations.[^quint-lifecycle-corpus][^quint-replay]
+[^quint-lifecycle]: [Finite acquisition-to-report model](../../../formal/quint/lifecycle.qnt).
+[^quint-replay]: [Rust trace adapter](../../../src/acquisition/http_tests/lifecycle.rs).
+[^quint-lifecycle-corpus]: [Versioned model-generated traces](../../../tests/fixtures/oracle/lifecycle.jsonl).
