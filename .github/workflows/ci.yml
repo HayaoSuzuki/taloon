@@ -75,7 +75,8 @@ jobs:
           PROPTEST_RNG_SEED: ${{ github.run_id }}
         run: |
           export PATH="$GITHUB_WORKSPACE/formal/quint/node_modules/.bin:$PATH"
-          cargo test --locked --bin taloon quint_connect_ -- --ignored
+          # Quint initializes its shared Rust evaluator cache on the first call.
+          cargo test --locked --bin taloon quint_connect_ -- --ignored --test-threads=1
 
   rust:
     name: Rust quality and tests
