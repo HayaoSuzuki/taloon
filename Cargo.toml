@@ -51,7 +51,9 @@ html5ever = "0.40.1"
 clap = { version = "4.5", features = ["derive"] }
 
 [dev-dependencies]
+anyhow = "1.0"
 proptest = "1.12"
+quint-connect = "=0.1.2"
 rstest = { version = "0.29.0", default-features = false }
 
 [profile.release]

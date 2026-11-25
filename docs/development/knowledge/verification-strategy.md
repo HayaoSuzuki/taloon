@@ -129,12 +129,16 @@ sources:
   sha256: 982a45bce248a62edfb8685287bd8658612fadbafdcec66a37870957e804a5b1
 - id: quint-shared-cache-replay
   resource: ../../../src/acquisition/http_tests/cache_interleaving.rs
-  working_tree: untracked
-  sha256: 5f3f17b374a6f0dca9f1740a279b2aca3b8c20aefde2165a5213e3b8250119f7
+  working_tree: modified
+  sha256: 5f8b21b8c105cafa614accb44562a735ddd7a911afdaf7a19a0fb775235e81db
 - id: quint-shared-cache-corpus
   resource: ../../../tests/fixtures/oracle/shared-cache.jsonl
   working_tree: untracked
   sha256: 053a6ef527010ce06054ba77d41df692736511bcc9b00c419629127a722b5ae3
+- id: quint-connect-dependency-policy
+  resource: ../../../deny.toml
+  working_tree: modified
+  sha256: bcc6c0ec7f22c06472c9cf4f7fc1bcd4d893fb030764e49836f456d1c7258f50
 - id: quint-index-concurrency
   resource: ../../../formal/quint/index_concurrency.qnt
   working_tree: untracked
@@ -924,9 +928,18 @@ same-digest replacement and damaged records. Revisit the abstraction if
 locking, cache-key semantics, file publication, or clear guarantees change.
 [^quint-shared-cache-replay][^quint-shared-cache-corpus]
 
+Use Quint Connect in the formal CI job to replay additional generated
+traces. proptest varies the Quint seed and the archive bytes. Project the
+actual event result and offline visibility at each step, reusing the
+checkpoint driver used by the fixed corpus. The runner is a dev dependency.
+Allow its MPL-2.0 terminal diagnostics dependency at the exact audited
+version. Review the exception when updating or removing the runner.
+[^quint-shared-cache-replay][^quint-connect-dependency-policy]
+
 [^quint-shared-cache]: [Shared disk-cache transition model](../../../formal/quint/shared_cache.qnt).
 [^quint-shared-cache-replay]: [Shared-cache trace replay](../../../src/acquisition/http_tests/cache_interleaving.rs).
 [^quint-shared-cache-corpus]: [Generated shared-cache traces](../../../tests/fixtures/oracle/shared-cache.jsonl).
+[^quint-connect-dependency-policy]: [Version-scoped license exception for test diagnostics](../../../deny.toml).
 
 # Extras on cyclic paths
 

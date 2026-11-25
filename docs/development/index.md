@@ -124,6 +124,8 @@ assertions detect incorrect behavior.
 Measure Rust source and tests with [cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov):
 
 ```sh
+npm ci --prefix formal/quint --ignore-scripts --no-audit --no-fund
+export PATH="$PWD/formal/quint/node_modules/.bin:$PATH"
 cargo build --release --locked --workspace --all-features
 coverage_dir=$(mktemp -d "$PWD/target/coverage.XXXXXX")
 CARGO_LLVM_COV_TARGET_DIR="$coverage_dir" CARGO_LLVM_COV_BUILD_DIR="$coverage_dir" TALOON_BENCH_BINARY="$PWD/target/release/taloon" cargo +nightly-2026-11-23 llvm-cov --locked --workspace --all-features --no-default-ignore-filename-regex --ignore-filename-regex '/rustc/|/\.cargo/|/target/' --lcov --output-path "$coverage_dir/lcov.info" --fail-under-functions 100 -- --include-ignored
@@ -133,6 +135,7 @@ awk -F '[:,]' '/^DA:/ { lines++; covered += ($3 > 0) } END { printf "Source line
 Use a fresh directory for both coverage artifacts and intermediate build output;
 old executable coverage maps can survive ordinary cleaning and distort counts.
 The release binary is used by the existing warm-cache process benchmark.
+The ignored Quint Connect replay requires the pinned Quint CLI on PATH.
 `--include-ignored` also runs the opt-in measurements and loopback TLS fixture;
 allow several minutes and permit local sockets. On macOS the terminal progress
 test uses the system `/usr/bin/script` utility.

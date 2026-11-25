@@ -134,6 +134,25 @@ paused readers and writers. Traces include simultaneous staging, clear
 during staging and immediately before publication, and reads that finish
 after clear has removed the opened record.
 
+Quint Connect also generates one 32-step ITF trace per proptest case.
+The 16 default cases vary the Quint seed and valid wheel metadata, which
+changes the locked digests. Both replay paths drive the same acquisition
+checkpoints. Quint Connect compares the last event and the digests visible
+offline after each action. These simulations exercise schedules at the named
+checkpoints within the model's two-digest bound.
+
+Run the generated replay from the repository root after installing the
+locked Quint CLI:
+
+```sh
+PATH="$PWD/formal/quint/node_modules/.bin:$PATH" cargo test --locked --bin taloon quint_connect_shared_disk_cache -- --ignored
+```
+
+On failure, proptest reports the seed and metadata suffix for the smallest
+input it found. Its saved regression can be rerun with the same command.
+To reproduce the generated cases from CI, set `PROPTEST_RNG_SEED` to the
+GitHub Actions run ID.
+
 ## Extras on a cyclic dependency path
 
 [Extras](extras.qnt) explores the eight combinations of three choices on a
