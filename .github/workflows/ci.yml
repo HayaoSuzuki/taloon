@@ -44,7 +44,8 @@ jobs:
             'extras Extras ExtrasContract' \
             'locked_forks LockedForks UniqueIdentity' \
             'path_ties PathTies CanonicalPath' \
-            'scoped_policy ScopedPolicy ScopeContract'; do
+            'scoped_policy ScopedPolicy ScopeContract' \
+            'unused_policy UnusedPolicy WarningContract'; do
             read -r file main invariant <<< "$spec"
             model="$GITHUB_WORKSPACE/formal/quint/$file.qnt"
             "$quint" typecheck "$model"
@@ -56,7 +57,7 @@ jobs:
               exit 1
             fi
             cat "$log"
-            grep -F 'Error: Invariant q_inv is violated.' "$log"
+            grep -E '^Error: Invariant q_inv is violated([.]| by the initial state:)$' "$log"
           done
       - name: Replay Quint traces through Rust acquisition and inspection
         run: |

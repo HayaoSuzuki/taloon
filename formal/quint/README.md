@@ -231,3 +231,33 @@ expression, and ordered override identifiers. Removing the exception hash
 check in an isolated Rust copy caused 20 replays to fail. The model fixes two atomic
 units and a single exception and clarification. Lean and Rust properties
 cover Boolean expressions and the surrounding inspection contracts.
+
+## Unused policy warnings
+
+[UnusedPolicy](unused_policy.qnt) checks 128 combinations on two locked
+packages. Alpha declares a three-term OR. Beta declares ISC, which a
+hash-matching clarification replaces with BSD-3-Clause. Independently
+vary allow or deny mode, whether ISC is listed, whether each exception
+matches, and whether the beta observation is present, missing, repeated,
+or failed.
+
+```sh
+"$quint" verify formal/quint/unused_policy.qnt --backend=tlc --main UnusedPolicy --invariants WarningContract
+bash formal/quint/replay.sh "$quint"
+```
+
+All units in the effective OR expression count as used. Exact
+package/digest matches account for exceptions, and a matching clarification
+accounts for its own digest. Incomplete reports suppress unused warnings.
+Completed reports expose warnings in message order. Strict warning mode
+escalates a compliant exit to 1 when warnings exist. Violations exit 1 and
+incomplete reports exit 2. The first replay exposed the distinction between
+policy emission order and report order. The model follows the public report
+order.
+
+TLC explored 128 states and found a counterexample when accounting retained
+only the first OR unit. The [generated corpus](../../tests/fixtures/oracle/unused-policy.jsonl)
+drives the [Rust replay](../../tests/policy_usage.rs), which checks exact
+warning messages, warning severity and normal and strict exit codes.
+Retaining only the first OR unit in an isolated Rust copy caused all 32
+complete-inspection replays to fail.

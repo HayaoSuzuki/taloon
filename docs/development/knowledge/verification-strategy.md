@@ -4,6 +4,21 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: quint-unused-policy
+  resource: ../../../formal/quint/unused_policy.qnt
+  working_tree: untracked
+  sha256: 9e17530e47d4abc55fd886307491ba120912e17c021406169c581f733ba98e0f
+- id: quint-unused-policy-corpus
+  resource: ../../../tests/fixtures/oracle/unused-policy.jsonl
+  working_tree: untracked
+  sha256: a1525b355fa7250c1bc5b129a0147c1fa8845ef78a0a44f8a0429b1b400712ca
+- id: quint-unused-policy-replay
+  resource: ../../../tests/policy_usage.rs
+  working_tree: untracked
+  sha256: d66ce2e024c2a9c8fee05499ba2ce4c819e1b361ae5a78d9d41ce4515fd9501a
+- id: warning-report-order
+  resource: ../../../src/report.rs
+  revision: c1686812868abd649d0b55986ab63c8734d397d9
 - id: quint-scoped-policy
   resource: ../../../formal/quint/scoped_policy.qnt
   working_tree: untracked
@@ -926,3 +941,23 @@ changes.[^quint-scoped-policy-corpus][^inspection-exit-property]
 
 [^quint-scoped-policy]: [Finite scoped policy and proof model](../../../formal/quint/scoped_policy.qnt).
 [^quint-scoped-policy-corpus]: [Generated policy decisions](../../../tests/fixtures/oracle/scoped-policy.jsonl).
+
+# Unused policy warnings across inspection results
+
+Count all effective expression units, including each OR alternative.
+Account for exact package/digest exceptions and hash-bound clarifications.
+Incomplete runs suppress unused warnings. Complete runs retain the policy
+verdict and may escalate compliance under strict warnings. The negative
+control accounts for only one OR alternative.[^quint-unused-policy]
+
+The initial oracle used the policy's emission order and disagreed with
+the public report. Report assembly sorts these diagnostics by message
+within their common error code. Use that ordering in the normalized
+corpus and replay exact messages and exit codes across the 128 finite
+cases. Revisit the model if usage accounting or warning presentation
+changes.[^warning-report-order][^quint-unused-policy-corpus][^quint-unused-policy-replay]
+
+[^quint-unused-policy]: [Finite policy usage model](../../../formal/quint/unused_policy.qnt).
+[^quint-unused-policy-corpus]: [Generated warning and exit decisions](../../../tests/fixtures/oracle/unused-policy.jsonl).
+[^quint-unused-policy-replay]: [Public report replay for unused policy warnings](../../../tests/policy_usage.rs).
+[^warning-report-order]: [Public report warning order](../../../src/report.rs).
