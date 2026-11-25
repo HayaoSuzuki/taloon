@@ -29,7 +29,9 @@ Later reservations use the greater of the manifest floor and latest stable
 version with its patch increased by one. Raising the committed floor selects a
 new minor or major line. Re-executing a reserved commit reuses its tag; stale
 unreserved sources are skipped. Version edits affect only the build workspace;
-the tag continues to identify the original source commit.
+the tag continues to identify the original source commit. The
+[local reservation replay](../../formal/quint/README.md#release-reservation-under-a-competing-update)
+checks competing updates and lost acknowledgements using a bare Git fixture.
 
 After validating the exact inventory and each wheel's metadata/license, the
 workflow signs per-wheel GitHub build provenance and retains the wheels and

@@ -372,3 +372,31 @@ Synthetic credentials also distinguish explicit authorization from URL
 userinfo. Reducing the retry budget from three attempts to two in an
 isolated Rust copy caused 48 replays to fail. The transport is scripted.
 Existing loopback tests exercise actual HTTP and TLS handling.
+
+## Release reservation under a competing update
+
+[ReleaseReservation](release_reservation.qnt) checks 32 schedules with a
+fixed version floor and four linearly ordered source commits. A caller
+reserves the third commit. An already reserved first commit is optional.
+Another checkout may reserve the older, same, or newer commit immediately
+before the caller's first push. The caller can also lose an acknowledgement
+or encounter repeated rejected pushes. One schedule loses the acknowledgement
+after the fifth push succeeds.
+
+```sh
+"$quint" verify formal/quint/release_reservation.qnt --backend=tlc --main ReleaseReservation --invariants ReservationContract
+bash formal/quint/replay.sh "$quint"
+uv run --frozen --no-sync pytest tests/test_release.py -k quint_replays_release_reservation
+```
+
+TLC checked 196 states and rejected a mutant that omitted the final read
+after exhausting the push budget. The [generated cases](../../tests/fixtures/oracle/release-reservation.jsonl)
+drive the [Python replay](../../tests/test_release.py) against a temporary
+local bare Git repository and two working copies. The replay inserts a real
+competing reservation before the stale push, and injects rejection or loss
+of acknowledgement at the subprocess boundary. It checks the returned tag
+or error, push count, exact stable-tag inventory, and ordering ref. It also
+checks that a stale push leaves both refs as written by the competitor.
+Omitting the final read in an isolated Python copy caused four replays
+to fail. The [release procedure](../../docs/development/releases.md) describes hosted
+reservation and publication.

@@ -45,6 +45,9 @@ done
 "$quint" run formal/quint/http_routing.qnt --main HttpRouting --backend typescript \
   --invariants RoutingContract --seed 1 --max-steps 700 --verbosity 0 \
   --out-itf "$traces/http-routing.itf.json"
+"$quint" run formal/quint/release_reservation.qnt --main ReleaseReservation --backend typescript \
+  --invariants ReservationContract --seed 1 --max-steps 400 --verbosity 0 \
+  --out-itf "$traces/release-reservation.itf.json"
 node - "$traces" <<'JS'
 const { readFileSync, writeFileSync } = require("node:fs");
 const directory = process.argv[2];
@@ -118,8 +121,19 @@ for (const state of readStates(`${directory}/http-routing.itf.json`)) {
 if (finished.size !== 96) throw new Error("The HTTP trace must finish all 96 cases");
 writeFileSync(`${directory}/http-routing.jsonl`, Array.from(finished.values(), value =>
   JSON.stringify(value)).join("\n") + "\n");
+const releasePrefix = "ReleaseReservation::ReleaseReservationModel::";
+const reservations = new Map();
+for (const state of readStates(`${directory}/release-reservation.itf.json`)) {
+  const { phase, tags, head, attempts, result } = state[releasePrefix + "reservation"];
+  if (phase === "done") reservations.set(state[releasePrefix + "caseId"], {
+    scenario: state[releasePrefix + "scenario"], tags, head, attempts, result,
+  });
+}
+if (reservations.size !== 32) throw new Error("The reservation trace must finish all 32 cases");
+writeFileSync(`${directory}/release-reservation.jsonl`, Array.from(reservations.values(), value =>
+  JSON.stringify(value)).join("\n") + "\n");
 JS
-for corpus in lifecycle shared-cache extras locked-forks path-ties scoped-policy unused-policy description-evidence sidecar-fallback legacy-scan http-routing; do
+for corpus in lifecycle shared-cache extras locked-forks path-ties scoped-policy unused-policy description-evidence sidecar-fallback legacy-scan http-routing release-reservation; do
   if "$generate"; then
     cp "$traces/$corpus.jsonl" "$fixture/$corpus.jsonl"
   else

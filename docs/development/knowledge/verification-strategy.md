@@ -4,6 +4,18 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: quint-release-reservation
+  resource: ../../../formal/quint/release_reservation.qnt
+  working_tree: untracked
+  sha256: 8ca8bcf46219cefd1d3902012e0562845a7815426e65d2ac28055496ff35a1e8
+- id: quint-release-reservation-corpus
+  resource: ../../../tests/fixtures/oracle/release-reservation.jsonl
+  working_tree: untracked
+  sha256: c67927134459f6cbcc4c133c625710c2ea7683680c09768e02f8e97ad4c1529a
+- id: quint-release-reservation-replay
+  resource: ../../../tests/test_release.py
+  working_tree: modified
+  sha256: 1230a1b386012ce6ab96668714e3066f77c0bf26720b5d6dba4063cbf7185341
 - id: quint-http-routing
   resource: ../../../formal/quint/http_routing.qnt
   working_tree: untracked
@@ -1091,3 +1103,24 @@ model if retry budgets, redirect handling, or credential scope changes.
 [^quint-http-routing]: [Finite HTTP routing and retry model](../../../formal/quint/http_routing.qnt).
 [^quint-http-routing-corpus]: [Generated HTTP attempt transcripts](../../../tests/fixtures/oracle/http-routing.jsonl).
 [^quint-http-routing-replay]: [Production HTTP wrapper replay](../../../src/acquisition/http_tests/http_routing.rs).
+
+# Release reservation retries and reconciliation
+
+Model the lease read, competing atomic update, push budget and final
+reconciliation over a linear four-commit history. Compare stable tag and
+ordering ref state and the reported result after competing reservations
+and rejected or unacknowledged pushes. The negative control omits the final
+read and loses a reservation that was created on the fifth push.
+[^quint-release-reservation]
+
+Regenerate the 32 terminal cases in CI and replay them in the frozen Python
+environment against local bare Git. A second checkout updates the real local
+remote before the stale caller pushes. Inject acknowledgement faults after
+the subprocess returns. Check both refs and the attempt count. The small
+Lean reservation model covers the snapshot decision. Revisit the Quint
+schedule if the lease, retry budget or acknowledgement recovery changes.
+[^quint-release-reservation-corpus][^quint-release-reservation-replay]
+
+[^quint-release-reservation]: [Finite release reservation interleavings](../../../formal/quint/release_reservation.qnt).
+[^quint-release-reservation-corpus]: [Generated reservation decisions and refs](../../../tests/fixtures/oracle/release-reservation.jsonl).
+[^quint-release-reservation-replay]: [Local bare Git reservation replay](../../../tests/test_release.py).

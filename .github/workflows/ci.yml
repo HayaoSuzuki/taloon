@@ -49,7 +49,8 @@ jobs:
             'description_evidence DescriptionEvidence DescriptionContract' \
             'sidecar_fallback SidecarFallback FallbackContract' \
             'legacy_scan LegacyScan ScanContract' \
-            'http_routing HttpRouting RoutingContract'; do
+            'http_routing HttpRouting RoutingContract' \
+            'release_reservation ReleaseReservation ReservationContract'; do
             read -r file main invariant <<< "$spec"
             model="$GITHUB_WORKSPACE/formal/quint/$file.qnt"
             "$quint" typecheck "$model"
@@ -135,6 +136,8 @@ jobs:
       - run: uv run --frozen --no-sync ruff format --check .
       - run: uv run --frozen --no-sync ruff check --no-fix .
       - run: uv run --frozen --no-sync ty check
+      - name: Replay Quint release reservations against local Git
+        run: uv run --frozen --no-sync pytest tests/test_release.py -k quint_replays_release_reservation
 
   workflow-lint:
     name: Workflow lint
