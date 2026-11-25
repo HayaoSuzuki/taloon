@@ -1236,8 +1236,9 @@ fn unwritable_stdout_is_reported_as_failure(#[case] arguments: Vec<&str>) {
     // Arrange
     let directory = tempfile::tempdir().unwrap();
     project(directory.path(), "License-Expression: MIT");
-    let (reader, writer) = std::os::unix::net::UnixStream::pair().unwrap();
-    drop(reader);
+    let (_peer, writer) = std::os::unix::net::UnixStream::pair().unwrap();
+    // Disable writes on the descriptor itself before handing it to the child.
+    writer.shutdown(std::net::Shutdown::Write).unwrap();
     // Act
     let output = Command::new(env!("CARGO_BIN_EXE_taloon"))
         .current_dir(directory.path())
