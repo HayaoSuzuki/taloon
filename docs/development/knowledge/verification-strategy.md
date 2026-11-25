@@ -4,6 +4,18 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: quint-index-publication
+  resource: ../../../formal/quint/index_publication.qnt
+  working_tree: untracked
+  sha256: d2dfcd30feb947a7b2aa9e533db13b900745b3029a28a7399e5fbb05bb784ea5
+- id: quint-index-publication-corpus
+  resource: ../../../tests/fixtures/oracle/index-publication.jsonl
+  working_tree: untracked
+  sha256: ecf8ee014495403099c971d8c3a874dbcc69b3cb330acc5e739504a4eabe05eb
+- id: quint-index-publication-replay
+  resource: ../../../tests/test_pypi_provenance.py
+  working_tree: modified
+  sha256: 134775391188b80aba35af46e6a329c7863e04108a621c16951fb3c787f6c192
 - id: quint-release-reservation
   resource: ../../../formal/quint/release_reservation.qnt
   working_tree: untracked
@@ -1144,3 +1156,23 @@ schedule if the lease, retry budget or acknowledgement recovery changes.
 [^quint-release-reservation]: [Finite release reservation interleavings](../../../formal/quint/release_reservation.qnt).
 [^quint-release-reservation-corpus]: [Generated reservation decisions and refs](../../../tests/fixtures/oracle/release-reservation.jsonl).
 [^quint-release-reservation-replay]: [Local bare Git reservation replay](../../../tests/test_release.py).
+
+# Index publication inspection and propagation
+
+Before publishing, only a missing version document permits a fresh upload.
+After observing the version, require the full inventory, exact wheel bytes,
+expected publisher and both provenance predicates. In post-upload verification,
+retry 404 responses within the propagation deadline, but fail on inconsistent
+published data. A model variant equating missing per-wheel provenance with an
+absent release violates the inspection contract.[^quint-index-publication]
+
+Replay both indexes through local inventory, wheel and provenance fixtures.
+Compare the terminal result, version reads and requested waits. The fake
+clock advances during waits. Signature checks remain behind the existing
+verification boundary. Revisit the model when the retry budget, response
+classification or publication acceptance criteria change.
+[^quint-index-publication-corpus][^quint-index-publication-replay]
+
+[^quint-index-publication]: [Finite index publication model](../../../formal/quint/index_publication.qnt).
+[^quint-index-publication-corpus]: [Generated outcomes and waits](../../../tests/fixtures/oracle/index-publication.jsonl).
+[^quint-index-publication-replay]: [Local publication replay](../../../tests/test_pypi_provenance.py).

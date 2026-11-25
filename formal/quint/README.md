@@ -432,3 +432,29 @@ checks that a stale push leaves both refs as written by the competitor.
 Omitting the final read in an isolated Python copy caused four replays
 to fail. The [release procedure](../../docs/development/releases.md) describes hosted
 reservation and publication.
+
+## Index publication inspection and propagation
+
+[IndexPublication](index_publication.qnt) checks 112 combinations across
+PyPI and TestPyPI, pre-upload inspection and post-upload verification,
+four visibility schedules, and seven inventory or provenance outcomes.
+During inspection, only a missing version document means the release is
+absent. A missing per-wheel provenance document fails inspection. After
+upload, 404s retry with exponential backoff until the modeled deadline.
+Inventory, byte, predicate and publisher mismatches fail as soon as
+they are observed.
+
+```sh
+"$quint" verify formal/quint/index_publication.qnt --backend=tlc --main IndexPublication --invariants IndexContract
+bash formal/quint/replay.sh "$quint"
+uv run --frozen --no-sync pytest tests/test_pypi_provenance.py -k quint_replays_index_publication
+```
+
+The [generated cases](../../tests/fixtures/oracle/index-publication.jsonl)
+check the terminal outcome, number of index reads and each requested wait.
+The [Python replay](../../tests/test_pypi_provenance.py) uses local wheel
+bytes, scripted inventory and provenance responses, and a clock advanced
+by the requested waits. It runs the actual verifier through inventory,
+download, publisher and predicate validation. Signature verification and
+publication workflow scheduling are outside the model. Existing tests
+cover the attempt limit independently of the deadline.

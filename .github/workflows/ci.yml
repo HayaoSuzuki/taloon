@@ -50,7 +50,8 @@ jobs:
             'sidecar_fallback SidecarFallback FallbackContract' \
             'legacy_scan LegacyScan ScanContract' \
             'http_routing HttpRouting RoutingContract' \
-            'release_reservation ReleaseReservation ReservationContract'; do
+            'release_reservation ReleaseReservation ReservationContract' \
+            'index_publication IndexPublication IndexContract'; do
             read -r file main invariant <<< "$spec"
             model="$GITHUB_WORKSPACE/formal/quint/$file.qnt"
             "$quint" typecheck "$model"
@@ -144,6 +145,9 @@ jobs:
       - run: uv run --frozen --no-sync ty check
       - name: Replay Quint release reservations against local Git
         run: uv run --frozen --no-sync pytest tests/test_release.py -k quint_replays_release_reservation
+
+      - name: Replay Quint index publication checks against local fixtures
+        run: uv run --frozen --no-sync pytest tests/test_pypi_provenance.py -k quint_replays_index_publication
 
   workflow-lint:
     name: Workflow lint

@@ -48,6 +48,9 @@ done
 "$quint" run formal/quint/release_reservation.qnt --main ReleaseReservation --backend typescript \
   --invariants ReservationContract --seed 1 --max-steps 400 --verbosity 0 \
   --out-itf "$traces/release-reservation.itf.json"
+"$quint" run formal/quint/index_publication.qnt --main IndexPublication --backend typescript \
+  --invariants IndexContract --seed 1 --max-steps 500 --verbosity 0 \
+  --out-itf "$traces/index-publication.itf.json"
 node - "$traces" <<'JS'
 const { readFileSync, writeFileSync } = require("node:fs");
 const directory = process.argv[2];
@@ -132,8 +135,19 @@ for (const state of readStates(`${directory}/release-reservation.itf.json`)) {
 if (reservations.size !== 32) throw new Error("The reservation trace must finish all 32 cases");
 writeFileSync(`${directory}/release-reservation.jsonl`, Array.from(reservations.values(), value =>
   JSON.stringify(value)).join("\n") + "\n");
+const indexPrefix = "IndexPublication::IndexPublicationModel::";
+const publications = new Map();
+for (const state of readStates(`${directory}/index-publication.itf.json`)) {
+  const { result, attempts, waits } = state[indexPrefix + "check"];
+  if (result) publications.set(state[indexPrefix + "caseId"], {
+    scenario: state[indexPrefix + "scenario"], result, attempts, waits,
+  });
+}
+if (publications.size !== 112) throw new Error("The publication trace must finish all 112 cases");
+writeFileSync(`${directory}/index-publication.jsonl`, Array.from(publications.values(), value =>
+  JSON.stringify(value)).join("\n") + "\n");
 JS
-for corpus in lifecycle shared-cache extras locked-forks path-ties scoped-policy unused-policy description-evidence sidecar-fallback legacy-scan http-routing release-reservation; do
+for corpus in lifecycle shared-cache extras locked-forks path-ties scoped-policy unused-policy description-evidence sidecar-fallback legacy-scan http-routing release-reservation index-publication; do
   if "$generate"; then
     cp "$traces/$corpus.jsonl" "$fixture/$corpus.jsonl"
   else

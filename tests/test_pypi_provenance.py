@@ -4,13 +4,16 @@
 import base64
 import binascii
 import hashlib
+import io
 import json
 import subprocess
 import sys
 import tempfile
 import urllib.error
 from email.message import Message
+from itertools import cycle
 from pathlib import Path
+from typing import TYPE_CHECKING, TypedDict
 from unittest.mock import patch
 
 import pytest
@@ -27,6 +30,9 @@ from sigstore.verify import policy
 
 from tools import pypi_provenance as provenance
 from tools.json_data import object_list, object_mapping
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 def statement(
@@ -433,7 +439,6 @@ def index_wheel_rejects_untrusted_evidence_case(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mutation: str
 ) -> tuple[Path, dict[str, object], Path, dict[str, str]]:
     # Arrange
-    import io  # noqa: PLC0415 -- in-memory HTTP boundary.
 
     wheel = tmp_path / "example.whl"
     wheel.write_bytes(b"original wheel")
@@ -505,7 +510,6 @@ def test_index_wheel_rejects_untrusted_evidence(
 
 def test_fetch_json_decodes_response_object(monkeypatch: pytest.MonkeyPatch) -> None:
     # Arrange
-    import io  # noqa: PLC0415 -- in-memory HTTP boundary.
 
     monkeypatch.setattr(
         provenance.urllib.request,
@@ -886,7 +890,6 @@ def test_index_verifies_both_signed_predicates(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     # Arrange
-    import io  # noqa: PLC0415 -- in-memory HTTP boundary.
 
     wheel = tmp_path / "taloon-0.1.0-py3-none-any.whl"
     wheel.write_bytes(b"original")
@@ -1119,3 +1122,161 @@ def test_index_inventory_refuses_missing_digest_record(
     with pytest.raises((KeyError, TypeError)):
         provenance.check_inventory({"urls": [record]}, [wheel])
     assert wheel.read_bytes() == b"bytes"
+
+
+class IndexPublicationScenario(TypedDict):
+    """Inputs selected by the finite publication model."""
+
+    testIndex: bool
+    inspect: bool
+    lag: int
+    damage: int
+
+
+class IndexPublicationCase(TypedDict):
+    """Projected terminal state of one publication check."""
+
+    scenario: IndexPublicationScenario
+    result: str
+    attempts: int
+    waits: list[int]
+
+
+def index_publication_fixture(
+    scenario: IndexPublicationScenario, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> tuple[Callable[[], bool], list[str], list[float]]:
+    index = "testpypi" if scenario["testIndex"] else "pypi"
+    base = provenance.INDEXES[index]
+    host = (
+        "test-files.pythonhosted.org"
+        if scenario["testIndex"]
+        else "files.pythonhosted.org"
+    )
+    lag, damage = scenario["lag"], scenario["damage"]
+    version_url = f"{base}/pypi/taloon/0.1.0/json"
+    wheels = sorted(
+        f"taloon-0.1.0-py3-none-{platform.published_wheel_tag}.whl"
+        for platform in provenance.RELEASE_PLATFORMS
+    )
+    for name in wheels:
+        (tmp_path / name).write_bytes(name.encode())
+    last = wheels[-1]
+    digests = {name: provenance.sha256(tmp_path / name) for name in wheels}
+    downloads = {f"https://{host}/packages/{name}": name for name in wheels}
+    records = [
+        {
+            "filename": name,
+            "url": url,
+            "yanked": damage == 2 and name == last,
+            "digests": {
+                "sha256": "0" * 64 if damage == 3 and name == last else digests[name]
+            },
+        }
+        for url, name in downloads.items()
+        if damage != 1 or name != last
+    ]
+    envelopes = {
+        f"{base}/integrity/taloon/0.1.0/{name}/provenance": name for name in wheels
+    }
+    version_requests: list[str] = []
+    waits: list[float] = []
+
+    def missing(url: str) -> urllib.error.HTTPError:
+        return urllib.error.HTTPError(url, 404, "not yet published", Message(), None)
+
+    def fetch(url: str) -> dict[str, object]:
+        if url == version_url:
+            version_requests.append(url)
+            if lag == 3 or (lag == 1 and len(version_requests) == 1):
+                raise missing(url)
+            return {"urls": records}
+        name = envelopes[url]
+        if lag == 2 and len(version_requests) == 1 and name == last:
+            raise missing(url)
+        predicates = [provenance.SLSA]
+        if damage != 5 or name != last:
+            predicates.append(provenance.PUBLISH)
+        return {
+            "attestation_bundles": [
+                {
+                    "publisher": {
+                        "kind": "GitHub",
+                        "repository": "unexpected/repository"
+                        if damage == 6 and name == last
+                        else provenance.REPOSITORY,
+                        "workflow": provenance.WORKFLOW,
+                    },
+                    "attestations": [
+                        statement(kind, name=name, digest=digests[name])
+                        for kind in predicates
+                    ],
+                }
+            ],
+        }
+
+    def download(url: str, *, timeout: int) -> io.BytesIO:
+        assert timeout == 120
+        name = downloads[url]
+        return io.BytesIO(b"changed" if damage == 4 and name == last else name.encode())
+
+    original, _, _ = signature_case("none")
+    signatures = cycle([provenance.SLSA, provenance.PUBLISH])
+    monkeypatch.setattr(provenance, "fetch_json", fetch)
+    monkeypatch.setattr(provenance.urllib.request, "urlopen", download)
+    monkeypatch.setattr(Attestation, "model_validate", lambda _value: original)
+    monkeypatch.setattr(Attestation, "verify", lambda *_args: (next(signatures), {}))
+    monkeypatch.setattr(provenance, "verify_build", lambda *_args: None)
+    monkeypatch.setattr(provenance, "verify_publish", lambda *_args: None)
+    monkeypatch.setattr(provenance.time, "monotonic", lambda: sum(waits))
+    monkeypatch.setattr(provenance.time, "sleep", waits.append)
+
+    def verify() -> bool:
+        return provenance.verify_with_propagation(
+            index, "v0.1.0", "a" * 40, tmp_path, allow_missing=scenario["inspect"]
+        )
+
+    return verify, version_requests, waits
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        json.loads(line)
+        for line in (Path(__file__).parent / "fixtures/oracle/index-publication.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ],
+    ids=lambda case: (
+        f"testpypi={case['scenario']['testIndex']}-inspect={case['scenario']['inspect']}"
+        f"-lag={case['scenario']['lag']}-damage={case['scenario']['damage']}"
+    ),
+)
+def test_quint_replays_index_publication(
+    case: IndexPublicationCase, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange
+    verify, version_requests, waits = index_publication_fixture(
+        case["scenario"], tmp_path, monkeypatch
+    )
+    expected = case["result"]
+    messages = {
+        "partial": "Partial or mismatching index publication",
+        "digest": "Partial or mismatching index publication",
+        "yanked": "Duplicate, invalid or yanked index file",
+        "bytes": "Downloaded index wheel differs",
+        "predicate": "Expected one SLSA and one publish attestation",
+        "publisher": "Unexpected index publisher identity",
+    }
+
+    # Act and assert the outcome, then compare the retry trace.
+    if expected == "http404":
+        with pytest.raises(urllib.error.HTTPError) as error:
+            verify()
+        assert error.value.code == 404
+    elif expected in messages:
+        with pytest.raises(ValueError, match=messages[expected]):
+            verify()
+    else:
+        assert verify() is (expected == "verified")
+    assert len(version_requests) == case["attempts"]
+    assert waits == case["waits"]
