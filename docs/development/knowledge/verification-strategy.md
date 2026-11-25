@@ -4,6 +4,18 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: quint-locked-forks
+  resource: ../../../formal/quint/locked_forks.qnt
+  working_tree: untracked
+  sha256: 913e845a10bb9aa62f5d50c8f8a4dd0d7241caa6c8ddaf146b7b5b05f7423778
+- id: quint-locked-forks-corpus
+  resource: ../../../tests/fixtures/oracle/locked-forks.jsonl
+  working_tree: untracked
+  sha256: 977c287f42440a111f94a90bee9c7b71cc0d96dbaa4b18c95aed8d202e151a4f
+- id: quint-locked-forks-replay
+  resource: ../../../tests/resolution_matching.rs
+  working_tree: modified
+  sha256: d64c47695208e4d16596c256758af8bac3e7210646fabf0091abe3e6746d1b36
 - id: quint-extras
   resource: ../../../formal/quint/extras.qnt
   working_tree: untracked
@@ -842,3 +854,22 @@ Revisit the model when extra activation or path tie semantics change.
 [^quint-extras]: [Finite cyclic extras model](../../../formal/quint/extras.qnt).
 [^quint-extras-corpus]: [Generated terminal extras cases](../../../tests/fixtures/oracle/extras.jsonl).
 [^quint-extras-replay]: [Public resolver replay](../../../tests/resolution_paths.rs).
+
+# Conditional edges and same-name forks
+
+Use finite selector tables to check exact version, source, and constraint
+intersection over same-name locked identities. A unique edge retains its
+marker as an annotation. A non-unique ordinary edge rejects the lock, while
+a non-unique manifest dependency group omits its origin and preserves
+locked coverage. The negative control ignores source selection.
+[^quint-locked-forks]
+
+Replay all 192 combinations against the public resolver and check the exact
+inventory and selected path. Keep existing behavioral coverage for input
+diagnostics and unrelated records. Revisit the finite domain when conditional
+edge matching or manifest origin handling changes.
+[^quint-locked-forks-corpus][^quint-locked-forks-replay]
+
+[^quint-locked-forks]: [Finite locked fork selection model](../../../formal/quint/locked_forks.qnt).
+[^quint-locked-forks-corpus]: [Generated fork selectors and decisions](../../../tests/fixtures/oracle/locked-forks.jsonl).
+[^quint-locked-forks-replay]: [Public resolver replay for fork selectors](../../../tests/resolution_matching.rs).

@@ -158,3 +158,28 @@ case as uv.lock, calls the public resolver, and checks the path and extras
 annotation. In an isolated Rust copy, removing extras from the visited key caused the
 return-edge-only replay to fail. The [generated graph properties](../../tests/resolution_graphs.rs)
 cover larger cyclic graphs, multiple entries and multiple active extras.
+
+## Conditional edges to same-name locked packages
+
+[LockedForks](locked_forks.qnt) checks 192 combinations of exact version,
+source, version constraint, origin kind, and marker presence over three
+same-name locked candidates. Independent tables define the candidate set for
+each selector field. A regular dependency requires exactly one match. An
+ambiguous or unmatched manifest group contributes no path, and the locked
+inventory remains available for inspection. A marker on a selected edge is
+preserved in its diagnostic path.
+
+```sh
+"$quint" verify formal/quint/locked_forks.qnt --backend=tlc --main LockedForks --invariants UniqueIdentity
+bash formal/quint/replay.sh "$quint"
+```
+
+TLC checked all 192 states and found a counterexample when the model
+ignored the source selector. The [generated corpus](../../tests/fixtures/oracle/locked-forks.jsonl)
+contains the complete finite domain. The [Rust replay](../../tests/resolution_matching.rs)
+renders each input into uv.lock, checks rejection or the exact locked
+inventory, and compares the selected identity and the marker on its path.
+Removing the source filter in an isolated Rust copy caused 52 replays to fail.
+The model uses two valid range predicates and a fixed version/source
+inventory. Rust tests separately cover malformed selectors and variation in
+unrelated records.

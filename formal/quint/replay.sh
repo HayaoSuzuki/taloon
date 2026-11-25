@@ -21,6 +21,9 @@ done
 "$quint" run formal/quint/extras.qnt --main Extras --backend typescript \
   --invariants ExtrasContract --seed 1 --max-steps 64 --verbosity 0 \
   --out-itf "$traces/extras.itf.json"
+"$quint" run formal/quint/locked_forks.qnt --main LockedForks --backend typescript \
+  --invariants UniqueIdentity --seed 1 --max-steps 191 --verbosity 0 \
+  --out-itf "$traces/locked-forks.itf.json"
 node - "$traces" <<'JS'
 const { readFileSync, writeFileSync } = require("node:fs");
 const directory = process.argv[2];
@@ -68,8 +71,18 @@ for (const state of readStates(`${directory}/extras.itf.json`)) {
 if (cases.size !== 8) throw new Error("The extras trace must reach all eight cases");
 writeFileSync(`${directory}/extras.jsonl`,
   Array.from(cases.values(), value => JSON.stringify(value)).join("\n") + "\n");
+const forks = "LockedForks::LockedForksModel::";
+const selections = readStates(`${directory}/locked-forks.itf.json`).map((state, index) => {
+  if (state[forks + "caseId"] !== index) throw new Error(`Unexpected fork case at ${index}`);
+  return JSON.stringify({
+    selector: state[forks + "selector"],
+    decision: state[forks + "decision"],
+  });
+});
+if (selections.length !== 192) throw new Error("The selector trace must cover all 192 cases");
+writeFileSync(`${directory}/locked-forks.jsonl`, selections.join("\n") + "\n");
 JS
-for corpus in lifecycle shared-cache extras; do
+for corpus in lifecycle shared-cache extras locked-forks; do
   if "$generate"; then
     cp "$traces/$corpus.jsonl" "$fixture/$corpus.jsonl"
   else
@@ -79,4 +92,5 @@ done
 if ! "$generate"; then
   cargo test --locked --bin taloon quint_replays
   cargo test --locked --test resolution_paths quint_replays_extras
+  cargo test --locked --test resolution_matching quint_replays_locked_forks
 fi
