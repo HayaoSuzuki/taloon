@@ -4,6 +4,18 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: quint-description-evidence
+  resource: ../../../formal/quint/description_evidence.qnt
+  working_tree: untracked
+  sha256: 28f02f676a3ef796c337e4ca5cfc1d8f1afa84da8ab72736cdb0eaa53de6c332
+- id: quint-description-evidence-corpus
+  resource: ../../../tests/fixtures/oracle/description-evidence.jsonl
+  working_tree: untracked
+  sha256: d5e3529c40bbe25f1dbc163569de2929bc16049587cbe2abf0c6093c4fe184e8
+- id: quint-description-evidence-replay
+  resource: ../../../tests/description.rs
+  working_tree: modified
+  sha256: e722d2661d19ca87f28325e53606433634afd7c230b1cdb255a528e2ee7abd2d
 - id: quint-unused-policy
   resource: ../../../formal/quint/unused_policy.qnt
   working_tree: untracked
@@ -961,3 +973,23 @@ changes.[^warning-report-order][^quint-unused-policy-corpus][^quint-unused-polic
 [^quint-unused-policy-corpus]: [Generated warning and exit decisions](../../../tests/fixtures/oracle/unused-policy.jsonl).
 [^quint-unused-policy-replay]: [Public report replay for unused policy warnings](../../../tests/policy_usage.rs).
 [^warning-report-order]: [Public report warning order](../../../src/report.rs).
+
+# Description evidence grouping and incomplete observations
+
+Model two artifact slots for a selected package. Resolve observation
+cardinality, content binding and declaration interpretation before grouping
+by the exact expression. Unknown counts are per artifact. An unclaimed
+request affects report completeness while successful artifact groups
+remain visible. The negative control accepts the first of a duplicate pair.
+[^quint-description-evidence]
+
+Replay all 324 finite inputs through the public Description API with real
+archive and sidecar observations. Compare diagnostic codes, group membership
+and exit status. Preserve the separate Lean coverage of graph selection and
+the existing Rust cases for source and identity binding. Revisit this model
+when description accounting or grouping changes.
+[^quint-description-evidence-corpus][^quint-description-evidence-replay]
+
+[^quint-description-evidence]: [Finite description evidence accounting](../../../formal/quint/description_evidence.qnt).
+[^quint-description-evidence-corpus]: [Generated description outcomes and groups](../../../tests/fixtures/oracle/description-evidence.jsonl).
+[^quint-description-evidence-replay]: [Public description report replay](../../../tests/description.rs).

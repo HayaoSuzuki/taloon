@@ -33,6 +33,9 @@ done
 "$quint" run formal/quint/unused_policy.qnt --main UnusedPolicy --backend typescript \
   --invariants WarningContract --seed 1 --max-steps 127 --verbosity 0 \
   --out-itf "$traces/unused-policy.itf.json"
+"$quint" run formal/quint/description_evidence.qnt --main DescriptionEvidence --backend typescript \
+  --invariants DescriptionContract --seed 1 --max-steps 323 --verbosity 0 \
+  --out-itf "$traces/description-evidence.itf.json"
 node - "$traces" <<'JS'
 const { readFileSync, writeFileSync } = require("node:fs");
 const directory = process.argv[2];
@@ -92,8 +95,9 @@ writeOrderedCases("locked-forks", "LockedForks::LockedForksModel::", 192, ["sele
 writeOrderedCases("path-ties", "PathTies::PathTiesModel::", 32, ["scenario", "path", "development"]);
 writeOrderedCases("scoped-policy", "ScopedPolicy::ScopedPolicyModel::", 96, ["scenario", "decision"]);
 writeOrderedCases("unused-policy", "UnusedPolicy::UnusedPolicyModel::", 128, ["scenario", "decision"]);
+writeOrderedCases("description-evidence", "DescriptionEvidence::DescriptionEvidenceModel::", 324, ["scenario", "decision"]);
 JS
-for corpus in lifecycle shared-cache extras locked-forks path-ties scoped-policy unused-policy; do
+for corpus in lifecycle shared-cache extras locked-forks path-ties scoped-policy unused-policy description-evidence; do
   if "$generate"; then
     cp "$traces/$corpus.jsonl" "$fixture/$corpus.jsonl"
   else
@@ -106,4 +110,5 @@ if ! "$generate"; then
   cargo test --locked --test resolution_matching quint_replays_locked_forks
   cargo test --locked --test inspection quint_replays_scoped_policy
   cargo test --locked --test policy_usage quint_replays_unused_policy
+  cargo test --locked --test description quint_replays_description_evidence
 fi

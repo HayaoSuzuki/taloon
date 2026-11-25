@@ -45,7 +45,8 @@ jobs:
             'locked_forks LockedForks UniqueIdentity' \
             'path_ties PathTies CanonicalPath' \
             'scoped_policy ScopedPolicy ScopeContract' \
-            'unused_policy UnusedPolicy WarningContract'; do
+            'unused_policy UnusedPolicy WarningContract' \
+            'description_evidence DescriptionEvidence DescriptionContract'; do
             read -r file main invariant <<< "$spec"
             model="$GITHUB_WORKSPACE/formal/quint/$file.qnt"
             "$quint" typecheck "$model"
@@ -59,7 +60,7 @@ jobs:
             cat "$log"
             grep -E '^Error: Invariant q_inv is violated([.]| by the initial state:)$' "$log"
           done
-      - name: Replay Quint traces through Rust acquisition and inspection
+      - name: Replay Quint traces through Rust acquisition and reporting
         run: |
           rustup toolchain install
           bash formal/quint/replay.sh "$GITHUB_WORKSPACE/formal/quint/node_modules/.bin/quint"

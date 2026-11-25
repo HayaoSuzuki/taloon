@@ -261,3 +261,30 @@ drives the [Rust replay](../../tests/policy_usage.rs), which checks exact
 warning messages, warning severity and normal and strict exit codes.
 Retaining only the first OR unit in an isolated Rust copy caused all 32
 complete-inspection replays to fail.
+
+## Grouping evidence in a description report
+
+[DescriptionEvidence](description_evidence.qnt) checks 324 combinations
+across two artifacts for the same package. Inputs cover archive and index
+proof, standard and custom declarations, malformed declarations, missing and
+duplicate results, acquisition failure, and a valid archive for the wrong
+digest. The model also varies arrival order and a result for an unselected
+artifact.
+
+```sh
+"$quint" verify formal/quint/description_evidence.qnt --backend=tlc --main DescriptionEvidence --invariants DescriptionContract
+bash formal/quint/replay.sh "$quint"
+```
+
+Results group by exact interpreted expression. Each group retains all
+matching artifact IDs. An unresolved artifact contributes to the unknown
+count. Foreign results make the report incomplete while successful
+observations remain visible. TLC explored 324 states and detected a mutant
+that accepted the first of duplicate results.
+
+The [generated cases](../../tests/fixtures/oracle/description-evidence.jsonl)
+drive the public [description replay](../../tests/description.rs) with real
+wheel and sidecar evidence. The adapter checks the diagnostic codes,
+unknown count, exact group membership, and exit status. Keeping the first
+of duplicate observations in an isolated Rust copy caused 68 replays to fail.
+The Lean selection corpus separately exercises graph selection.
