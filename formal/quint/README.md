@@ -316,3 +316,33 @@ an isolated Rust copy caused six replays to fail.
 The fixture covers cold online acquisition followed by offline reuse.
 Separate models and Rust cases cover shared-cache interleavings, retry,
 and reading bundled license files.
+
+## Bundled license scans and cache reuse
+
+[LegacyScan](legacy_scan.qnt) checks 16 scenarios of five acquisitions each.
+A sidecar leaves an `UNKNOWN` or BSD legacy declaration pending. The archive
+can supply matching license text, supply unusable text, declare a modern SPDX
+expression, or contain a legacy declaration ineligible for supplementation.
+The first archive request can fail, leaving the sidecar available for
+offline inspection and allowing an online retry.
+
+```sh
+"$quint" verify formal/quint/legacy_scan.qnt --backend=tlc --main LegacyScan --invariants ScanContract
+bash formal/quint/replay.sh "$quint"
+```
+
+TLC explored 80 states and detected a mutant that refreshed a completed
+negative result. The [generated corpus](../../tests/fixtures/oracle/legacy-scan.jsonl)
+drives the [binary acquisition replay](../../src/acquisition/http_tests/legacy_scan.rs).
+The adapter opens a fresh acquirer on the same disk cache for each step.
+It checks request counts, proof, declaration, interpretation origin and
+diagnostic code. It also distinguishes a cached pending sidecar from
+a completed archive observation. The final online step supplies a 404
+for the archive, verifying that a completed negative result remains usable
+as verified evidence without another fetch. Refetching completed negative
+observations in an isolated Rust copy caused all eight negative scenarios
+to fail.
+
+The model abstracts the interpretation of four fixed archive outcomes.
+Existing parser fixtures and properties exercise recognition and family
+compatibility with additional inputs.

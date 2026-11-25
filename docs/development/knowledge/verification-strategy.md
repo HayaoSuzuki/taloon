@@ -4,6 +4,18 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: quint-legacy-scan
+  resource: ../../../formal/quint/legacy_scan.qnt
+  working_tree: untracked
+  sha256: 8f95b64e8404edef85b4c1003064d9669f72e55e424c286be4d105da21cf5f1a
+- id: quint-legacy-scan-corpus
+  resource: ../../../tests/fixtures/oracle/legacy-scan.jsonl
+  working_tree: untracked
+  sha256: 9dde7dd0b1631af89d388dfff67e2091b42955a3ca511e27ec682e8e75d6d203
+- id: quint-legacy-scan-replay
+  resource: ../../../src/acquisition/http_tests/legacy_scan.rs
+  working_tree: untracked
+  sha256: d56893590bc9f815bbf4043aa08901a4b57992912669b3c15b262c659c2875c4
 - id: quint-sidecar-fallback
   resource: ../../../formal/quint/sidecar_fallback.qnt
   working_tree: untracked
@@ -1025,3 +1037,25 @@ fallback, proof strength, or cache eligibility changes.
 [^quint-sidecar-fallback]: [Finite sidecar admission and fallback model](../../../formal/quint/sidecar_fallback.qnt).
 [^quint-sidecar-fallback-corpus]: [Generated cold and offline acquisition expectations](../../../tests/fixtures/oracle/sidecar-fallback.jsonl).
 [^quint-sidecar-fallback-replay]: [Binary acquisition replay](../../../src/acquisition/http_tests/sidecar_fallback.rs).
+
+# Pending and completed bundled license observations
+
+Model the sequence from an inconclusive sidecar through archive admission,
+fresh declaration interpretation and cache reuse. A failed archive fetch
+keeps the sidecar pending. Offline inspection can read that pending evidence,
+and the next online run retries the archive. Completed archive observations
+remain reusable even when license interpretation is inconclusive. The
+negative control fetches the archive again for a completed negative
+observation.[^quint-legacy-scan]
+
+Replay 16 five-step schedules through the binary acquirer and public
+inspection, with real wheel and metadata bytes and a persistent disk cache.
+Check archive authority, proof and interpretation origin as well as
+request counts and errors. Keep the parser and family-compatibility
+properties for text classification. Revisit the lifecycle when pending
+evidence, archive interpretation, or cache reuse changes.
+[^quint-legacy-scan-corpus][^quint-legacy-scan-replay]
+
+[^quint-legacy-scan]: [Finite bundled license scan lifecycle](../../../formal/quint/legacy_scan.qnt).
+[^quint-legacy-scan-corpus]: [Generated pending and completed cache decisions](../../../tests/fixtures/oracle/legacy-scan.jsonl).
+[^quint-legacy-scan-replay]: [Binary replay for archive license scans](../../../src/acquisition/http_tests/legacy_scan.rs).

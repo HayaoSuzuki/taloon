@@ -39,6 +39,9 @@ done
 "$quint" run formal/quint/sidecar_fallback.qnt --main SidecarFallback --backend typescript \
   --invariants FallbackContract --seed 1 --max-steps 239 --verbosity 0 \
   --out-itf "$traces/sidecar-fallback.itf.json"
+"$quint" run formal/quint/legacy_scan.qnt --main LegacyScan --backend typescript \
+  --invariants ScanContract --seed 1 --max-steps 79 --verbosity 0 \
+  --out-itf "$traces/legacy-scan.itf.json"
 node - "$traces" <<'JS'
 const { readFileSync, writeFileSync } = require("node:fs");
 const directory = process.argv[2];
@@ -100,8 +103,9 @@ writeOrderedCases("scoped-policy", "ScopedPolicy::ScopedPolicyModel::", 96, ["sc
 writeOrderedCases("unused-policy", "UnusedPolicy::UnusedPolicyModel::", 128, ["scenario", "decision"]);
 writeOrderedCases("description-evidence", "DescriptionEvidence::DescriptionEvidenceModel::", 324, ["scenario", "decision"]);
 writeOrderedCases("sidecar-fallback", "SidecarFallback::SidecarFallbackModel::", 240, ["scenario", "decision"]);
+writeOrderedCases("legacy-scan", "LegacyScan::LegacyScanModel::", 80, ["scenario", "decision"]);
 JS
-for corpus in lifecycle shared-cache extras locked-forks path-ties scoped-policy unused-policy description-evidence sidecar-fallback; do
+for corpus in lifecycle shared-cache extras locked-forks path-ties scoped-policy unused-policy description-evidence sidecar-fallback legacy-scan; do
   if "$generate"; then
     cp "$traces/$corpus.jsonl" "$fixture/$corpus.jsonl"
   else
