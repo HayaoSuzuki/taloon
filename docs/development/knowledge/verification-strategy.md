@@ -4,6 +4,10 @@ title: Formal models and generated behavioral tests
 description: Use Lean oracles, property tests, fuzzing, and typed Rust boundaries without conflating their guarantees.
 status: accepted
 sources:
+- id: generated-resolution-graphs
+  resource: ../../../tests/resolution_graphs.rs
+  working_tree: untracked
+  sha256: 31608d07d7324c67183380cc7a318b8ce5e5eadf13af19a701a52aff3c74fff4
 - id: quint-shared-cache
   resource: ../../../formal/quint/shared_cache.qnt
   working_tree: untracked
@@ -360,7 +364,19 @@ minimal witness. The [stage record](../work/core-accounting-and-resolution/revie
 separates model proofs, exercised correspondence, red/green regression evidence,
 fuzz bounds and measured timings.[^core-design-review]
 
+
+The generated graph checks exercise the public inspection report across two
+workspace roots, workspace and root dependency groups, and root extras.
+Each generated inventory includes an unreachable external record, and the
+expected request set comes from the generated records. For each external
+target, an independent reverse distance calculation over package/extra states
+determines shortest paths. Tie order, activated extras, dependency markers
+and package markers are checked at the diagnostic boundary. Markers remain
+annotations, while extras affect traversal. This complements the fixed
+same-name fork and origin-resolution cases.[^generated-resolution-graphs]
+
 [^core-design-review]: [Core assessment and staged reviews](../work/core-accounting-and-resolution/review.md).
+[^generated-resolution-graphs]: [Generated inspection graphs and reverse distance oracle](../../../tests/resolution_graphs.rs).
 
 
 # Scoped policy follow-up evidence
